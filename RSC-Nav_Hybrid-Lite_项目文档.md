@@ -16,6 +16,8 @@ RSC-Nav 研究**语义-空间记忆增强导航**。它不是一般意义上的�
 
 项目关注的核心场景是：agent 在同一室内环境中连续接收多个语义目标。与每个目标都从空记忆开始不同，RSC-Nav 希望通过持续维护语义-空间记忆，在后续目标中复用先前探索过的空间、地标和语义证据。
 
+从计算角度看，RSC-Nav 也解决连续导航中的**历史上下文膨胀与遗忘问题**。agent 不可能把所有历史 RGB-D 帧、动作、语义证据和轨迹都直接放入策略网络的短期上下文中。RSC-Nav 将长历史压缩为可检索、可更新的外部语义-空间记忆，使策略只读取与当前目标相关的地图、地标和记忆状态。
+
 同时，RSC-Nav 不将记忆视为一次性构建的静态地图。受海马体 remapping 和 RSC context-dependent spatial representations 启发，长期语义-空间记忆应具备 adaptive update 能力：旧证据可以被确认、削弱、迁移或覆盖，进而影响后续的目标检索和 waypoint 选择。
 
 最终论文题目建议：
@@ -108,6 +110,7 @@ Waypoint / stop policy
 - **语义记忆置信化**：semantic map 使用 confidence-weighted fusion，并保留 freshness、last_seen_time 和 negative evidence。
 - **长期结构图式化**：landmark-topological memory 使用轻量 keyframe / landmark node 与 temporal / spatial adjacency。
 - **记忆状态可重配置**：旧语义和地标证据可被新观测确认、削弱、迁移或覆盖。
+- **历史上下文外部化**：长历史观测不直接堆入策略上下文，而是压缩到可检索的 semantic-spatial memory 中。
 - **学习模块聚焦检索和决策**：retrieval / attention 负责目标条件读取，policy 负责 waypoint / stop。
 - **ConvGRU 不作为核心模块**：仅作为可选 learned fusion 扩展。
 

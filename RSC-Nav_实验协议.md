@@ -34,7 +34,7 @@
 
 > 当环境或语义证据发生轻量变化时，新观测是否能修正旧语义-地标记忆，而不是让 agent 盲目依赖过期地图？
 
-主实验不追求完整官方 GOAT-Bench / LangMap，也不以真实机器人部署或完整动态 3D SLAM 为目标。B 档动态变化限定为轻量、可控、可复现的语义-空间扰动。
+主实验不追求完整官方 GOAT-Bench / LangMap，也不以开放世界长期部署或完整动态 3D SLAM 为目标。B 档动态变化限定为轻量、可控、可复现的语义-空间扰动。
 
 ---
 
@@ -124,6 +124,8 @@ negative_evidence_count
 status: active / stale / missing / relocated
 context_id or context_embedding
 ```
+
+该结构的作用不是无限保存所有历史帧，而是将长历史观测压缩为可检索、可更新的外部记忆。策略网络在每个目标下只读取相关 memory item 和 BEV context，从而缓解连续目标导航中的上下文膨胀与历史遗忘。
 
 MVP 阶段可以使用规则更新：
 
