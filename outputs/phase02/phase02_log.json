@@ -1,0 +1,724 @@
+{
+  "phase": "phase02_synthetic_bev_memory",
+  "pipeline": "synthetic observation + pose -> BEV projection -> occupancy/explored/semantic map -> long-term memory",
+  "bev_snapshot": {
+    "grid_size": [
+      16,
+      16
+    ],
+    "resolution": 1.0,
+    "origin_world_xy": [
+      0.0,
+      0.0
+    ],
+    "trajectory": [
+      [
+        2,
+        2
+      ],
+      [
+        5,
+        3
+      ],
+      [
+        7,
+        6
+      ],
+      [
+        9,
+        8
+      ]
+    ],
+    "semantic_evidence": [
+      {
+        "label": "sofa",
+        "grid_coord": [
+          7,
+          2
+        ],
+        "confidence": 0.88,
+        "time": 1,
+        "source_view_id": "bev_view_001"
+      },
+      {
+        "label": "table",
+        "grid_coord": [
+          8,
+          4
+        ],
+        "confidence": 0.82,
+        "time": 2,
+        "source_view_id": "bev_view_002"
+      },
+      {
+        "label": "lamp",
+        "grid_coord": [
+          9,
+          8
+        ],
+        "confidence": 0.76,
+        "time": 3,
+        "source_view_id": "bev_view_003"
+      },
+      {
+        "label": "sofa",
+        "grid_coord": [
+          7,
+          9
+        ],
+        "confidence": 0.94,
+        "time": 4,
+        "source_view_id": "bev_view_004"
+      }
+    ],
+    "num_explored_cells": 33,
+    "num_occupied_cells": 6,
+    "num_semantic_cells": 4
+  },
+  "semantic_spatial_memory": [
+    {
+      "id": "lamp_003",
+      "semantic_label": "lamp",
+      "bev_position": [
+        9,
+        8
+      ],
+      "confidence": 0.76,
+      "freshness": 1.0,
+      "last_seen_time": 3,
+      "visit_count": 1,
+      "negative_evidence_count": 0,
+      "status": "active",
+      "context_id": "phase02_scene",
+      "source_view_ids": [
+        "bev_view_003"
+      ]
+    },
+    {
+      "id": "sofa_001",
+      "semantic_label": "sofa",
+      "bev_position": [
+        7,
+        2
+      ],
+      "confidence": 0.88,
+      "freshness": 1.0,
+      "last_seen_time": 1,
+      "visit_count": 1,
+      "negative_evidence_count": 0,
+      "status": "active",
+      "context_id": "phase02_scene",
+      "source_view_ids": [
+        "bev_view_001"
+      ]
+    },
+    {
+      "id": "sofa_004",
+      "semantic_label": "sofa",
+      "bev_position": [
+        7,
+        9
+      ],
+      "confidence": 0.94,
+      "freshness": 1.0,
+      "last_seen_time": 4,
+      "visit_count": 1,
+      "negative_evidence_count": 0,
+      "status": "active",
+      "context_id": "phase02_scene",
+      "source_view_ids": [
+        "bev_view_004"
+      ]
+    },
+    {
+      "id": "table_002",
+      "semantic_label": "table",
+      "bev_position": [
+        8,
+        4
+      ],
+      "confidence": 0.82,
+      "freshness": 1.0,
+      "last_seen_time": 2,
+      "visit_count": 1,
+      "negative_evidence_count": 0,
+      "status": "active",
+      "context_id": "phase02_scene",
+      "source_view_ids": [
+        "bev_view_002"
+      ]
+    }
+  ],
+  "sofa_retrieval": [
+    {
+      "item": {
+        "id": "sofa_004",
+        "semantic_label": "sofa",
+        "bev_position": [
+          7,
+          9
+        ],
+        "confidence": 0.94,
+        "freshness": 1.0,
+        "last_seen_time": 4,
+        "visit_count": 1,
+        "negative_evidence_count": 0,
+        "status": "active",
+        "context_id": "phase02_scene",
+        "source_view_ids": [
+          "bev_view_004"
+        ]
+      },
+      "score": 4.5007,
+      "score_parts": {
+        "semantic_match": 1.0,
+        "spatial_proximity": 0.0909,
+        "confidence": 0.94,
+        "freshness": 1.0,
+        "status_penalty": 0.0
+      }
+    },
+    {
+      "item": {
+        "id": "sofa_001",
+        "semantic_label": "sofa",
+        "bev_position": [
+          7,
+          2
+        ],
+        "confidence": 0.88,
+        "freshness": 1.0,
+        "last_seen_time": 1,
+        "visit_count": 1,
+        "negative_evidence_count": 0,
+        "status": "active",
+        "context_id": "phase02_scene",
+        "source_view_ids": [
+          "bev_view_001"
+        ]
+      },
+      "score": 4.469,
+      "score_parts": {
+        "semantic_match": 1.0,
+        "spatial_proximity": 0.1412,
+        "confidence": 0.88,
+        "freshness": 1.0,
+        "status_penalty": 0.0
+      }
+    },
+    {
+      "item": {
+        "id": "table_002",
+        "semantic_label": "table",
+        "bev_position": [
+          8,
+          4
+        ],
+        "confidence": 0.82,
+        "freshness": 1.0,
+        "last_seen_time": 2,
+        "visit_count": 1,
+        "negative_evidence_count": 0,
+        "status": "active",
+        "context_id": "phase02_scene",
+        "source_view_ids": [
+          "bev_view_002"
+        ]
+      },
+      "score": 1.8769,
+      "score_parts": {
+        "semantic_match": 0.0,
+        "spatial_proximity": 0.1161,
+        "confidence": 0.82,
+        "freshness": 1.0,
+        "status_penalty": 0.0
+      }
+    }
+  ],
+  "sequence": [
+    {
+      "time": 1,
+      "view_id": "bev_view_001",
+      "pose": {
+        "x": 2.0,
+        "y": 2.0,
+        "heading_deg": 0.0
+      },
+      "projected_semantic_evidence": [
+        {
+          "label": "sofa",
+          "grid_coord": [
+            7,
+            2
+          ],
+          "confidence": 0.88,
+          "time": 1,
+          "source_view_id": "bev_view_001"
+        }
+      ],
+      "bev_snapshot": {
+        "grid_size": [
+          16,
+          16
+        ],
+        "resolution": 1.0,
+        "origin_world_xy": [
+          0.0,
+          0.0
+        ],
+        "trajectory": [
+          [
+            2,
+            2
+          ]
+        ],
+        "semantic_evidence": [
+          {
+            "label": "sofa",
+            "grid_coord": [
+              7,
+              2
+            ],
+            "confidence": 0.88,
+            "time": 1,
+            "source_view_id": "bev_view_001"
+          }
+        ],
+        "num_explored_cells": 13,
+        "num_occupied_cells": 2,
+        "num_semantic_cells": 1
+      },
+      "long_term_memory": [
+        {
+          "id": "sofa_001",
+          "semantic_label": "sofa",
+          "bev_position": [
+            7,
+            2
+          ],
+          "confidence": 0.88,
+          "freshness": 1.0,
+          "last_seen_time": 1,
+          "visit_count": 1,
+          "negative_evidence_count": 0,
+          "status": "active",
+          "context_id": "phase02_scene",
+          "source_view_ids": [
+            "bev_view_001"
+          ]
+        }
+      ]
+    },
+    {
+      "time": 2,
+      "view_id": "bev_view_002",
+      "pose": {
+        "x": 5.0,
+        "y": 3.0,
+        "heading_deg": 45.0
+      },
+      "projected_semantic_evidence": [
+        {
+          "label": "table",
+          "grid_coord": [
+            8,
+            4
+          ],
+          "confidence": 0.82,
+          "time": 2,
+          "source_view_id": "bev_view_002"
+        }
+      ],
+      "bev_snapshot": {
+        "grid_size": [
+          16,
+          16
+        ],
+        "resolution": 1.0,
+        "origin_world_xy": [
+          0.0,
+          0.0
+        ],
+        "trajectory": [
+          [
+            2,
+            2
+          ],
+          [
+            5,
+            3
+          ]
+        ],
+        "semantic_evidence": [
+          {
+            "label": "sofa",
+            "grid_coord": [
+              7,
+              2
+            ],
+            "confidence": 0.88,
+            "time": 1,
+            "source_view_id": "bev_view_001"
+          },
+          {
+            "label": "table",
+            "grid_coord": [
+              8,
+              4
+            ],
+            "confidence": 0.82,
+            "time": 2,
+            "source_view_id": "bev_view_002"
+          }
+        ],
+        "num_explored_cells": 22,
+        "num_occupied_cells": 4,
+        "num_semantic_cells": 2
+      },
+      "long_term_memory": [
+        {
+          "id": "sofa_001",
+          "semantic_label": "sofa",
+          "bev_position": [
+            7,
+            2
+          ],
+          "confidence": 0.88,
+          "freshness": 1.0,
+          "last_seen_time": 1,
+          "visit_count": 1,
+          "negative_evidence_count": 0,
+          "status": "active",
+          "context_id": "phase02_scene",
+          "source_view_ids": [
+            "bev_view_001"
+          ]
+        },
+        {
+          "id": "table_002",
+          "semantic_label": "table",
+          "bev_position": [
+            8,
+            4
+          ],
+          "confidence": 0.82,
+          "freshness": 1.0,
+          "last_seen_time": 2,
+          "visit_count": 1,
+          "negative_evidence_count": 0,
+          "status": "active",
+          "context_id": "phase02_scene",
+          "source_view_ids": [
+            "bev_view_002"
+          ]
+        }
+      ]
+    },
+    {
+      "time": 3,
+      "view_id": "bev_view_003",
+      "pose": {
+        "x": 7.0,
+        "y": 6.0,
+        "heading_deg": 70.0
+      },
+      "projected_semantic_evidence": [
+        {
+          "label": "lamp",
+          "grid_coord": [
+            9,
+            8
+          ],
+          "confidence": 0.76,
+          "time": 3,
+          "source_view_id": "bev_view_003"
+        }
+      ],
+      "bev_snapshot": {
+        "grid_size": [
+          16,
+          16
+        ],
+        "resolution": 1.0,
+        "origin_world_xy": [
+          0.0,
+          0.0
+        ],
+        "trajectory": [
+          [
+            2,
+            2
+          ],
+          [
+            5,
+            3
+          ],
+          [
+            7,
+            6
+          ]
+        ],
+        "semantic_evidence": [
+          {
+            "label": "sofa",
+            "grid_coord": [
+              7,
+              2
+            ],
+            "confidence": 0.88,
+            "time": 1,
+            "source_view_id": "bev_view_001"
+          },
+          {
+            "label": "table",
+            "grid_coord": [
+              8,
+              4
+            ],
+            "confidence": 0.82,
+            "time": 2,
+            "source_view_id": "bev_view_002"
+          },
+          {
+            "label": "lamp",
+            "grid_coord": [
+              9,
+              8
+            ],
+            "confidence": 0.76,
+            "time": 3,
+            "source_view_id": "bev_view_003"
+          }
+        ],
+        "num_explored_cells": 29,
+        "num_occupied_cells": 6,
+        "num_semantic_cells": 3
+      },
+      "long_term_memory": [
+        {
+          "id": "lamp_003",
+          "semantic_label": "lamp",
+          "bev_position": [
+            9,
+            8
+          ],
+          "confidence": 0.76,
+          "freshness": 1.0,
+          "last_seen_time": 3,
+          "visit_count": 1,
+          "negative_evidence_count": 0,
+          "status": "active",
+          "context_id": "phase02_scene",
+          "source_view_ids": [
+            "bev_view_003"
+          ]
+        },
+        {
+          "id": "sofa_001",
+          "semantic_label": "sofa",
+          "bev_position": [
+            7,
+            2
+          ],
+          "confidence": 0.88,
+          "freshness": 1.0,
+          "last_seen_time": 1,
+          "visit_count": 1,
+          "negative_evidence_count": 0,
+          "status": "active",
+          "context_id": "phase02_scene",
+          "source_view_ids": [
+            "bev_view_001"
+          ]
+        },
+        {
+          "id": "table_002",
+          "semantic_label": "table",
+          "bev_position": [
+            8,
+            4
+          ],
+          "confidence": 0.82,
+          "freshness": 1.0,
+          "last_seen_time": 2,
+          "visit_count": 1,
+          "negative_evidence_count": 0,
+          "status": "active",
+          "context_id": "phase02_scene",
+          "source_view_ids": [
+            "bev_view_002"
+          ]
+        }
+      ]
+    },
+    {
+      "time": 4,
+      "view_id": "bev_view_004",
+      "pose": {
+        "x": 9.0,
+        "y": 8.0,
+        "heading_deg": 180.0
+      },
+      "projected_semantic_evidence": [
+        {
+          "label": "sofa",
+          "grid_coord": [
+            7,
+            9
+          ],
+          "confidence": 0.94,
+          "time": 4,
+          "source_view_id": "bev_view_004"
+        }
+      ],
+      "bev_snapshot": {
+        "grid_size": [
+          16,
+          16
+        ],
+        "resolution": 1.0,
+        "origin_world_xy": [
+          0.0,
+          0.0
+        ],
+        "trajectory": [
+          [
+            2,
+            2
+          ],
+          [
+            5,
+            3
+          ],
+          [
+            7,
+            6
+          ],
+          [
+            9,
+            8
+          ]
+        ],
+        "semantic_evidence": [
+          {
+            "label": "sofa",
+            "grid_coord": [
+              7,
+              2
+            ],
+            "confidence": 0.88,
+            "time": 1,
+            "source_view_id": "bev_view_001"
+          },
+          {
+            "label": "table",
+            "grid_coord": [
+              8,
+              4
+            ],
+            "confidence": 0.82,
+            "time": 2,
+            "source_view_id": "bev_view_002"
+          },
+          {
+            "label": "lamp",
+            "grid_coord": [
+              9,
+              8
+            ],
+            "confidence": 0.76,
+            "time": 3,
+            "source_view_id": "bev_view_003"
+          },
+          {
+            "label": "sofa",
+            "grid_coord": [
+              7,
+              9
+            ],
+            "confidence": 0.94,
+            "time": 4,
+            "source_view_id": "bev_view_004"
+          }
+        ],
+        "num_explored_cells": 33,
+        "num_occupied_cells": 6,
+        "num_semantic_cells": 4
+      },
+      "long_term_memory": [
+        {
+          "id": "lamp_003",
+          "semantic_label": "lamp",
+          "bev_position": [
+            9,
+            8
+          ],
+          "confidence": 0.76,
+          "freshness": 1.0,
+          "last_seen_time": 3,
+          "visit_count": 1,
+          "negative_evidence_count": 0,
+          "status": "active",
+          "context_id": "phase02_scene",
+          "source_view_ids": [
+            "bev_view_003"
+          ]
+        },
+        {
+          "id": "sofa_001",
+          "semantic_label": "sofa",
+          "bev_position": [
+            7,
+            2
+          ],
+          "confidence": 0.88,
+          "freshness": 1.0,
+          "last_seen_time": 1,
+          "visit_count": 1,
+          "negative_evidence_count": 0,
+          "status": "active",
+          "context_id": "phase02_scene",
+          "source_view_ids": [
+            "bev_view_001"
+          ]
+        },
+        {
+          "id": "sofa_004",
+          "semantic_label": "sofa",
+          "bev_position": [
+            7,
+            9
+          ],
+          "confidence": 0.94,
+          "freshness": 1.0,
+          "last_seen_time": 4,
+          "visit_count": 1,
+          "negative_evidence_count": 0,
+          "status": "active",
+          "context_id": "phase02_scene",
+          "source_view_ids": [
+            "bev_view_004"
+          ]
+        },
+        {
+          "id": "table_002",
+          "semantic_label": "table",
+          "bev_position": [
+            8,
+            4
+          ],
+          "confidence": 0.82,
+          "freshness": 1.0,
+          "last_seen_time": 2,
+          "visit_count": 1,
+          "negative_evidence_count": 0,
+          "status": "active",
+          "context_id": "phase02_scene",
+          "source_view_ids": [
+            "bev_view_002"
+          ]
+        }
+      ]
+    }
+  ]
+}

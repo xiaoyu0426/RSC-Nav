@@ -114,32 +114,86 @@ Phase 0/1 已完成本地最小闭环。
 
 ---
 
-## Next: Phase 2 BEV Memory
+## 2026-06-15: Phase 2 Synthetic BEV Memory
 
-计划先做 synthetic BEV projector，再接 Habitat。
+### 目标
 
-Phase 2 目标：
+在接入 Habitat / HM3D 前，先完成一个可解释的 synthetic BEV memory 原型：
 
 ```text
-RGB-D-like observation + pose
+synthetic RGB-D-like observation + pose
 -> BEV projection
--> occupancy map
--> explored map
+-> occupancy / explored map
 -> semantic evidence map
--> visualization
+-> long-term semantic-spatial memory
+-> goal-conditioned retrieval visualization
 ```
 
-预期输出：
+该阶段的目标不是训练导航策略，而是把 Phase 1 的“长期语义-空间记忆”放到一个更接近 embodied navigation 的地图载体中。也就是说，记忆不再只是手写坐标表，而是由 agent pose 和局部观测逐步投影、累积、可视化得到。
+
+### 新增实现
+
+新增代码：
 
 ```text
+src/bev_memory.py
+scripts/phase02_bev_smoke_test.py
+```
+
+`src/bev_memory.py` 实现了最小 BEV 记忆结构：
+
+- `AgentPose`：agent 在平面网格中的位置和朝向。
+- `SyntheticObservation`：模拟 RGB-D / semantic detector 的局部观测。
+- `BEVMemory`：维护 occupancy log-odds、explored cells、semantic evidence、trajectory。
+- ray projection：用简化 ray endpoint 和 Bresenham line 更新 free / occupied cells。
+- semantic projection：把语义观测投影到 BEV grid，并保留 label、confidence、time、source view。
+
+`scripts/phase02_bev_smoke_test.py` 负责串联：
+
+```text
+synthetic observations
+-> BEVMemory.update_from_observation(...)
+-> SemanticSpatialMemory.observe(...)
+-> retrieve(goal_label="sofa")
+-> write log and figures
+```
+
+### 输出
+
+运行方式：
+
+```powershell
+python scripts\phase02_bev_smoke_test.py
+```
+
+输出文件：
+
+```text
+outputs/phase02/phase02_log.json
 outputs/phase02/bev_occupancy.png
 outputs/phase02/bev_semantic.png
 outputs/phase02/bev_memory_overlay.png
-outputs/phase02/phase02_log.json
+outputs/phase02/bev_update_sequence.png
 ```
 
-时间预估：
+关键结果：
 
-- synthetic Phase 2：3-5 天。
-- Habitat 接入版：约 2-3 周。
+```text
+Explored cells: 33
+Occupied cells: 6
+Semantic cells: 4
+Sofa retrieval top-1: sofa_004 (7, 9)
+```
 
+### 可视化说明
+
+- `bev_occupancy.png`：展示 unknown / explored free / occupied cells，以及 agent 运动轨迹。
+- `bev_semantic.png`：展示语义证据被投影到 BEV 后的位置和置信度。
+- `bev_memory_overlay.png`：把占据地图、语义证据、长期记忆节点和 goal-conditioned retrieval 结果叠加到同一张图。
+- `bev_update_sequence.png`：展示从 t=1 到 t=4，agent 逐步探索空间并累积语义证据的过程。
+
+### 当前状态
+
+Phase 2 synthetic BEV memory 已完成最小闭环。
+
+当前实现仍然是 synthetic observation，不是 Habitat 真实 RGB-D / semantic segmentation 输出。下一步应进入 Phase 2+ / Phase 3 的接口化工作：把 synthetic observation 替换为 Habitat episode 中的 RGB-D、pose、semantic detector 输出，并保留同一套 BEV memory / long-term memory API。
