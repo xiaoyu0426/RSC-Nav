@@ -1,0 +1,368 @@
+{
+  "episode_id": "phase01_synthetic_repeated_use_001",
+  "claim": "write -> retrieve -> perturb -> stale retrieval -> reconfigured retrieval",
+  "initial_snapshot": [
+    {
+      "id": "lamp_003",
+      "semantic_label": "lamp",
+      "bev_position": [
+        8,
+        8
+      ],
+      "confidence": 0.7,
+      "freshness": 1.0,
+      "last_seen_time": 3,
+      "visit_count": 1,
+      "negative_evidence_count": 0,
+      "status": "active",
+      "context_id": "scene_i",
+      "source_view_ids": [
+        "view_003"
+      ]
+    },
+    {
+      "id": "sofa_001",
+      "semantic_label": "sofa",
+      "bev_position": [
+        2,
+        2
+      ],
+      "confidence": 0.92,
+      "freshness": 1.0,
+      "last_seen_time": 1,
+      "visit_count": 1,
+      "negative_evidence_count": 0,
+      "status": "active",
+      "context_id": "scene_i",
+      "source_view_ids": [
+        "view_001"
+      ]
+    },
+    {
+      "id": "table_002",
+      "semantic_label": "table",
+      "bev_position": [
+        5,
+        3
+      ],
+      "confidence": 0.85,
+      "freshness": 1.0,
+      "last_seen_time": 2,
+      "visit_count": 1,
+      "negative_evidence_count": 0,
+      "status": "active",
+      "context_id": "scene_i",
+      "source_view_ids": [
+        "view_002"
+      ]
+    }
+  ],
+  "stale_snapshot": [
+    {
+      "id": "lamp_003",
+      "semantic_label": "lamp",
+      "bev_position": [
+        8,
+        8
+      ],
+      "confidence": 0.7,
+      "freshness": 1.0,
+      "last_seen_time": 3,
+      "visit_count": 1,
+      "negative_evidence_count": 0,
+      "status": "active",
+      "context_id": "scene_i",
+      "source_view_ids": [
+        "view_003"
+      ]
+    },
+    {
+      "id": "sofa_001",
+      "semantic_label": "sofa",
+      "bev_position": [
+        2,
+        2
+      ],
+      "confidence": 0.92,
+      "freshness": 1.0,
+      "last_seen_time": 1,
+      "visit_count": 1,
+      "negative_evidence_count": 0,
+      "status": "active",
+      "context_id": "scene_i",
+      "source_view_ids": [
+        "view_001"
+      ]
+    },
+    {
+      "id": "table_002",
+      "semantic_label": "table",
+      "bev_position": [
+        5,
+        3
+      ],
+      "confidence": 0.85,
+      "freshness": 1.0,
+      "last_seen_time": 2,
+      "visit_count": 1,
+      "negative_evidence_count": 0,
+      "status": "active",
+      "context_id": "scene_i",
+      "source_view_ids": [
+        "view_002"
+      ]
+    }
+  ],
+  "adaptive_snapshot": [
+    {
+      "id": "lamp_003",
+      "semantic_label": "lamp",
+      "bev_position": [
+        8,
+        8
+      ],
+      "confidence": 0.7,
+      "freshness": 1.0,
+      "last_seen_time": 3,
+      "visit_count": 1,
+      "negative_evidence_count": 0,
+      "status": "active",
+      "context_id": "scene_i",
+      "source_view_ids": [
+        "view_003"
+      ]
+    },
+    {
+      "id": "sofa_001",
+      "semantic_label": "sofa",
+      "bev_position": [
+        2,
+        2
+      ],
+      "confidence": 0.2700000000000001,
+      "freshness": 0.050000000000000044,
+      "last_seen_time": 4,
+      "visit_count": 1,
+      "negative_evidence_count": 2,
+      "status": "relocated",
+      "context_id": "scene_i",
+      "source_view_ids": [
+        "view_001"
+      ]
+    },
+    {
+      "id": "sofa_004",
+      "semantic_label": "sofa",
+      "bev_position": [
+        8,
+        7
+      ],
+      "confidence": 1.0,
+      "freshness": 1.0,
+      "last_seen_time": 6,
+      "visit_count": 2,
+      "negative_evidence_count": 0,
+      "status": "active",
+      "context_id": "scene_i",
+      "source_view_ids": [
+        "view_010",
+        "view_011"
+      ]
+    },
+    {
+      "id": "table_002",
+      "semantic_label": "table",
+      "bev_position": [
+        5,
+        3
+      ],
+      "confidence": 0.85,
+      "freshness": 1.0,
+      "last_seen_time": 2,
+      "visit_count": 1,
+      "negative_evidence_count": 0,
+      "status": "active",
+      "context_id": "scene_i",
+      "source_view_ids": [
+        "view_002"
+      ]
+    }
+  ],
+  "stale_retrieval": [
+    {
+      "item": {
+        "id": "sofa_001",
+        "semantic_label": "sofa",
+        "bev_position": [
+          2,
+          2
+        ],
+        "confidence": 0.92,
+        "freshness": 1.0,
+        "last_seen_time": 1,
+        "visit_count": 1,
+        "negative_evidence_count": 0,
+        "status": "active",
+        "context_id": "scene_i",
+        "source_view_ids": [
+          "view_001"
+        ]
+      },
+      "score": 4.7354,
+      "score_parts": {
+        "semantic_match": 1.0,
+        "spatial_proximity": 0.4142,
+        "confidence": 0.92,
+        "freshness": 1.0,
+        "status_penalty": 0.0
+      }
+    },
+    {
+      "item": {
+        "id": "table_002",
+        "semantic_label": "table",
+        "bev_position": [
+          5,
+          3
+        ],
+        "confidence": 0.85,
+        "freshness": 1.0,
+        "last_seen_time": 2,
+        "visit_count": 1,
+        "negative_evidence_count": 0,
+        "status": "active",
+        "context_id": "scene_i",
+        "source_view_ids": [
+          "view_002"
+        ]
+      },
+      "score": 1.9662,
+      "score_parts": {
+        "semantic_match": 0.0,
+        "spatial_proximity": 0.1827,
+        "confidence": 0.85,
+        "freshness": 1.0,
+        "status_penalty": 0.0
+      }
+    },
+    {
+      "item": {
+        "id": "lamp_003",
+        "semantic_label": "lamp",
+        "bev_position": [
+          8,
+          8
+        ],
+        "confidence": 0.7,
+        "freshness": 1.0,
+        "last_seen_time": 3,
+        "visit_count": 1,
+        "negative_evidence_count": 0,
+        "status": "active",
+        "context_id": "scene_i",
+        "source_view_ids": [
+          "view_003"
+        ]
+      },
+      "score": 1.7134,
+      "score_parts": {
+        "semantic_match": 0.0,
+        "spatial_proximity": 0.0917,
+        "confidence": 0.7,
+        "freshness": 1.0,
+        "status_penalty": 0.0
+      }
+    }
+  ],
+  "adaptive_retrieval": [
+    {
+      "item": {
+        "id": "sofa_004",
+        "semantic_label": "sofa",
+        "bev_position": [
+          8,
+          7
+        ],
+        "confidence": 1.0,
+        "freshness": 1.0,
+        "last_seen_time": 6,
+        "visit_count": 2,
+        "negative_evidence_count": 0,
+        "status": "active",
+        "context_id": "scene_i",
+        "source_view_ids": [
+          "view_010",
+          "view_011"
+        ]
+      },
+      "score": 4.5783,
+      "score_parts": {
+        "semantic_match": 1.0,
+        "spatial_proximity": 0.0979,
+        "confidence": 1.0,
+        "freshness": 1.0,
+        "status_penalty": 0.0
+      }
+    },
+    {
+      "item": {
+        "id": "sofa_001",
+        "semantic_label": "sofa",
+        "bev_position": [
+          2,
+          2
+        ],
+        "confidence": 0.2700000000000001,
+        "freshness": 0.050000000000000044,
+        "last_seen_time": 4,
+        "visit_count": 1,
+        "negative_evidence_count": 2,
+        "status": "relocated",
+        "context_id": "scene_i",
+        "source_view_ids": [
+          "view_001"
+        ]
+      },
+      "score": 1.9954,
+      "score_parts": {
+        "semantic_match": 1.0,
+        "spatial_proximity": 0.4142,
+        "confidence": 0.27,
+        "freshness": 0.05,
+        "status_penalty": 1.2
+      }
+    },
+    {
+      "item": {
+        "id": "table_002",
+        "semantic_label": "table",
+        "bev_position": [
+          5,
+          3
+        ],
+        "confidence": 0.85,
+        "freshness": 1.0,
+        "last_seen_time": 2,
+        "visit_count": 1,
+        "negative_evidence_count": 0,
+        "status": "active",
+        "context_id": "scene_i",
+        "source_view_ids": [
+          "view_002"
+        ]
+      },
+      "score": 1.9662,
+      "score_parts": {
+        "semantic_match": 0.0,
+        "spatial_proximity": 0.1827,
+        "confidence": 0.85,
+        "freshness": 1.0,
+        "status_penalty": 0.0
+      }
+    }
+  ],
+  "expected_result": {
+    "stale_top1": "old sofa at [2, 2]",
+    "adaptive_top1": "relocated sofa at [8, 7]"
+  }
+}

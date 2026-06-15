@@ -1,0 +1,32 @@
+{
+  "schema_name": "rsc_nav_memory_item",
+  "version": "0.1",
+  "description": "Minimal Phase 0 contract for semantic / landmark memory items.",
+  "required_fields": [
+    "id",
+    "semantic_label",
+    "bev_position",
+    "confidence",
+    "freshness",
+    "last_seen_time",
+    "visit_count",
+    "negative_evidence_count",
+    "status",
+    "source_view_ids"
+  ],
+  "fields": {
+    "id": "Stable string id for a memory item.",
+    "semantic_label": "Object or landmark label, e.g. sofa.",
+    "semantic_embedding": "Optional frozen text / visual embedding id or vector reference.",
+    "bev_position": "Two-element grid coordinate [x, y] in allocentric BEV memory.",
+    "confidence": "Semantic confidence in [0, 1].",
+    "freshness": "Recency reliability in [0, 1].",
+    "last_seen_time": "Integer timestamp of latest confirming observation.",
+    "visit_count": "Number of confirming observations.",
+    "negative_evidence_count": "Number of expected-visible-but-missing events.",
+    "status": "One of active, stale, missing, relocated.",
+    "context_id": "Optional episode / scene / context identifier.",
+    "source_view_ids": "List of observation ids that support this memory item."
+  },
+  "status_values": ["active", "stale", "missing", "relocated"]
+}

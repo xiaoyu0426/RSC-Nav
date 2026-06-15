@@ -1,0 +1,29 @@
+{
+  "schema_name": "rsc_nav_memory_perturbation",
+  "version": "0.1",
+  "description": "Minimal perturbation contract for conflict-aware memory update.",
+  "required_fields": [
+    "perturbation_id",
+    "type",
+    "target_label",
+    "old_position",
+    "new_position",
+    "time"
+  ],
+  "fields": {
+    "perturbation_id": "Stable id for a perturbation event.",
+    "type": "relocated, removed, confidence_degraded, relation_changed, or distractor_inserted.",
+    "target_label": "Target semantic label affected by the perturbation.",
+    "old_position": "Previous BEV position [x, y], if available.",
+    "new_position": "New BEV position [x, y], if available.",
+    "time": "Integer timestamp when perturbation becomes visible.",
+    "description": "Optional free-text note."
+  },
+  "type_values": [
+    "relocated",
+    "removed",
+    "confidence_degraded",
+    "relation_changed",
+    "distractor_inserted"
+  ]
+}

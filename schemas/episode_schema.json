@@ -1,0 +1,27 @@
+{
+  "schema_name": "rsc_nav_repeated_use_episode",
+  "version": "0.1",
+  "description": "Minimal repeated-use proxy episode contract for Phase 0.",
+  "required_fields": [
+    "episode_id",
+    "scene_id",
+    "start_pose",
+    "tasks",
+    "max_steps",
+    "success_radius",
+    "semantic_evidence_source",
+    "pose_source",
+    "depth_source"
+  ],
+  "fields": {
+    "episode_id": "Stable id for the repeated-use episode group.",
+    "scene_id": "Base scene id.",
+    "start_pose": "Initial pose shared across reset / carried conditions when feasible.",
+    "tasks": "Ordered list of goals; task_1 writes memory, task_index >= 2 evaluates reuse.",
+    "max_steps": "Maximum steps per task.",
+    "success_radius": "Goal success radius or stop rule threshold.",
+    "semantic_evidence_source": "simulator_semantic, precomputed, detector, or oracle.",
+    "pose_source": "oracle, noisy, or estimated.",
+    "depth_source": "oracle, noisy, or estimated."
+  }
+}
