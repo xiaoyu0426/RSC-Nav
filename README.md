@@ -7,6 +7,23 @@ Current repository stage:
 - Phase 0: protocol and data contracts.
 - Phase 1: minimal memory core smoke test.
 - Phase 2: synthetic BEV memory projection smoke test.
+- Phase 2.1: unified ObservationFrame adapter smoke test.
+- Phase 2.2: Habitat RGB-D / semantic adapter contract smoke test.
+
+## PowerShell UTF-8 Setup
+
+Windows PowerShell 5.1 may decode UTF-8 Markdown without BOM as GBK/ANSI,
+which makes Chinese text look noisy in `Get-Content` output. Before running
+repo commands in PowerShell, load the project UTF-8 defaults for the current
+process:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+. .\scripts\powershell_utf8.ps1
+```
+
+The script sets console input/output, `$OutputEncoding`, Python UTF-8
+environment variables, and common PowerShell `-Encoding` defaults to UTF-8.
 
 ## Phase 0+1 Smoke Test
 
@@ -56,3 +73,61 @@ synthetic observation + pose
 ```
 
 It is still synthetic. The purpose is to stabilize the BEV memory interface before replacing synthetic observations with Habitat RGB-D, pose, and semantic detector outputs.
+
+## Phase 2.1 Observation Adapter Smoke Test
+
+Run:
+
+```powershell
+python scripts\phase21_observation_adapter_test.py
+```
+
+Outputs:
+
+- `outputs/phase21/phase21_log.json`
+- `outputs/phase21/observation_frame_debug.png`
+- `outputs/phase21/adapter_bev_overlay.png`
+
+This smoke test demonstrates:
+
+```text
+synthetic / mock Habitat-like observation
+-> ObservationFrame
+-> BEVMemory.update_from_frame(...)
+-> long-term memory retrieval
+```
+
+## Phase 2.2 Habitat Adapter Contract Smoke Test
+
+Run:
+
+```powershell
+python scripts\phase22_habitat_adapter_contract_test.py
+```
+
+Outputs:
+
+- `outputs/phase22/phase22_log.json`
+- `outputs/phase22/observation_frame.json`
+- `outputs/phase22/habitat_like_inputs.png`
+- `outputs/phase22/habitat_adapter_bev_overlay.png`
+
+This test uses Habitat-style `rgb`, `depth`, `semantic`, and `pose` arrays,
+but does not require Habitat to be installed. It verifies the project-side
+contract that real Habitat frames must satisfy before entering BEV memory.
+
+When `habitat-sim` is installed, run the live no-scene simulator smoke:
+
+```powershell
+wsl -d RSCNav-Ubuntu-22.04 -u root -- bash -lc "cd /mnt/e/WangLab/RSC_VLN && /opt/conda/bin/mamba run -n rscnav-habitat22 python scripts/phase22_habitat_sim_none_smoke.py"
+```
+
+This script verifies whether the current machine can create a headless
+Habitat-Sim RGB-D context. On the current WSL2 setup, Habitat imports work but
+live rendering is blocked by an EGL/CUDA device mismatch; see
+`docs/phase22_habitat_wsl2_setup.md`.
+
+For WSL2 + conda + Habitat setup notes, see:
+
+- `docs/phase22_habitat_wsl2_setup.md`
+- `envs/rscnav-habitat22.yml`

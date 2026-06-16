@@ -1,0 +1,16 @@
+name: rscnav-habitat22
+channels:
+  - conda-forge
+  - aihabitat
+dependencies:
+  - python=3.9.*=*cpython*
+  - cmake>=3.22
+  - numpy<2
+  - matplotlib
+  - pillow=10.4.0
+  - imageio
+  - opencv
+  - pyyaml
+  - tqdm
+  - scipy
+  - pip

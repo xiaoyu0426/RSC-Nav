@@ -2,37 +2,19 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from math import cos, radians, sin
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Iterable, List, Optional, Tuple
 
 import numpy as np
+
+from observation_adapter import SyntheticObservationAdapter
+from observation_types import AgentPose, ObservationFrame, ObservationRay, SyntheticObservation
 
 
 GridCoord = Tuple[int, int]
 WorldCoord = Tuple[float, float]
 
 
-@dataclass
-class AgentPose:
-    x: float
-    y: float
-    heading_deg: float
-
-
-@dataclass
-class SyntheticRay:
-    angle_deg: float
-    distance: float
-    hit_type: str = "free"  # free, obstacle, object
-    semantic_label: Optional[str] = None
-    semantic_confidence: float = 0.0
-
-
-@dataclass
-class SyntheticObservation:
-    view_id: str
-    time: int
-    pose: AgentPose
-    rays: List[SyntheticRay]
+SyntheticRay = ObservationRay
 
 
 @dataclass
@@ -71,39 +53,51 @@ class BEVMemory:
         self.projected_semantic_evidence: List[ProjectedSemanticEvidence] = []
 
     def update_from_observation(self, observation: SyntheticObservation) -> List[ProjectedSemanticEvidence]:
-        agent_cell = self.world_to_grid((observation.pose.x, observation.pose.y))
+        frame = SyntheticObservationAdapter(
+            scene_id="phase02_scene",
+            episode_id="phase02_synthetic_episode",
+        ).to_frame(observation)
+        return self.update_from_frame(frame)
+
+    def update_from_frame(self, frame: ObservationFrame) -> List[ProjectedSemanticEvidence]:
+        agent_cell = self.world_to_grid((frame.pose.x, frame.pose.y))
         if agent_cell is not None:
             self.trajectory.append(agent_cell)
             self.explored[agent_cell] = True
 
         new_semantic: List[ProjectedSemanticEvidence] = []
-        for ray in observation.rays:
-            endpoint = self._ray_endpoint(observation.pose, ray)
+        for ray in frame.rays:
+            if agent_cell is None:
+                continue
+            endpoint = self._ray_endpoint(frame.pose, ray)
             endpoint_cell = self.world_to_grid(endpoint)
-            if endpoint_cell is None or agent_cell is None:
+            endpoint_in_bounds = endpoint_cell is not None
+            target_cell = endpoint_cell or self._last_in_bounds_ray_cell(frame.pose, ray)
+            if target_cell is None:
                 continue
 
-            traversed = list(_bresenham(agent_cell, endpoint_cell))
-            free_cells = traversed[:-1] if ray.hit_type in {"obstacle", "object"} else traversed
+            traversed = list(_bresenham(agent_cell, target_cell))
+            hit_inside_grid = endpoint_in_bounds and ray.hit_type in {"obstacle", "object"}
+            free_cells = traversed[:-1] if hit_inside_grid else traversed
             for cell in free_cells:
                 if self.in_bounds(cell):
                     self.explored[cell] = True
                     self.occupancy_logodds[cell] = max(-4.0, self.occupancy_logodds[cell] - 0.45)
 
-            if self.in_bounds(endpoint_cell):
-                self.explored[endpoint_cell] = True
+            if endpoint_in_bounds and self.in_bounds(target_cell):
+                self.explored[target_cell] = True
                 if ray.hit_type in {"obstacle", "object"}:
-                    self.occupancy_logodds[endpoint_cell] = min(
-                        4.0, self.occupancy_logodds[endpoint_cell] + 0.85
+                    self.occupancy_logodds[target_cell] = min(
+                        4.0, self.occupancy_logodds[target_cell] + 0.85
                     )
 
                 if ray.hit_type == "object" and ray.semantic_label:
                     evidence = ProjectedSemanticEvidence(
                         label=ray.semantic_label,
-                        grid_coord=endpoint_cell,
+                        grid_coord=target_cell,
                         confidence=ray.semantic_confidence,
-                        time=observation.time,
-                        source_view_id=observation.view_id,
+                        time=frame.time,
+                        source_view_id=frame.frame_id,
                     )
                     self._update_semantic_cell(evidence)
                     new_semantic.append(evidence)
@@ -144,9 +138,25 @@ class BEVMemory:
             "num_semantic_cells": int((self.semantic_confidence > 0).sum()),
         }
 
-    def _ray_endpoint(self, pose: AgentPose, ray: SyntheticRay) -> WorldCoord:
+    def _ray_endpoint(self, pose: AgentPose, ray: ObservationRay) -> WorldCoord:
         theta = radians(pose.heading_deg + ray.angle_deg)
         return (pose.x + ray.distance * cos(theta), pose.y + ray.distance * sin(theta))
+
+    def _last_in_bounds_ray_cell(self, pose: AgentPose, ray: ObservationRay) -> Optional[GridCoord]:
+        step_size = max(self.resolution * 0.5, 1e-6)
+        steps = max(1, int(np.ceil(ray.distance / step_size)))
+        theta = radians(pose.heading_deg + ray.angle_deg)
+        last_cell: Optional[GridCoord] = None
+        for idx in range(1, steps + 1):
+            distance = ray.distance * idx / steps
+            coord = (pose.x + distance * cos(theta), pose.y + distance * sin(theta))
+            cell = self.world_to_grid(coord)
+            if cell is None:
+                if last_cell is not None:
+                    return last_cell
+                continue
+            last_cell = cell
+        return last_cell
 
     def _update_semantic_cell(self, evidence: ProjectedSemanticEvidence) -> None:
         cell = evidence.grid_coord
