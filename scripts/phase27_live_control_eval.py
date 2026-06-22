@@ -20,6 +20,7 @@ DEFAULT_ACTIONS = (
     + ["turn_right"] * 2
     + ["move_forward"] * 6
 )
+DEFAULT_PATH_STEPS = 36
 
 IMAGE_KEYS = {
     "rgb_jpeg": ("rgb", ".jpg"),
@@ -34,6 +35,8 @@ def main() -> None:
     parser.add_argument("--url", default="http://127.0.0.1:43901")
     parser.add_argument("--out-dir", required=True)
     parser.add_argument("--actions", help="Comma-separated action sequence. Defaults to the Phase 2.6 sweep.")
+    parser.add_argument("--trajectory-mode", choices=("path", "actions"), default="path")
+    parser.add_argument("--path-steps", type=int, default=DEFAULT_PATH_STEPS)
     parser.add_argument("--reset", action="store_true")
     parser.add_argument("--checkpoint-interval", type=int, default=5)
     parser.add_argument("--sleep-sec", type=float, default=0.03)
@@ -46,7 +49,7 @@ def main() -> None:
 
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    actions = _parse_actions(args.actions)
+    actions = _parse_actions(args.actions, args.trajectory_mode, args.path_steps)
     target_classes = [item.strip().lower() for item in args.target_classes.split(",") if item.strip()]
 
     base_url = args.url.rstrip("/")
@@ -108,8 +111,10 @@ def main() -> None:
     print(json.dumps(metrics, indent=2))
 
 
-def _parse_actions(actions: str | None) -> list[str]:
+def _parse_actions(actions: str | None, trajectory_mode: str, path_steps: int) -> list[str]:
     if actions is None:
+        if trajectory_mode == "path":
+            return ["path_step"] * max(1, int(path_steps))
         return list(DEFAULT_ACTIONS)
     return [item.strip() for item in actions.split(",") if item.strip()]
 

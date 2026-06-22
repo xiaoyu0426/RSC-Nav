@@ -329,7 +329,7 @@ class HabitatControlSession:
         freshness_tau_steps: float = 20.0,
         memory_path: Path | None = None,
         start_path_min_distance: float = 3.0,
-        start_path_samples: int = 12,
+        start_path_samples: int = 48,
     ) -> None:
         self.scene = scene
         self.resolution = resolution
@@ -373,6 +373,8 @@ class HabitatControlSession:
                 self.sim.step(action)
             elif action == "move_back":
                 self._move_back()
+            elif action == "path_step":
+                self._path_step()
             else:
                 raise ValueError(f"Unknown action: {action}")
             self.step_count += 1
@@ -462,14 +464,15 @@ class HabitatControlSession:
     def _reset_agent(self) -> None:
         agent = self.sim.get_agent(0)
         state = agent.get_state()
-        path_positions = _sample_navigable_path(
+        self.autopilot_path = _sample_navigable_path(
             self.sim,
             min_distance_m=self.start_path_min_distance,
             max_samples=self.start_path_samples,
         )
-        if path_positions:
-            state.position = path_positions[0]
-            rotation = _rotation_toward(path_positions[0], _next_point(path_positions, 0))
+        self.autopilot_index = 0
+        if self.autopilot_path:
+            state.position = self.autopilot_path[0]
+            rotation = _rotation_toward(self.autopilot_path[0], _next_point(self.autopilot_path, 0))
             if rotation is not None:
                 state.rotation = rotation
         else:
@@ -478,6 +481,35 @@ class HabitatControlSession:
                 point = np.asarray(pathfinder.get_random_navigable_point(), dtype=np.float32)
                 if point.shape == (3,) and np.isfinite(point).all():
                     state.position = point
+        try:
+            agent.set_state(state, infer_sensor_states=True)
+        except TypeError:
+            agent.set_state(state)
+
+    def _path_step(self) -> None:
+        if not getattr(self, "autopilot_path", None) or self.autopilot_index + 1 >= len(self.autopilot_path):
+            self.autopilot_path = _sample_navigable_path(
+                self.sim,
+                min_distance_m=self.start_path_min_distance,
+                max_samples=self.start_path_samples,
+            )
+            self.autopilot_index = 0
+        if not self.autopilot_path:
+            self.sim.step("move_forward")
+            return
+        self.autopilot_index = min(self.autopilot_index + 1, len(self.autopilot_path) - 1)
+        self._set_agent_pose(
+            self.autopilot_path[self.autopilot_index],
+            _next_point(self.autopilot_path, self.autopilot_index),
+        )
+
+    def _set_agent_pose(self, position: np.ndarray, look_at) -> None:
+        agent = self.sim.get_agent(0)
+        state = agent.get_state()
+        state.position = np.asarray(position, dtype=np.float32)
+        rotation = _rotation_toward(state.position, look_at)
+        if rotation is not None:
+            state.rotation = rotation
         try:
             agent.set_state(state, infer_sensor_states=True)
         except TypeError:
@@ -717,7 +749,7 @@ def main() -> None:
     parser.add_argument("--freshness-tau-steps", type=float, default=20.0)
     parser.add_argument("--memory-path")
     parser.add_argument("--start-path-min-distance", type=float, default=3.0)
-    parser.add_argument("--start-path-samples", type=int, default=12)
+    parser.add_argument("--start-path-samples", type=int, default=48)
     args = parser.parse_args()
 
     ensure_conda_nvidia_egl_vendor()
