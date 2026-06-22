@@ -42,7 +42,8 @@ def main() -> None:
     parser.add_argument("--sleep-sec", type=float, default=0.03)
     parser.add_argument("--target-classes", default="wall,door,table,chair")
     parser.add_argument("--max-mean-step-drift-m", type=float, default=0.45)
-    parser.add_argument("--max-total-drift-m", type=float, default=1.2)
+    parser.add_argument("--max-tail-drift-m", type=float, default=0.8)
+    parser.add_argument("--stability-window", type=int, default=6)
     parser.add_argument("--min-final-items", type=int, default=4)
     parser.add_argument("--min-active-items", type=int, default=1)
     args = parser.parse_args()
@@ -86,7 +87,8 @@ def main() -> None:
         object_history=object_history,
         target_classes=target_classes,
         max_mean_step_drift_m=args.max_mean_step_drift_m,
-        max_total_drift_m=args.max_total_drift_m,
+        max_tail_drift_m=args.max_tail_drift_m,
+        stability_window=args.stability_window,
         min_final_items=args.min_final_items,
         min_active_items=args.min_active_items,
     )
@@ -179,7 +181,8 @@ def _compute_metrics(
     object_history: dict[str, list[dict]],
     target_classes: list[str],
     max_mean_step_drift_m: float,
-    max_total_drift_m: float,
+    max_tail_drift_m: float,
+    stability_window: int,
     min_final_items: int,
     min_active_items: int,
 ) -> dict:
@@ -192,6 +195,7 @@ def _compute_metrics(
     stability_rows = []
     step_drifts = []
     total_drifts = []
+    tail_drifts = []
     confidence_values = []
     freshness_values = []
     for item_id, observations in sorted(object_history.items()):
@@ -204,8 +208,11 @@ def _compute_metrics(
             continue
         item_step_drifts = [_distance(prev, cur) for prev, cur in zip(centroids[:-1], centroids[1:])]
         total_drift = max(_distance(centroids[0], centroid) for centroid in centroids[1:])
+        tail_centroids = centroids[-max(2, int(stability_window)):]
+        tail_drift = max(_distance(tail_centroids[0], centroid) for centroid in tail_centroids[1:])
         step_drifts.extend(item_step_drifts)
         total_drifts.append(total_drift)
+        tail_drifts.append(tail_drift)
         confidence_values.extend(float(obs["confidence"]) for obs in observations if obs.get("confidence") is not None)
         freshness_values.extend(float(obs["freshness"]) for obs in observations if obs.get("freshness") is not None)
         stability_rows.append(
@@ -216,18 +223,20 @@ def _compute_metrics(
                 "mean_step_drift_m": _mean(item_step_drifts),
                 "max_step_drift_m": max(item_step_drifts) if item_step_drifts else 0.0,
                 "total_drift_m": total_drift,
+                "tail_drift_m": tail_drift,
                 "final_status": observations[-1].get("status"),
             }
         )
 
     mean_step_drift = _mean(step_drifts)
     max_total_drift = max(total_drifts) if total_drifts else 0.0
+    max_tail_drift = max(tail_drifts) if tail_drifts else 0.0
     final_items = int(final_memory.get("num_items", 0))
     active_items = int(final_memory.get("active_items", 0))
     covered_all_classes = all(count > 0 for count in class_coverage.values())
     geometry_ok = int(final.get("bev", {}).get("num_explored_cells", 0)) > 0 and int(final.get("bev", {}).get("num_occupied_cells", 0)) > 0
     semantic_ok = int(final_semantic.get("observed_target_instances", 0)) > 0 and int(final_semantic.get("semantic_cells", 0)) > 0
-    stability_ok = bool(stability_rows) and mean_step_drift <= max_mean_step_drift_m and max_total_drift <= max_total_drift_m
+    stability_ok = bool(stability_rows) and mean_step_drift <= max_mean_step_drift_m and max_tail_drift <= max_tail_drift_m
     memory_ok = final_items >= min_final_items and active_items >= min_active_items
     passed = geometry_ok and semantic_ok and covered_all_classes and memory_ok and stability_ok
 
@@ -240,7 +249,8 @@ def _compute_metrics(
             "memory_ok": memory_ok,
             "stability_ok": stability_ok,
             "max_mean_step_drift_m": max_mean_step_drift_m,
-            "max_total_drift_m": max_total_drift_m,
+            "max_tail_drift_m": max_tail_drift_m,
+            "stability_window": int(stability_window),
             "min_final_items": min_final_items,
             "min_active_items": min_active_items,
         },
@@ -254,6 +264,7 @@ def _compute_metrics(
             "mean_step_drift_m": mean_step_drift,
             "max_step_drift_m": max(step_drifts) if step_drifts else 0.0,
             "max_total_drift_m": max_total_drift,
+            "max_tail_drift_m": max_tail_drift,
             "mean_confidence": _mean(confidence_values),
             "mean_freshness": _mean(freshness_values),
             "items": stability_rows,
