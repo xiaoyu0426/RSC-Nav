@@ -12,6 +12,7 @@ HABITAT_LAB_DIR="${RSCNAV_HABITAT_LAB_DIR:-${HOME}/.rscnav/habitat-lab}"
 SCENE_PATH="${RSCNAV_HABITAT_SCENE:-}"
 DATA_PATH="${RSCNAV_HABITAT_DATA:-${HOME}/.rscnav/habitat_data}"
 DOWNLOAD_TEST_SCENES="${RSCNAV_DOWNLOAD_TEST_SCENES:-1}"
+TEST_SCENE_MIRROR_URL="${RSCNAV_TEST_SCENE_URL:-https://hf-mirror.com/datasets/ai-habitat/habitat_test_scenes/resolve/main/apartment_1.glb}"
 
 mkdir -p "${LOG_DIR}"
 
@@ -240,6 +241,32 @@ conda_run() {
   "${CONDA_EXE}" run -n "${ENV_NAME}" "$@"
 }
 
+conda_env_prefix() {
+  conda_run python -c 'import sys; print(sys.prefix)'
+}
+
+ensure_conda_nvidia_egl_vendor() {
+  if ! ldconfig -p 2>/dev/null | grep -q 'libEGL_nvidia.so.0'; then
+    log "No libEGL_nvidia.so.0 in ldconfig; skipping conda GLVND NVIDIA vendor setup"
+    return 0
+  fi
+
+  local prefix
+  prefix="$(conda_env_prefix)"
+  local vendor_dir="${prefix}/etc/glvnd/egl_vendor.d"
+  local vendor_file="${vendor_dir}/10_nvidia.json"
+  mkdir -p "${vendor_dir}"
+  cat >"${vendor_file}" <<'JSON'
+{
+    "file_format_version" : "1.0.0",
+    "ICD" : {
+        "library_path" : "libEGL_nvidia.so.0"
+    }
+}
+JSON
+  log "Wrote conda NVIDIA EGL vendor JSON: ${vendor_file}"
+}
+
 ensure_env() {
   if "${CONDA_EXE}" env list | awk '{print $1}' | grep -qx "${ENV_NAME}"; then
     log "Conda env ${ENV_NAME} already exists"
@@ -269,9 +296,18 @@ download_test_scene_if_needed() {
     return 0
   fi
   log "No RSCNAV_HABITAT_SCENE set; downloading Habitat test scenes to ${DATA_PATH}"
-  conda_run python -m habitat_sim.utils.datasets_download --uids habitat_test_scenes --data-path "${DATA_PATH}"
+  if ! conda_run python -m habitat_sim.utils.datasets_download --uids habitat_test_scenes --data-path "${DATA_PATH}"; then
+    log "Habitat dataset downloader failed; trying direct mirror scene download"
+    local mirror_dir="${DATA_PATH}/versioned_data/habitat_test_scenes"
+    mkdir -p "${mirror_dir}"
+    if command -v curl >/dev/null 2>&1; then
+      curl -L --retry 3 --retry-delay 2 -o "${mirror_dir}/apartment_1.glb" "${TEST_SCENE_MIRROR_URL}"
+    else
+      log "curl unavailable; cannot download mirror scene"
+    fi
+  fi
   local found
-  found="$(find "${DATA_PATH}" -type f -name '*.glb' | head -n 1 || true)"
+  found="$(find "${DATA_PATH}" -type f -name '*.glb' -size +1M | head -n 1 || true)"
   if [ -n "${found}" ]; then
     SCENE_PATH="${found}"
     log "Using downloaded test scene: ${SCENE_PATH}"
@@ -355,6 +391,7 @@ main() {
   else
     log "RSCNAV_SKIP_SETUP=1; skipping conda/Habitat setup"
   fi
+  ensure_conda_nvidia_egl_vendor
   run_smokes
   make_bundle
   log "Done"

@@ -65,12 +65,13 @@ def main() -> None:
     render_quality = _validate_live_render(rgb, depth)
     semantic = observations.get("semantic") if "semantic" in sensor_uuids else None
 
+    pose = _agent_state_to_bev_pose(agent_state)
     raw_observation = {
         "frame_id": "phase22_habitat_live_scene_001",
         "time": 1,
         "scene_id": str(scene_path),
         "episode_id": "phase22_live_scene_smoke",
-        "pose": _agent_state_to_bev_pose(agent_state),
+        "pose": pose,
         "rgb": rgb,
         "depth": depth,
         "semantic": semantic,
@@ -83,7 +84,17 @@ def main() -> None:
         max_depth=10.0,
     )
     frame = adapter.to_frame(raw_observation)
-    bev = BEVMemory(grid_size=(28, 28), resolution=1.0)
+    bev_grid_size = (28, 28)
+    bev_resolution = 1.0
+    bev_origin = (
+        pose["x"] - (bev_grid_size[0] // 2) * bev_resolution,
+        pose["y"] - (bev_grid_size[1] // 2) * bev_resolution,
+    )
+    bev = BEVMemory(
+        grid_size=bev_grid_size,
+        resolution=bev_resolution,
+        origin_world_xy=bev_origin,
+    )
     projected = bev.update_from_frame(frame)
 
     assert frame.rgb_shape is not None

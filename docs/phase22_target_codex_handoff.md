@@ -34,6 +34,17 @@ If no local scene is available, allow the runner to download Habitat test scenes
 RSCNAV_DOWNLOAD_TEST_SCENES=1 bash scripts/phase22_remote_linux_run.sh
 ```
 
+If HuggingFace is blocked, the runner falls back to a direct mirror download for
+`apartment_1.glb`. Override the mirror with:
+
+```bash
+RSCNAV_TEST_SCENE_URL=https://.../apartment_1.glb bash scripts/phase22_remote_linux_run.sh
+```
+
+The runner also writes an NVIDIA EGL GLVND vendor JSON inside the active conda
+environment when `libEGL_nvidia.so.0` is present. This fixes machines where the
+system GLVND directory exposes only Mesa without requiring sudo.
+
 On multi-GPU machines, the runner automatically retries the live rendering smoke
 with a small matrix of `CUDA_VISIBLE_DEVICES=<gpu_index>` and Habitat-Sim
 `SimulatorConfiguration.gpu_device_id`. To restrict the search, set:
