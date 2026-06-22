@@ -1666,3 +1666,94 @@ Oracle Diff 图可以直接定位 free/occupied 与 navmesh oracle 的一致/错
 3. 增加 object memory track：category、centroid、footprint、confidence、freshness、last_seen_step。
 4. 对 occupied recall 做第二轮几何改进：多高度 bin、端点膨胀、墙面连续性/边界更新。
 ```
+
+## Phase 3.1 Goal Completion Audit
+
+时间：2026-06-22
+
+目标：
+
+```text
+把当前 live 目标的完成状态整理成可复现审计：
+确认 oracle geometry、semantic/object memory、save/load/replay、验收图、log 维护和源码入口均存在并通过。
+```
+
+新增脚本：
+
+```text
+scripts/phase31_goal_completion_audit.py
+```
+
+本地审计输出：
+
+```text
+outputs/phase31_goal_audit/goal_audit_20260622-204839/
+  goal_audit.json
+  summary.html
+```
+
+审计范围：
+
+```text
+oracle visual evidence:
+  outputs/phase30_live_oracle_visuals/mp3d_oracle_visuals_20260622-204418/eval/
+    step_0036_final_bev.png
+    step_0036_final_oracle.png
+    step_0036_final_oracle_diff.png
+    step_0036_final_semantic_bev.png
+    metrics.json
+    summary.html
+
+memory reuse evidence:
+  outputs/phase29_live_memory_reuse/mp3d_reuse_pass_20260622-203909/eval/
+    037_saved_memory_step_0036_mem_0084_semantic_bev.png
+    039_loaded_memory_step_0000_mem_0084_semantic_bev.png
+    052_replay_saved_memory_step_0012_mem_0096_semantic_bev.png
+    metrics.json
+
+log markers:
+  Phase 2.4
+  Phase 2.7 Live Path-Step Auto Evaluation
+  Phase 2.8 Live Oracle Geometry Gate
+  Phase 2.9 Live Memory Reuse / Reload Evaluation
+  Phase 3.0 Live Oracle Visual Evidence
+```
+
+自动审计结果：
+
+```text
+passed: true
+checks: 38 / 38 passed
+
+oracle geometry:
+  free_iou_observed: 0.7043
+  occupied_f1_observed: 0.7705
+  occupied_boundary_chamfer_m: 0.1033
+
+semantic/object memory:
+  wall: 8
+  door: 3
+  table: 2
+  chair: 6
+  num_items: 19
+  mean_confidence: 0.7565
+  mean_freshness: 0.8488
+  max_tail_drift_m: 0.7262
+
+memory reuse:
+  retained_after_load: 8 / 8, ratio 1.0
+  retained_after_replay: 8 / 8, ratio 1.0
+  duplicate_item_ids: []
+  updated_ids: chair_141, door_24, table_132, wall_0, wall_125, wall_155, wall_29
+```
+
+结论：
+
+```text
+当前 live 目标可以判定完成：
+真实 Habitat-Sim headless live 闭环已经能在本体移动过程中稳定更新 allocentric BEV semantic-spatial memory，
+并把 wall / door / table / chair 以类别、位置、置信度、freshness 的对象记忆形式保存、加载、重放和自动验收。
+
+验收图有保存，且已在本 log 中记录路径；goal_audit.json/summary.html 提供机器可读与可视化索引。
+之前的 IMPLEMENTATION_LOG.md 仍在维护，本节是 Phase 3.1 对当前目标的闭环确认。
+```
