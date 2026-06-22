@@ -1342,6 +1342,106 @@ BEV semantic-spatial memory 会持续累积对象位置、类别、confidence、
 - `chair` 与 `table` 类在本 MP3D example scene 中像素/格子占比偏小，后续应在 HM3D-Sem / ReplicaCAD 或更多场景上复验。
 - 当前 active/stale/missing 由 freshness threshold 定义，需要在长期记忆复用实验中进一步标定。
 
+## Phase 2.8 Live Oracle Geometry Gate
+
+时间：2026-06-22
+
+提交：
+
+```text
+8b2cb79 Add oracle geometry gate to live eval
+```
+
+目标：
+
+```text
+把 live evaluator 的 geometry gate 从“BEV 非空”升级为 navmesh oracle map 对齐指标，
+使当前 live 自动验收同时覆盖 oracle map / semantic GT / object stability 三个证据来源。
+```
+
+实现内容：
+
+- `phase23_habitat_control_server.py` 在 reset 后缓存当前 BEV origin 对应的 navmesh oracle free mask。
+- `/api/state` 新增 `geometry_oracle`，返回 `free_iou_observed`、`occupied_f1_observed`、`occupied_boundary_chamfer_m` 等指标。
+- `phase27_live_control_eval.py` 新增 oracle gate：
+  - `oracle_enabled == true`
+  - `free_iou_observed >= 0.2`
+  - `occupied_f1_observed >= 0.05`
+- 修正远端 43901 旧进程占端口问题后复跑，确认请求命中新 server payload。
+
+远端验收输出：
+
+```text
+remote: ~/RSC_Nav/outputs/phase27_live_eval/mp3d_live_oracle_clean_20260622-202641/
+local:  outputs/phase27_live_eval/mp3d_live_oracle_clean_20260622-202641/
+url:    http://39.101.65.229:43901/
+```
+
+保存文件：
+
+```text
+eval/metrics.json
+eval/live_eval_summary.json
+eval/object_history.json
+eval/states_compact.json
+eval/summary.html
+eval/step_0036_final_bev.png
+eval/step_0036_final_semantic_bev.png
+```
+
+最终自动验收：
+
+```text
+passed: true
+
+criteria:
+  geometry_ok: true
+  bev_nonempty: true
+  oracle_enabled: true
+  semantic_ok: true
+  covered_all_classes: true
+  memory_ok: true
+  stability_ok: true
+
+oracle geometry:
+  free_iou_observed: 0.7043
+  free_precision: 0.8464
+  free_recall_observed: 0.8076
+  free_f1_observed: 0.8265
+  occupied_precision_observed: 0.7473
+  occupied_recall_observed: 0.7951
+  occupied_f1_observed: 0.7705
+  occupied_boundary_chamfer_m: 0.1033
+
+semantic/object:
+  wall: 8
+  door: 3
+  table: 2
+  chair: 6
+  num_items: 19
+  active_items: 11
+  mean_confidence: 0.7565
+  mean_freshness: 0.8488
+
+object stability:
+  tracked_items: 19
+  mean_step_drift_m: 0.0477
+  max_tail_drift_m: 0.7262
+```
+
+结论：
+
+```text
+当前真实 Habitat-Sim live 闭环已具备 oracle map / semantic GT / object stability 三类自动验收证据。
+这比 Phase 2.7 更完整：geometry 不再只靠非空图像，而是明确对齐 navmesh oracle。
+```
+
+下一轮建议：
+
+- 将 oracle gate 的阈值升级为多场景统计阈值，而不是单场景 smoke 阈值。
+- 为 `summary.html` 增加 oracle diff 图，便于肉眼定位 free/occupied 错误区域。
+- 把 live object memory 的 save/load/replay 做成跨 episode 验收，进入长期记忆复用实验。
+
 ### 下一步
 
 优先级：
