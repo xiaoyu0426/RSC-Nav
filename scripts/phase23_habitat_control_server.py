@@ -330,6 +330,7 @@ class HabitatControlSession:
         memory_path: Path | None = None,
         start_path_min_distance: float = 3.0,
         start_path_samples: int = 48,
+        enable_oracle_metrics: bool = True,
     ) -> None:
         self.scene = scene
         self.resolution = resolution
@@ -346,6 +347,7 @@ class HabitatControlSession:
         self.memory_path = memory_path
         self.start_path_min_distance = start_path_min_distance
         self.start_path_samples = start_path_samples
+        self.enable_oracle_metrics = enable_oracle_metrics
         self.lock = threading.Lock()
         self.step_count = 0
         self.memory_step_count = 0
@@ -451,7 +453,7 @@ class HabitatControlSession:
         self.bev = DenseBEVMapper(origin_world_xz=origin, config=config)
         self.oracle_free_mask = None
         pathfinder = getattr(self.sim, "pathfinder", None)
-        if pathfinder is not None and getattr(pathfinder, "is_loaded", False):
+        if self.enable_oracle_metrics and pathfinder is not None and getattr(pathfinder, "is_loaded", False):
             self.oracle_free_mask = oracle_navmesh_mask(
                 pathfinder=pathfinder,
                 origin_world_xz=self.bev.origin_world_xz,
@@ -777,6 +779,7 @@ def main() -> None:
     parser.add_argument("--memory-path")
     parser.add_argument("--start-path-min-distance", type=float, default=3.0)
     parser.add_argument("--start-path-samples", type=int, default=48)
+    parser.add_argument("--disable-oracle-metrics", action="store_true")
     args = parser.parse_args()
 
     ensure_conda_nvidia_egl_vendor()
@@ -805,6 +808,7 @@ def main() -> None:
         memory_path=memory_path,
         start_path_min_distance=args.start_path_min_distance,
         start_path_samples=args.start_path_samples,
+        enable_oracle_metrics=not args.disable_oracle_metrics,
     )
     Handler.session = session
     server = HTTPServer((args.host, args.port), Handler)
