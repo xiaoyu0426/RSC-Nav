@@ -27,7 +27,7 @@ def main() -> None:
     parser.add_argument("--checkpoint-interval", type=int, default=6)
     parser.add_argument("--sleep-sec", type=float, default=0.03)
     parser.add_argument("--min-retained-ratio", type=float, default=0.95)
-    parser.add_argument("--max-duplicate-new-items", type=int, default=2)
+    parser.add_argument("--max-duplicate-item-ids", type=int, default=0)
     parser.add_argument("--min-updated-items", type=int, default=1)
     parser.add_argument("--min-replay-active-items", type=int, default=1)
     args = parser.parse_args()
@@ -74,7 +74,7 @@ def main() -> None:
         loaded_state=loaded_state,
         replay_state=replay_saved_state,
         min_retained_ratio=args.min_retained_ratio,
-        max_duplicate_new_items=args.max_duplicate_new_items,
+        max_duplicate_item_ids=args.max_duplicate_item_ids,
         min_updated_items=args.min_updated_items,
         min_replay_active_items=args.min_replay_active_items,
     )
@@ -123,7 +123,7 @@ def _compute_metrics(
     loaded_state: dict,
     replay_state: dict,
     min_retained_ratio: float,
-    max_duplicate_new_items: int,
+    max_duplicate_item_ids: int,
     min_updated_items: int,
     min_replay_active_items: int,
 ) -> dict:
@@ -144,7 +144,8 @@ def _compute_metrics(
     reset_did_not_keep_full_memory = len(reset_ids & saved_ids) < len(saved_ids)
     load_retained_ok = loaded_ratio >= min_retained_ratio
     replay_retained_ok = replay_retained_ratio >= min_retained_ratio
-    duplicate_ok = len(new_after_replay) <= max_duplicate_new_items
+    duplicate_item_ids = sorted(set(_duplicate_ids(loaded_state)) | set(_duplicate_ids(replay_state)))
+    duplicate_ok = len(duplicate_item_ids) <= max_duplicate_item_ids
     update_ok = len(updated_ids) >= min_updated_items
     replay_active_ok = int(replay_state.get("memory", {}).get("active_items", 0)) >= min_replay_active_items
     memory_step_monotonic = int(replay_state.get("memory_step", 0)) > int(saved_state.get("memory_step", -1))
@@ -170,7 +171,7 @@ def _compute_metrics(
             "replay_active_ok": replay_active_ok,
             "memory_step_monotonic": memory_step_monotonic,
             "min_retained_ratio": min_retained_ratio,
-            "max_duplicate_new_items": max_duplicate_new_items,
+            "max_duplicate_item_ids": max_duplicate_item_ids,
             "min_updated_items": min_updated_items,
             "min_replay_active_items": min_replay_active_items,
         },
@@ -188,6 +189,7 @@ def _compute_metrics(
         },
         "new_after_replay": sorted(new_after_replay),
         "lost_after_replay": sorted(lost_after_replay),
+        "duplicate_item_ids": duplicate_item_ids,
         "updated_ids": sorted(updated_ids),
     }
 
@@ -227,6 +229,17 @@ def _memory_snapshot(state: dict) -> dict:
 
 def _item_ids(state: dict) -> set[str]:
     return set(_items_by_id(state))
+
+
+def _duplicate_ids(state: dict) -> list[str]:
+    seen = set()
+    duplicates = set()
+    for item in state.get("memory_items", []):
+        item_id = str(item["id"])
+        if item_id in seen:
+            duplicates.add(item_id)
+        seen.add(item_id)
+    return sorted(duplicates)
 
 
 def _items_by_id(state: dict) -> dict[str, dict]:
