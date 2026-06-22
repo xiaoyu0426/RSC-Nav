@@ -348,6 +348,7 @@ class HabitatControlSession:
         self.start_path_samples = start_path_samples
         self.lock = threading.Lock()
         self.step_count = 0
+        self.memory_step_count = 0
 
         self._setup_sim()
         self._reset_agent()
@@ -378,6 +379,7 @@ class HabitatControlSession:
             else:
                 raise ValueError(f"Unknown action: {action}")
             self.step_count += 1
+            self.memory_step_count += 1
             return self._state_payload()
 
     def _setup_sim(self) -> None:
@@ -560,18 +562,19 @@ class HabitatControlSession:
                 sensor_rotation=sensor_state.rotation,
                 floor_y=float(np.asarray(agent_state.position, dtype=np.float32)[1]),
                 hfov_deg=90.0,
-                step=self.step_count,
+                step=self.memory_step_count,
             )
             semantic_report = self.semantic_bev.report()
             self.memory_store.update_from_tracks(
                 semantic_report.get("tracks", []),
-                current_step=self.step_count,
+                current_step=self.memory_step_count,
             )
         else:
-            self.memory_store.decay(current_step=self.step_count)
+            self.memory_store.decay(current_step=self.memory_step_count)
 
         return {
             "step": self.step_count,
+            "memory_step": self.memory_step_count,
             "scene": str(self.scene),
             "scene_name": self.scene.name,
             "pose": pose,
