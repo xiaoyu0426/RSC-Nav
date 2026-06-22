@@ -458,6 +458,8 @@ def _match_category(raw_name: str, categories: list[str]) -> str | None:
 def _object_center(obj):
     aabb = getattr(obj, "aabb", None)
     center = getattr(aabb, "center", None)
+    if callable(center):
+        center = center()
     if center is None:
         return None
     arr = np.asarray(center, dtype=np.float32).reshape(-1)
