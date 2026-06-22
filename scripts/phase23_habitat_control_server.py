@@ -537,6 +537,7 @@ class HabitatControlSession:
             "bev": snapshot,
             "semantic": _semantic_payload(semantic_report),
             "memory": self.memory_store.summary(),
+            "memory_items": self.memory_store.to_dict()["items"],
             "rgb_jpeg": _image_to_base64(_rgb_image(rgb), "JPEG", quality=86),
             "depth_png": _image_to_base64(_depth_image(depth), "PNG"),
             "bev_png": _image_to_base64(_bev_image(self.bev), "PNG"),
