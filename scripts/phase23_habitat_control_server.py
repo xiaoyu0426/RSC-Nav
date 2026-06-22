@@ -6,7 +6,7 @@ import json
 import os
 import sys
 import threading
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -519,7 +519,7 @@ def main() -> None:
         turn_amount=args.turn_amount,
     )
     Handler.session = session
-    server = ThreadingHTTPServer((args.host, args.port), Handler)
+    server = HTTPServer((args.host, args.port), Handler)
     print(f"RSC-Nav Habitat control UI: http://{args.host}:{args.port}/")
     print(f"Scene: {scene}")
     try:
