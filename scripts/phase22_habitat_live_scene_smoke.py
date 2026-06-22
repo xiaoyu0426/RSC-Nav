@@ -84,8 +84,8 @@ def main() -> None:
         max_depth=10.0,
     )
     frame = adapter.to_frame(raw_observation)
-    bev_grid_size = (28, 28)
-    bev_resolution = 1.0
+    bev_grid_size = (96, 96)
+    bev_resolution = 0.1
     bev_origin = (
         pose["x"] - (bev_grid_size[0] // 2) * bev_resolution,
         pose["y"] - (bev_grid_size[1] // 2) * bev_resolution,
