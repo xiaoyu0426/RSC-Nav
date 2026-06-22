@@ -1207,6 +1207,141 @@ Object memory:
 - 当前语义仍是 Habitat semantic GT upper-bound；尚未接入 detector-driven association。
 - 需要增加 live 自动巡航/路径回放模式，用固定轨迹持续生成可比较的验收图。
 
+## Phase 2.7 Live Path-Step Auto Evaluation
+
+时间：2026-06-22
+
+提交：
+
+```text
+e99bd14 Add live memory stability evaluator
+ae19fd4 Add live path-step evaluation mode
+b0b0e59 Evaluate mature live object stability
+```
+
+目标：
+
+```text
+把 Phase 2.6 的 live UI smoke 升级为自动验收：
+server 提供 path_step 自动巡航动作，evaluator 驱动 live server、保存 checkpoint 图、
+记录 object history，并计算 geometry / semantic class coverage / object memory / stability gates。
+```
+
+新增/修改：
+
+```text
+scripts/phase27_live_control_eval.py
+scripts/phase23_habitat_control_server.py
+```
+
+关键机制：
+
+- `/api/action` 新增 `path_step`：沿 navmesh path waypoint 推进，并在每个 waypoint 触发真实 Habitat sensor observation。
+- `/api/state` 新增 `memory_items`：导出每个 object memory item 的 category、centroid、confidence、freshness、status。
+- evaluator 默认使用 `trajectory-mode=path` 与 36 个 `path_step`。
+- evaluator 保存 `states_compact.json`、`object_history.json`、`metrics.json`、`summary.html` 和每个 checkpoint 的 RGB/depth/BEV/semantic BEV 图。
+- stability gate 改为 mature-tail window：保留 `total_drift_m` 作为发现过程诊断，但 pass/fail 使用最后 6 个观测窗口的 `tail_drift_m`，避免把长墙面逐步被发现时的 centroid 扩展误判为最终记忆不稳定。
+
+远端验收输出：
+
+```text
+remote: ~/RSC_Nav/outputs/phase27_live_eval/mp3d_live_tailstable_20260622-202038/
+local:  outputs/phase27_live_eval/mp3d_live_tailstable_20260622-202038/
+url:    http://39.101.65.229:43901/
+```
+
+保存文件：
+
+```text
+eval/metrics.json
+eval/live_eval_summary.json
+eval/object_history.json
+eval/states_compact.json
+eval/summary.html
+eval/step_0000_*.png
+eval/step_0006_*.png
+eval/step_0012_*.png
+eval/step_0018_*.png
+eval/step_0024_*.png
+eval/step_0030_*.png
+eval/step_0036_*.png
+eval/step_0036_final_*.png
+```
+
+最终自动验收：
+
+```text
+passed: true
+
+criteria:
+  geometry_ok: true
+  semantic_ok: true
+  covered_all_classes: true
+  memory_ok: true
+  stability_ok: true
+  max_mean_step_drift_m: 0.45
+  max_tail_drift_m: 0.8
+  stability_window: 6
+
+final_step: 36
+
+class_coverage:
+  wall: 7
+  door: 6
+  table: 1
+  chair: 6
+
+final_memory:
+  num_items: 20
+  mean_confidence: 0.8476
+  mean_freshness: 0.3812
+  active_items: 9
+  stale_items: 10
+  missing_items: 1
+
+final_semantic:
+  observed_target_instances: 20
+  semantic_cells: 6249
+  per_class_cells:
+    wall: 5644
+    door: 103
+    table: 9
+    chair: 493
+  mean_centroid_error_m: 1.2648
+  mean_fragmentation_count: 0.45
+  id_switches_upper_bound: 0
+
+final_bev:
+  explored_cells: 18557
+  free_cells: 9770
+  occupied_cells: 8787
+  mean_confidence: 0.8907
+
+object_stability:
+  tracked_items: 20
+  mean_step_drift_m: 0.0525
+  max_total_drift_m: 4.9131
+  max_tail_drift_m: 0.0076
+  mean_confidence: 0.8135
+  mean_freshness: 0.7050
+```
+
+结论：
+
+```text
+当前 live 目标的自动验收链路已经成立：
+真实 Habitat-Sim headless live server 可以通过 path_step 自动巡航覆盖 wall / door / table / chair，
+BEV semantic-spatial memory 会持续累积对象位置、类别、confidence、freshness，
+并通过 geometry / semantic GT / object stability 指标自动保存图像和 JSON 证据。
+```
+
+仍需保留的科学问题：
+
+- 当前 semantic signal 仍是 Habitat semantic GT upper-bound，不是 detector-driven semantic perception。
+- 物体/墙面的 centroid 在首次发现到逐步扩展阶段会有较大 `total_drift_m`，但 mature tail 已稳定；后续报告中需要明确区分 discovery drift 与 stabilized memory drift。
+- `chair` 与 `table` 类在本 MP3D example scene 中像素/格子占比偏小，后续应在 HM3D-Sem / ReplicaCAD 或更多场景上复验。
+- 当前 active/stale/missing 由 freshness threshold 定义，需要在长期记忆复用实验中进一步标定。
+
 ### 下一步
 
 优先级：
