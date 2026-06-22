@@ -23,7 +23,7 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from dense_bev_mapper import DenseBEVConfig, DenseBEVMapper
+from dense_bev_mapper import DenseBEVConfig, DenseBEVMapper, mapping_metrics, oracle_navmesh_mask
 from object_memory_store import ObjectMemoryStore
 from semantic_bev_memory import SEMANTIC_COLORS, SemanticBEVAccumulator, semantic_array
 
@@ -447,6 +447,16 @@ class HabitatControlSession:
             pose["y"] - (config.grid_size[1] // 2) * config.resolution,
         )
         self.bev = DenseBEVMapper(origin_world_xz=origin, config=config)
+        self.oracle_free_mask = None
+        pathfinder = getattr(self.sim, "pathfinder", None)
+        if pathfinder is not None and getattr(pathfinder, "is_loaded", False):
+            self.oracle_free_mask = oracle_navmesh_mask(
+                pathfinder=pathfinder,
+                origin_world_xz=self.bev.origin_world_xz,
+                grid_size=self.bev.config.grid_size,
+                resolution=self.bev.config.resolution,
+                height=float(np.asarray(agent_state.position, dtype=np.float32)[1]),
+            )
         self.semantic_bev = None
         if self.scene_dataset_config is not None:
             self.semantic_bev = SemanticBEVAccumulator(
@@ -567,6 +577,7 @@ class HabitatControlSession:
             "pose": pose,
             "ray_count": _sample_count(depth, self.bev.config.sample_stride),
             "bev": snapshot,
+            "geometry_oracle": self._geometry_oracle_payload(),
             "semantic": _semantic_payload(semantic_report),
             "memory": self.memory_store.summary(),
             "memory_items": self.memory_store.to_dict()["items"],
@@ -596,6 +607,19 @@ class HabitatControlSession:
                 raise FileNotFoundError(self.memory_path)
             self.memory_store = ObjectMemoryStore.load(self.memory_path)
             return self._state_payload()
+
+    def _geometry_oracle_payload(self) -> dict[str, Any]:
+        if self.oracle_free_mask is None:
+            return {"enabled": False}
+        metrics = mapping_metrics(
+            pred_free=self.bev.free_mask(),
+            pred_occupied=self.bev.occupied_mask(),
+            explored=self.bev.explored,
+            oracle_free=self.oracle_free_mask,
+            resolution=self.bev.config.resolution,
+        )
+        metrics["enabled"] = True
+        return metrics
 
     def _pose_from_state(self, state) -> dict[str, float]:
         position = np.asarray(getattr(state, "position", [0.0, 0.0, 0.0]), dtype=np.float32)

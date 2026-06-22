@@ -41,6 +41,8 @@ def main() -> None:
     parser.add_argument("--checkpoint-interval", type=int, default=5)
     parser.add_argument("--sleep-sec", type=float, default=0.03)
     parser.add_argument("--target-classes", default="wall,door,table,chair")
+    parser.add_argument("--min-oracle-free-iou", type=float, default=0.2)
+    parser.add_argument("--min-oracle-occupied-f1", type=float, default=0.05)
     parser.add_argument("--max-mean-step-drift-m", type=float, default=0.45)
     parser.add_argument("--max-tail-drift-m", type=float, default=0.8)
     parser.add_argument("--stability-window", type=int, default=6)
@@ -86,6 +88,8 @@ def main() -> None:
         states=states,
         object_history=object_history,
         target_classes=target_classes,
+        min_oracle_free_iou=args.min_oracle_free_iou,
+        min_oracle_occupied_f1=args.min_oracle_occupied_f1,
         max_mean_step_drift_m=args.max_mean_step_drift_m,
         max_tail_drift_m=args.max_tail_drift_m,
         stability_window=args.stability_window,
@@ -180,6 +184,8 @@ def _compute_metrics(
     states: list[dict],
     object_history: dict[str, list[dict]],
     target_classes: list[str],
+    min_oracle_free_iou: float,
+    min_oracle_occupied_f1: float,
     max_mean_step_drift_m: float,
     max_tail_drift_m: float,
     stability_window: int,
@@ -189,6 +195,7 @@ def _compute_metrics(
     final = states[-1]
     final_memory = final.get("memory", {})
     final_semantic = final.get("semantic", {})
+    final_oracle = final.get("geometry_oracle", {})
     final_per_class = final_memory.get("per_class", {})
     class_coverage = {category: int(final_per_class.get(category, 0)) for category in target_classes}
 
@@ -234,7 +241,16 @@ def _compute_metrics(
     final_items = int(final_memory.get("num_items", 0))
     active_items = int(final_memory.get("active_items", 0))
     covered_all_classes = all(count > 0 for count in class_coverage.values())
-    geometry_ok = int(final.get("bev", {}).get("num_explored_cells", 0)) > 0 and int(final.get("bev", {}).get("num_occupied_cells", 0)) > 0
+    bev_nonempty = int(final.get("bev", {}).get("num_explored_cells", 0)) > 0 and int(final.get("bev", {}).get("num_occupied_cells", 0)) > 0
+    oracle_enabled = bool(final_oracle.get("enabled"))
+    oracle_free_iou = float(final_oracle.get("free_iou_observed", 0.0))
+    oracle_occupied_f1 = float(final_oracle.get("occupied_f1_observed", 0.0))
+    geometry_ok = (
+        bev_nonempty
+        and oracle_enabled
+        and oracle_free_iou >= min_oracle_free_iou
+        and oracle_occupied_f1 >= min_oracle_occupied_f1
+    )
     semantic_ok = int(final_semantic.get("observed_target_instances", 0)) > 0 and int(final_semantic.get("semantic_cells", 0)) > 0
     stability_ok = bool(stability_rows) and mean_step_drift <= max_mean_step_drift_m and max_tail_drift <= max_tail_drift_m
     memory_ok = final_items >= min_final_items and active_items >= min_active_items
@@ -244,6 +260,10 @@ def _compute_metrics(
         "passed": passed,
         "criteria": {
             "geometry_ok": geometry_ok,
+            "bev_nonempty": bev_nonempty,
+            "oracle_enabled": oracle_enabled,
+            "min_oracle_free_iou": min_oracle_free_iou,
+            "min_oracle_occupied_f1": min_oracle_occupied_f1,
             "semantic_ok": semantic_ok,
             "covered_all_classes": covered_all_classes,
             "memory_ok": memory_ok,
@@ -258,6 +278,7 @@ def _compute_metrics(
         "class_coverage": class_coverage,
         "final_memory": final_memory,
         "final_semantic": final_semantic,
+        "final_geometry_oracle": final_oracle,
         "final_bev": final.get("bev", {}),
         "object_stability": {
             "tracked_items": len(stability_rows),
