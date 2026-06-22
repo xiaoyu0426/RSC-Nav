@@ -1442,6 +1442,134 @@ object stability:
 - 为 `summary.html` 增加 oracle diff 图，便于肉眼定位 free/occupied 错误区域。
 - 把 live object memory 的 save/load/replay 做成跨 episode 验收，进入长期记忆复用实验。
 
+## Phase 2.9 Live Memory Reuse / Reload Evaluation
+
+时间：2026-06-22
+
+提交：
+
+```text
+e10ff38 Add live memory reuse evaluator
+57d0a60 Allow live server without oracle metrics
+a82ad2e Treat replay discoveries as new memory
+```
+
+目标：
+
+```text
+验证 live object memory 不只是当场显示，而是可以 save -> reset -> load -> replay/update。
+这为后续长期记忆复用实验提供最小闭环。
+```
+
+实现内容：
+
+- `phase23_habitat_control_server.py` 新增 `memory_step`，作为跨 reset 单调递增的 object-memory 时间轴。
+  - UI/episode `step` 可以 reset 到 0。
+  - `memory_step` 不随 reset 回退，用于 semantic tracks、ObjectMemoryStore update/decay。
+- `phase23_habitat_control_server.py` 新增 `--disable-oracle-metrics`。
+  - oracle geometry eval 仍可启用。
+  - memory reuse eval 可跳过 oracle mask 初始化，避免不必要的启动等待。
+- 新增 `scripts/phase28_live_memory_reuse_eval.py`。
+  - 第一次 path_step 巡航后 save memory。
+  - reset 后验证不是完整沿用旧 memory。
+  - load memory 后验证旧 IDs 全部恢复。
+  - replay path_step 后验证旧 IDs 保留并有对象被 update。
+  - 新发现对象允许作为 new memory，只有重复 ID 才视为 duplicate。
+
+远端验收输出：
+
+```text
+remote: ~/RSC_Nav/outputs/phase29_live_memory_reuse/mp3d_reuse_pass_20260622-203909/
+local:  outputs/phase29_live_memory_reuse/mp3d_reuse_pass_20260622-203909/
+url:    http://39.101.65.229:43901/
+```
+
+保存文件：
+
+```text
+eval/metrics.json
+eval/live_memory_reuse_summary.json
+eval/timeline_compact.json
+eval/summary.html
+eval/037_saved_memory_step_0036_mem_0084_*.png
+eval/039_loaded_memory_step_0000_mem_0084_*.png
+eval/052_replay_saved_memory_step_0012_mem_0096_*.png
+server/live_object_memory.json
+```
+
+最终自动验收：
+
+```text
+passed: true
+
+criteria:
+  reset_did_not_keep_full_memory: true
+  load_retained_ok: true
+  replay_retained_ok: true
+  duplicate_ok: true
+  update_ok: true
+  replay_active_ok: true
+  memory_step_monotonic: true
+
+saved:
+  step: 36
+  memory_step: 84
+  num_items: 8
+  per_class:
+    wall: 4
+    door: 1
+    table: 2
+    chair: 1
+  mean_confidence: 0.8144
+  mean_freshness: 0.6786
+
+loaded:
+  step: 0
+  memory_step: 84
+  num_items: 10
+  retained_after_load:
+    count: 8
+    ratio: 1.0
+
+replay:
+  step: 12
+  memory_step: 96
+  num_items: 14
+  retained_after_replay:
+    count: 8
+    ratio: 1.0
+  duplicate_item_ids: []
+  updated_ids:
+    chair_141
+    door_24
+    table_132
+    wall_0
+    wall_125
+    wall_155
+    wall_29
+  new_after_replay:
+    chair_102
+    chair_110
+    table_31
+    wall_171
+    wall_53
+    wall_95
+```
+
+结论：
+
+```text
+live object memory 已通过真实 Habitat-Sim save/reset/load/replay 自动验收。
+旧 memory IDs 在 load 与 replay 后 100% 保留；replay 会更新旧对象，也能接纳新发现对象；
+memory_step 保证 freshness/update 时间轴跨 reset 不倒退。
+```
+
+仍需保留的科学问题：
+
+- 当前 save/load/replay 仍在同一 MP3D example scene 内完成，还不是多场景或跨任务泛化。
+- replay 后新出现对象被接纳为 new memory；后续 detector-driven 版本需要更严格的 association/merge/split 判据。
+- `freshness` 已有跨 reset 时间轴，但长期真实时间/多 episode 时间尺度还需要实验标定。
+
 ### 下一步
 
 优先级：
