@@ -60,6 +60,7 @@ def main() -> None:
     parser.add_argument("--scene-dataset-config")
     parser.add_argument("--semantic-categories", default="wall,door,table,chair")
     parser.add_argument("--semantic-confidence-saturation", type=float, default=80.0)
+    parser.add_argument("--freshness-tau-steps", type=float, default=20.0)
     args = parser.parse_args()
 
     scene = Path(args.scene).expanduser().resolve()
@@ -116,6 +117,7 @@ def main() -> None:
                 semantic_scene=sim.semantic_scene,
                 categories=semantic_categories,
                 confidence_saturation=args.semantic_confidence_saturation,
+                freshness_tau_steps=args.freshness_tau_steps,
             )
 
         frames = []
@@ -218,6 +220,7 @@ def main() -> None:
                 "trajectory_mode": args.trajectory_mode,
                 "path_min_distance_m": args.path_min_distance,
                 "semantic_categories": semantic_categories,
+                "freshness_tau_steps": args.freshness_tau_steps,
             },
             "mapper_snapshot": mapper.snapshot(),
             "metrics": metrics,
@@ -296,6 +299,7 @@ class SemanticBEVAccumulator:
         semantic_scene,
         categories: list[str],
         confidence_saturation: float,
+        freshness_tau_steps: float,
     ) -> None:
         self.mapper = mapper
         self.categories = categories
@@ -305,6 +309,9 @@ class SemanticBEVAccumulator:
         self.evidence = np.zeros((len(categories), *mapper.config.grid_size), dtype=np.float32)
         self.instance_stats: dict[int, dict] = {}
         self.confidence_saturation = max(1.0, float(confidence_saturation))
+        self.freshness_tau_steps = max(1.0, float(freshness_tau_steps))
+        self.frame_seen: dict[int, set[int]] = {}
+        self.latest_step = 0
         self._index_scene_objects(semantic_scene)
 
     def _index_scene_objects(self, semantic_scene) -> None:
@@ -352,22 +359,26 @@ class SemanticBEVAccumulator:
         semantic_ids = semantic[rows, cols].astype(np.int64)
         rel_y = points_world[:, 1] - float(floor_y)
         height_mask = np.logical_and(rel_y >= -0.3, rel_y <= 2.5)
+        seen_ids: set[int] = set()
+        self.latest_step = max(self.latest_step, int(step))
 
         for semantic_id, point, keep in zip(semantic_ids, points_world, height_mask):
             if not keep:
                 continue
-            category = self.semantic_id_to_class.get(int(semantic_id))
+            semantic_id = int(semantic_id)
+            category = self.semantic_id_to_class.get(semantic_id)
             if category is None:
                 continue
             cell = self.mapper.world_to_grid((float(point[0]), float(point[2])))
             if cell is None:
                 continue
+            seen_ids.add(semantic_id)
             class_index = self.category_to_index[category]
             self.evidence[class_index, cell[0], cell[1]] += 1.0
             stats = self.instance_stats.setdefault(
-                int(semantic_id),
+                semantic_id,
                 {
-                    "semantic_id": int(semantic_id),
+                    "semantic_id": semantic_id,
                     "category": category,
                     "count": 0,
                     "sum_x": 0.0,
@@ -382,6 +393,8 @@ class SemanticBEVAccumulator:
             stats["sum_z"] += float(point[2])
             stats["last_seen_step"] = int(step)
             stats["cells"].add(cell)
+        if seen_ids:
+            self.frame_seen.setdefault(int(step), set()).update(seen_ids)
 
     def semantic_state(self) -> np.ndarray:
         state = np.full(self.mapper.config.grid_size, -1, dtype=np.int16)
@@ -410,6 +423,10 @@ class SemanticBEVAccumulator:
                 error = float(np.linalg.norm(np.asarray(centroid) - np.asarray(gt_center)))
                 centroid_errors.append(error)
                 per_class_errors[stats["category"]].append(error)
+            visible_steps = self._visible_steps(semantic_id)
+            fragmentation_count = max(0, _count_segments(visible_steps) - 1)
+            age_steps = max(0, int(self.latest_step) - int(stats["last_seen_step"]))
+            freshness = float(np.exp(-age_steps / self.freshness_tau_steps))
             tracks.append(
                 {
                     "semantic_id": semantic_id,
@@ -421,6 +438,11 @@ class SemanticBEVAccumulator:
                     "centroid_error_m": error,
                     "footprint_cells": len(stats["cells"]),
                     "confidence": min(1.0, count / self.confidence_saturation),
+                    "freshness": freshness,
+                    "age_steps": age_steps,
+                    "visible_steps": visible_steps,
+                    "visibility_segments": _count_segments(visible_steps),
+                    "fragmentation_count": fragmentation_count,
                     "first_seen_step": int(stats["first_seen_step"]),
                     "last_seen_step": int(stats["last_seen_step"]),
                 }
@@ -443,8 +465,18 @@ class SemanticBEVAccumulator:
             "per_class_cells": per_class_cells,
             "mean_centroid_error_m": float(np.mean(centroid_errors)) if centroid_errors else None,
             "per_class_mean_centroid_error_m": per_class_mean_error,
+            "mean_fragmentation_count": float(np.mean([track["fragmentation_count"] for track in tracks])) if tracks else 0.0,
+            "id_switches_upper_bound": 0,
+            "mean_freshness": float(np.mean([track["freshness"] for track in tracks])) if tracks else 0.0,
             "tracks": tracks,
         }
+
+    def _visible_steps(self, semantic_id: int) -> list[int]:
+        return sorted(
+            step
+            for step, ids in self.frame_seen.items()
+            if semantic_id in ids
+        )
 
 
 def _match_category(raw_name: str, categories: list[str]) -> str | None:
@@ -453,6 +485,18 @@ def _match_category(raw_name: str, categories: list[str]) -> str | None:
         if category in name:
             return category
     return None
+
+
+def _count_segments(steps: list[int]) -> int:
+    if not steps:
+        return 0
+    segments = 1
+    prev = steps[0]
+    for step in steps[1:]:
+        if step != prev + 1:
+            segments += 1
+        prev = step
+    return segments
 
 
 def _object_center(obj):
