@@ -550,8 +550,10 @@ def _sample_navigable_path(sim, min_distance_m: float, max_samples: int, attempt
 
 
 def _resample_polyline(points: list[np.ndarray], max_samples: int) -> list[np.ndarray]:
-    if len(points) <= 2 or max_samples <= 2:
-        return points[:max_samples]
+    if not points:
+        return []
+    if len(points) == 1 or max_samples <= 1:
+        return points[:1]
 
     cumulative = [0.0]
     for prev, cur in zip(points[:-1], points[1:]):
