@@ -981,6 +981,122 @@ radius 2 is the current default.
 - precision 仍保持较高，apartment_1 为 0.9375，MP3D 为 0.8947。
 - 可视化未出现整图过度涂黑，墙/障碍边界更连续。
 
+### Phase 2.5 Persistent Object Memory Store
+
+新增 commit：
+
+```text
+0ec6177 Add persistent object memory store eval
+```
+
+新增文件：
+
+```text
+src/object_memory_store.py
+scripts/phase25_object_memory_store_eval.py
+```
+
+目标：
+
+```text
+把 Phase 2.4 的 semantic_tracks.json 从一次性验收输出升级为可持久化 object memory：
+save -> load -> retrieve -> decay -> replay/update
+```
+
+`ObjectMemoryItem` 字段：
+
+```text
+id
+semantic_id
+object_id
+category
+centroid_xz
+confidence
+freshness
+first_seen_step
+last_seen_step
+visible_steps
+footprint_cells
+fragmentation_count
+status
+source
+```
+
+运行输入：
+
+```text
+metrics: outputs/phase24_bev_eval/mp3d_dilation2_20260622-194954/metrics.json
+```
+
+远端验收输出：
+
+```text
+remote: ~/RSC_Nav/outputs/phase25_object_memory/mp3d_store_20260622-195605/
+local:  outputs/phase25_object_memory/mp3d_store_20260622-195605/
+tar:    outputs/phase25_object_memory/rscnav_phase25_mp3d_store_20260622-195605.tar.gz
+```
+
+保存文件：
+
+```text
+object_memory.json
+object_memory_decayed.json
+object_memory_replayed.json
+object_memory_eval.json
+object_memory_plot.png
+summary.html
+```
+
+关键结果：
+
+```text
+initial:
+  num_items: 18
+  per_class: wall 5, door 3, chair 9, table 1
+  mean_confidence: 0.8563
+  mean_freshness: 0.8181
+  active_items: 13
+  stale_items: 3
+  missing_items: 2
+
+reload_equal: true
+
+decay +30 steps:
+  mean_freshness: 0.1825
+  active_items: 0
+  stale_items: 14
+  missing_items: 4
+
+replay/update same tracks:
+  created: 0
+  updated: 18
+  mean_confidence: 0.8646
+  mean_freshness: 0.7782
+  active_items: 13
+  stale_items: 3
+  missing_items: 2
+```
+
+结论：
+
+```text
+Persistent object memory store smoke passed.
+```
+
+已证明：
+
+- wall / door / table / chair 的 object memory 可以从 Habitat semantic GT tracks 自动生成。
+- memory 可以持久化到 JSON 并完整 reload。
+- freshness 会随时间衰减，状态会从 active 转向 stale / missing。
+- 重放同一 semantic tracks 会 update 已有 memory，而不是创建重复对象。
+- retrieval 可按类别返回带 score / confidence / freshness / status / centroid 的对象列表。
+
+尚未完成：
+
+- 还没有把 object memory store 接回 live web control UI。
+- 还没有跨 episode 的真实 reload + navigation reuse 实验。
+- 还没有 detector-driven association，因此 ID switch / merge / split 仍处于 GT upper-bound 阶段。
+
 ### 下一步
 
 优先级：
