@@ -52,7 +52,7 @@ def main() -> None:
     parser.add_argument("--bev-resolution", type=float, default=0.05)
     parser.add_argument("--grid-size", type=int, default=240)
     parser.add_argument("--sample-stride", type=int, default=2)
-    parser.add_argument("--obstacle-dilation-cells", type=int, default=1)
+    parser.add_argument("--obstacle-dilation-cells", type=int, default=2)
     parser.add_argument("--move-amount", type=float, default=0.25)
     parser.add_argument("--turn-amount", type=float, default=15.0)
     parser.add_argument("--max-steps", type=int, default=len(DEFAULT_ACTIONS))

@@ -881,6 +881,106 @@ object freshness smoke passed in GT-instance upper-bound mode.
 - 还没有 detector-driven object association，因此真实 ID switch / merge / split 仍未验收。
 - door/table/chair 的覆盖依赖路径和视角，后续需要主动选择能覆盖目标类别的 semantic path。
 
+### Geometry Occupied / Wall Recall Iteration
+
+新增 commit：
+
+```text
+78fc5f8 Add BEV obstacle dilation metrics
+```
+
+问题：
+
+```text
+旧 mapper 只在 depth endpoint 的单个 BEV cell 加 occupied evidence。
+墙面和障碍在 BEV 中过细、断裂，导致 occupied / wall recall 偏低。
+```
+
+修改：
+
+```text
+DenseBEVConfig.obstacle_dilation_radius_cells
+--obstacle-dilation-cells
+free_f1_observed
+occupied_f1_observed
+```
+
+方法：
+
+```text
+只对判定为 obstacle 的 depth endpoint 做小半径 BEV dilation。
+free-space ray carving 逻辑保持不变。
+```
+
+apartment_1 dilation sweep：
+
+```text
+remote: ~/RSC_Nav/outputs/phase24_bev_eval/apartment_dilation_sweep_20260622-194705/
+local:  outputs/phase24_bev_eval/apartment_dilation_sweep_20260622-194705/
+tar:    outputs/phase24_bev_eval/rscnav_phase24_apartment_dilation_sweep_20260622-194705.tar.gz
+```
+
+结果：
+
+```text
+radius 0:
+  free_iou_observed:           0.8223
+  free_f1_observed:            0.9025
+  occupied_precision_observed: 0.9501
+  occupied_recall_observed:    0.1540
+  occupied_f1_observed:        0.2651
+  boundary_chamfer_m:          0.2989
+
+radius 1:
+  free_iou_observed:           0.8554
+  free_f1_observed:            0.9221
+  occupied_precision_observed: 0.9479
+  occupied_recall_observed:    0.3850
+  occupied_f1_observed:        0.5476
+  boundary_chamfer_m:          0.2894
+
+radius 2:
+  free_iou_observed:           0.8961
+  free_f1_observed:            0.9452
+  occupied_precision_observed: 0.9375
+  occupied_recall_observed:    0.6329
+  occupied_f1_observed:        0.7557
+  boundary_chamfer_m:          0.2730
+```
+
+MP3D semantic scene radius 2 复验：
+
+```text
+remote: ~/RSC_Nav/outputs/phase24_bev_eval/mp3d_dilation2_20260622-194954/
+local:  outputs/phase24_bev_eval/mp3d_dilation2_20260622-194954/
+tar:    outputs/phase24_bev_eval/rscnav_phase24_mp3d_dilation2_20260622-194954.tar.gz
+```
+
+结果：
+
+```text
+free_iou_observed:             0.6458
+free_recall_observed:          0.9329
+free_f1_observed:              0.7848
+occupied_precision_observed:   0.8947
+occupied_recall_observed:      0.5616
+occupied_f1_observed:          0.6900
+occupied_boundary_chamfer_m:   0.1285
+```
+
+结论：
+
+```text
+radius 2 is the current default.
+```
+
+理由：
+
+- apartment_1 上 occupied recall 从 0.1540 提升到 0.6329，occupied F1 从 0.2651 提升到 0.7557。
+- MP3D semantic scene 上 occupied recall 达到 0.5616，occupied F1 达到 0.6900。
+- precision 仍保持较高，apartment_1 为 0.9375，MP3D 为 0.8947。
+- 可视化未出现整图过度涂黑，墙/障碍边界更连续。
+
 ### 下一步
 
 优先级：

@@ -24,7 +24,7 @@ class DenseBEVConfig:
     occupied_logodds: float = 0.90
     min_logodds: float = -4.0
     max_logodds: float = 4.0
-    obstacle_dilation_radius_cells: int = 1
+    obstacle_dilation_radius_cells: int = 2
 
 
 class DenseBEVMapper:
