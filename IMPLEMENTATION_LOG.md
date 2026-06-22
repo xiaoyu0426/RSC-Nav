@@ -774,6 +774,113 @@ not yet pass as final object stability metric
 - 下一轮应使用 semantic instance id 的跨帧稳定性、footprint IoU、dominant id purity、ID switch / fragmentation 作为 object memory 评价。
 - MP3D 场景几何 free IoU 低于 apartment_1，说明几何占用层仍需做多高度 bin、边界/墙面连续性和更合理的 obstacle recall。
 
+### Object Freshness / Stability Smoke
+
+新增 commit：
+
+```text
+1a05ad7 Add semantic object freshness metrics
+3b2d11d Resample two-point Habitat paths
+```
+
+目的：
+
+```text
+把 semantic GT visible instance tracks 升级为 object-memory 雏形：
+semantic_id
+category
+centroid_xz
+confidence
+freshness
+age_steps
+visible_steps
+visibility_segments
+fragmentation_count
+first_seen_step / last_seen_step
+```
+
+修复：
+
+```text
+Habitat shortest path 有时只返回 start/end 两点。
+旧版 _resample_polyline 在两点路径上没有插值，导致 freshness 复验只跑 2 帧。
+已修复为两点路径也插值成 max_steps + 1 个 waypoints。
+```
+
+复验输出：
+
+```text
+remote: ~/RSC_Nav/outputs/phase24_bev_eval/mp3d_freshness_resampled_20260622-194233/
+local:  outputs/phase24_bev_eval/mp3d_freshness_resampled_20260622-194233/
+tar:    outputs/phase24_bev_eval/rscnav_phase24_mp3d_freshness_resampled_20260622-194233.tar.gz
+```
+
+几何指标：
+
+```text
+free_iou_observed:             0.5437
+free_recall_observed:          0.9965
+occupied_precision_observed:   0.9592
+occupied_recall_observed:      0.0909
+occupied_boundary_chamfer_m:   0.1416
+observed_cells:                13503
+```
+
+object memory smoke 指标：
+
+```text
+indexed_target_instances: 34
+observed_target_instances: 18
+semantic_cells: 4511
+wall_cells: 3167
+door_cells: 3
+table_cells: 130
+chair_cells: 1211
+mean_centroid_error_m: 1.5096
+mean_fragmentation_count: 0.5
+id_switches_upper_bound: 0
+mean_freshness: 0.8181
+```
+
+示例：
+
+```text
+semantic_id 95 wall:
+visible_steps: 0..38
+confidence: 1.0
+freshness: 1.0
+fragmentation_count: 0
+
+semantic_id 141 chair:
+visible_steps: 0..36
+confidence: 1.0
+freshness: 0.9048
+fragmentation_count: 0
+
+semantic_id 171 wall:
+visible_steps include gaps
+visibility_segments: 3
+fragmentation_count: 2
+```
+
+当前结论：
+
+```text
+object freshness smoke passed in GT-instance upper-bound mode.
+```
+
+已证明：
+
+- object memory 的最小字段可以从 Habitat semantic GT 自动生成。
+- confidence / freshness / visible_steps / fragmentation 可以保存并自动验收。
+- 在 GT semantic id 条件下，ID switch upper bound 为 0。
+
+尚未完成：
+
+- 还没有独立的长期 memory store 持久化/重载/reuse/update 实验。
+- 还没有 detector-driven object association，因此真实 ID switch / merge / split 仍未验收。
+- door/table/chair 的覆盖依赖路径和视角，后续需要主动选择能覆盖目标类别的 semantic path。
+
 ### 下一步
 
 优先级：
