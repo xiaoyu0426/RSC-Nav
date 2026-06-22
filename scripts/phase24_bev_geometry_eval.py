@@ -52,6 +52,7 @@ def main() -> None:
     parser.add_argument("--bev-resolution", type=float, default=0.05)
     parser.add_argument("--grid-size", type=int, default=240)
     parser.add_argument("--sample-stride", type=int, default=2)
+    parser.add_argument("--obstacle-dilation-cells", type=int, default=1)
     parser.add_argument("--move-amount", type=float, default=0.25)
     parser.add_argument("--turn-amount", type=float, default=15.0)
     parser.add_argument("--max-steps", type=int, default=len(DEFAULT_ACTIONS))
@@ -104,6 +105,7 @@ def main() -> None:
             resolution=args.bev_resolution,
             sample_stride=args.sample_stride,
             max_depth_m=6.0,
+            obstacle_dilation_radius_cells=args.obstacle_dilation_cells,
         )
         origin = (
             pose[0] - (config.grid_size[0] // 2) * config.resolution,
@@ -215,6 +217,7 @@ def main() -> None:
                 "bev_resolution": args.bev_resolution,
                 "grid_size": args.grid_size,
                 "sample_stride": args.sample_stride,
+                "obstacle_dilation_cells": args.obstacle_dilation_cells,
                 "move_amount": args.move_amount,
                 "turn_amount": args.turn_amount,
                 "trajectory_mode": args.trajectory_mode,

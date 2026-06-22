@@ -24,6 +24,7 @@ class DenseBEVConfig:
     occupied_logodds: float = 0.90
     min_logodds: float = -4.0
     max_logodds: float = 4.0
+    obstacle_dilation_radius_cells: int = 1
 
 
 class DenseBEVMapper:
@@ -105,14 +106,19 @@ class DenseBEVMapper:
                             self.occupancy_logodds[free_cell] + self.config.free_logodds,
                         )
 
+        obstacle_offsets = _disk_offsets(self.config.obstacle_dilation_radius_cells)
         for cell, is_obstacle in zip(endpoint_cells, obstacle_mask):
             if cell is None:
                 continue
             if is_obstacle:
-                self.occupancy_logodds[cell] = min(
-                    self.config.max_logodds,
-                    self.occupancy_logodds[cell] + self.config.occupied_logodds,
-                )
+                for occupied_cell in _offset_cells(cell, obstacle_offsets):
+                    if not self.in_bounds(occupied_cell):
+                        continue
+                    self.explored[occupied_cell] = True
+                    self.occupancy_logodds[occupied_cell] = min(
+                        self.config.max_logodds,
+                        self.occupancy_logodds[occupied_cell] + self.config.occupied_logodds,
+                    )
             else:
                 self.occupancy_logodds[cell] = max(
                     self.config.min_logodds,
@@ -255,11 +261,13 @@ def mapping_metrics(pred_free: np.ndarray, pred_occupied: np.ndarray, explored: 
     free_iou = _safe_div(float(free_intersection), float(free_union))
     free_precision = _safe_div(float(free_intersection), float(pred_free.sum()))
     free_recall_observed = _safe_div(float(free_intersection), float(observed_oracle.sum()))
+    free_f1_observed = _f1(free_precision, free_recall_observed)
 
     oracle_obstacle_observed = np.logical_and(observed, ~oracle_free)
     occupied_intersection = np.logical_and(pred_occupied, oracle_obstacle_observed).sum()
     occupied_precision = _safe_div(float(occupied_intersection), float(pred_occupied.sum()))
     occupied_recall_observed = _safe_div(float(occupied_intersection), float(oracle_obstacle_observed.sum()))
+    occupied_f1_observed = _f1(occupied_precision, occupied_recall_observed)
 
     boundary_chamfer = chamfer_distance_cells(
         boundary_cells(pred_occupied),
@@ -271,8 +279,10 @@ def mapping_metrics(pred_free: np.ndarray, pred_occupied: np.ndarray, explored: 
         "free_iou_observed": free_iou,
         "free_precision": free_precision,
         "free_recall_observed": free_recall_observed,
+        "free_f1_observed": free_f1_observed,
         "occupied_precision_observed": occupied_precision,
         "occupied_recall_observed": occupied_recall_observed,
+        "occupied_f1_observed": occupied_f1_observed,
         "occupied_boundary_chamfer_m": boundary_chamfer,
         "pred_free_cells": int(pred_free.sum()),
         "pred_occupied_cells": int(pred_occupied.sum()),
@@ -325,6 +335,26 @@ def _subsample_points(points: np.ndarray, max_points: int) -> np.ndarray:
 
 def _safe_div(numerator: float, denominator: float) -> float:
     return numerator / denominator if denominator > 0.0 else 0.0
+
+
+def _f1(precision: float, recall: float) -> float:
+    return _safe_div(2.0 * precision * recall, precision + recall)
+
+
+def _disk_offsets(radius: int) -> list[GridCoord]:
+    radius = max(0, int(radius))
+    offsets = []
+    for dx in range(-radius, radius + 1):
+        for dy in range(-radius, radius + 1):
+            if dx * dx + dy * dy <= radius * radius:
+                offsets.append((dx, dy))
+    return offsets
+
+
+def _offset_cells(cell: GridCoord, offsets: list[GridCoord]):
+    x, y = cell
+    for dx, dy in offsets:
+        yield (x + dx, y + dy)
 
 
 def _valid_depth(depth: np.ndarray) -> np.ndarray:
