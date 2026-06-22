@@ -1097,6 +1097,116 @@ Persistent object memory store smoke passed.
 - 还没有跨 episode 的真实 reload + navigation reuse 实验。
 - 还没有 detector-driven association，因此 ID switch / merge / split 仍处于 GT upper-bound 阶段。
 
+## Phase 2.6 Live Dense Semantic Memory Control
+
+时间：2026-06-22
+
+提交：
+
+```text
+8e0b318 Integrate dense semantic memory into live control
+d175aa8 Choose navigable path starts for live control
+```
+
+目标：
+
+```text
+把离线验收通过的 dense depth BEV、Habitat semantic GT accumulator、persistent object memory store
+接回真实 Habitat-Sim headless live control UI，使手控/网页闭环和自动验收使用同一套空间记忆核心。
+```
+
+实现内容：
+
+- `scripts/phase23_habitat_control_server.py` 从旧的 sparse ray BEV 切换为 `DenseBEVMapper`。
+- live `/api/state` 每步使用 depth + sensor pose 更新 allocentric BEV。
+- 传入 `--scene-dataset-config` 时启用 Habitat semantic sensor，生成 semantic BEV、tracks、confidence、freshness。
+- 接入 `ObjectMemoryStore`，网页显示对象数量、active 数、mean freshness、per-class memory。
+- 增加 `/api/save_memory` 与 `/api/load_memory`，保存/加载 `live_object_memory.json`。
+- reset 时从 navmesh 采样一条可走路径，把 agent 放在路径起点并朝向下一个 waypoint，减少随机贴墙出生。
+
+当前开发机 live UI：
+
+```text
+url:  http://39.101.65.229:43901/
+pid:  2119397
+env:  rscnav-habitat22
+scene: /workspace/yujiexiao/.rscnav/habitat_data/versioned_data/mp3d_example_scene_1.1/17DRP5sb8fy/17DRP5sb8fy.glb
+dataset: /workspace/yujiexiao/.rscnav/habitat_data/versioned_data/mp3d_example_scene_1.1/mp3d.scene_dataset_config.json
+```
+
+远端验收输出：
+
+```text
+remote: ~/RSC_Nav/outputs/phase26_live_control/mp3d_live_pathstart_20260622-201033/
+local:  outputs/phase26_live_control/mp3d_live_pathstart_20260622-201033/
+```
+
+保存文件：
+
+```text
+rgb.jpg
+depth.png
+bev.png
+semantic_bev.png
+state.json
+live_object_memory.json
+live_smoke_summary.json
+server.log
+server.pid
+```
+
+第二轮 live smoke 结果：
+
+```text
+step: 31
+
+BEV:
+  explored_cells: 7249
+  free_cells: 2828
+  occupied_cells: 4421
+  mean_confidence: 0.8933
+
+Semantic GT BEV:
+  indexed_target_instances: 34
+  observed_target_instances: 8
+  semantic_cells: 1507
+  per_class_cells:
+    wall: 863
+    door: 373
+    table: 180
+    chair: 91
+  mean_freshness: 0.7868
+  mean_fragmentation_count: 0.75
+  id_switches_upper_bound: 0
+
+Object memory:
+  num_items: 8
+  per_class:
+    wall: 3
+    door: 1
+    table: 2
+    chair: 2
+  mean_confidence: 0.8058
+  mean_freshness: 0.7868
+  active_items: 5
+  stale_items: 2
+  missing_items: 1
+```
+
+结论：
+
+```text
+真实 Habitat-Sim headless live rendering 闭环已接入 dense semantic object memory。
+网页手控时，BEV 会随本体移动持续累积几何/语义空间记忆，并能保存 object memory JSON。
+```
+
+仍需迭代：
+
+- 当前 semantic BEV 仍有边界碎片和稀疏噪声，需要用自动指标约束稳定性。
+- mean_centroid_error 仍偏高，不能作为最终 object localization 结论。
+- 当前语义仍是 Habitat semantic GT upper-bound；尚未接入 detector-driven association。
+- 需要增加 live 自动巡航/路径回放模式，用固定轨迹持续生成可比较的验收图。
+
 ### 下一步
 
 优先级：
