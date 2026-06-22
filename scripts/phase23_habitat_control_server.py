@@ -328,6 +328,8 @@ class HabitatControlSession:
         semantic_confidence_saturation: float = 80.0,
         freshness_tau_steps: float = 20.0,
         memory_path: Path | None = None,
+        start_path_min_distance: float = 3.0,
+        start_path_samples: int = 12,
     ) -> None:
         self.scene = scene
         self.resolution = resolution
@@ -342,6 +344,8 @@ class HabitatControlSession:
         self.semantic_confidence_saturation = semantic_confidence_saturation
         self.freshness_tau_steps = freshness_tau_steps
         self.memory_path = memory_path
+        self.start_path_min_distance = start_path_min_distance
+        self.start_path_samples = start_path_samples
         self.lock = threading.Lock()
         self.step_count = 0
 
@@ -458,12 +462,26 @@ class HabitatControlSession:
     def _reset_agent(self) -> None:
         agent = self.sim.get_agent(0)
         state = agent.get_state()
-        pathfinder = getattr(self.sim, "pathfinder", None)
-        if pathfinder is not None and getattr(pathfinder, "is_loaded", False):
-            point = np.asarray(pathfinder.get_random_navigable_point(), dtype=np.float32)
-            if point.shape == (3,) and np.isfinite(point).all():
-                state.position = point
-        agent.set_state(state)
+        path_positions = _sample_navigable_path(
+            self.sim,
+            min_distance_m=self.start_path_min_distance,
+            max_samples=self.start_path_samples,
+        )
+        if path_positions:
+            state.position = path_positions[0]
+            rotation = _rotation_toward(path_positions[0], _next_point(path_positions, 0))
+            if rotation is not None:
+                state.rotation = rotation
+        else:
+            pathfinder = getattr(self.sim, "pathfinder", None)
+            if pathfinder is not None and getattr(pathfinder, "is_loaded", False):
+                point = np.asarray(pathfinder.get_random_navigable_point(), dtype=np.float32)
+                if point.shape == (3,) and np.isfinite(point).all():
+                    state.position = point
+        try:
+            agent.set_state(state, infer_sensor_states=True)
+        except TypeError:
+            agent.set_state(state)
 
     def _move_back(self) -> None:
         agent = self.sim.get_agent(0)
@@ -555,6 +573,83 @@ class HabitatControlSession:
         }
 
 
+def _sample_navigable_path(sim, min_distance_m: float, max_samples: int, attempts: int = 80) -> list[np.ndarray]:
+    pathfinder = getattr(sim, "pathfinder", None)
+    if pathfinder is None or not getattr(pathfinder, "is_loaded", False):
+        return []
+
+    import habitat_sim
+
+    best_points = []
+    best_distance = -1.0
+    for _ in range(attempts):
+        path = habitat_sim.ShortestPath()
+        path.requested_start = np.asarray(pathfinder.get_random_navigable_point(), dtype=np.float32)
+        path.requested_end = np.asarray(pathfinder.get_random_navigable_point(), dtype=np.float32)
+        if not pathfinder.find_path(path):
+            continue
+        distance = float(path.geodesic_distance)
+        points = [np.asarray(point, dtype=np.float32) for point in path.points]
+        if distance > best_distance and len(points) >= 2:
+            best_distance = distance
+            best_points = points
+        if distance >= min_distance_m and len(points) >= 2:
+            return _resample_polyline(points, max_samples)
+    return _resample_polyline(best_points, max_samples) if best_points else []
+
+
+def _resample_polyline(points: list[np.ndarray], max_samples: int) -> list[np.ndarray]:
+    if not points:
+        return []
+    if len(points) == 1 or max_samples <= 1:
+        return points[:1]
+
+    cumulative = [0.0]
+    for prev, cur in zip(points[:-1], points[1:]):
+        cumulative.append(cumulative[-1] + float(np.linalg.norm(cur - prev)))
+    total = cumulative[-1]
+    if total <= 0.0:
+        return points[:1]
+
+    targets = np.linspace(0.0, total, max_samples)
+    out = []
+    segment = 0
+    for target in targets:
+        while segment + 1 < len(cumulative) and cumulative[segment + 1] < target:
+            segment += 1
+        if segment + 1 >= len(points):
+            out.append(points[-1].copy())
+            continue
+        span = cumulative[segment + 1] - cumulative[segment]
+        alpha = 0.0 if span <= 0.0 else (target - cumulative[segment]) / span
+        out.append((1.0 - alpha) * points[segment] + alpha * points[segment + 1])
+    return [np.asarray(point, dtype=np.float32) for point in out]
+
+
+def _next_point(points: list[np.ndarray], idx: int):
+    if not points:
+        return None
+    if idx + 1 < len(points):
+        return points[idx + 1]
+    if idx > 0:
+        return points[idx - 1]
+    return None
+
+
+def _rotation_toward(position: np.ndarray, look_at):
+    if look_at is None:
+        return None
+    direction = np.asarray(look_at - position, dtype=np.float32)
+    norm = float(np.linalg.norm(direction[[0, 2]]))
+    if norm <= 1e-6:
+        return None
+    direction = direction / max(float(np.linalg.norm(direction)), 1e-6)
+    yaw = float(np.arctan2(-direction[0], -direction[2]))
+    import quaternion
+
+    return quaternion.from_rotation_vector([0.0, yaw, 0.0])
+
+
 class Handler(BaseHTTPRequestHandler):
     session: HabitatControlSession
 
@@ -620,6 +715,8 @@ def main() -> None:
     parser.add_argument("--semantic-confidence-saturation", type=float, default=80.0)
     parser.add_argument("--freshness-tau-steps", type=float, default=20.0)
     parser.add_argument("--memory-path")
+    parser.add_argument("--start-path-min-distance", type=float, default=3.0)
+    parser.add_argument("--start-path-samples", type=int, default=12)
     args = parser.parse_args()
 
     ensure_conda_nvidia_egl_vendor()
@@ -646,6 +743,8 @@ def main() -> None:
         semantic_confidence_saturation=args.semantic_confidence_saturation,
         freshness_tau_steps=args.freshness_tau_steps,
         memory_path=memory_path,
+        start_path_min_distance=args.start_path_min_distance,
+        start_path_samples=args.start_path_samples,
     )
     Handler.session = session
     server = HTTPServer((args.host, args.port), Handler)
