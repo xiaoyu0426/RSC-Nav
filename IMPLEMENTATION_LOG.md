@@ -1570,6 +1570,92 @@ memory_step 保证 freshness/update 时间轴跨 reset 不倒退。
 - replay 后新出现对象被接纳为 new memory；后续 detector-driven 版本需要更严格的 association/merge/split 判据。
 - `freshness` 已有跨 reset 时间轴，但长期真实时间/多 episode 时间尺度还需要实验标定。
 
+## Phase 3.0 Live Oracle Visual Evidence
+
+时间：2026-06-22
+
+提交：
+
+```text
+dfb25b7 Save oracle visual layers in live eval
+```
+
+目标：
+
+```text
+把 oracle geometry gate 从纯数值验收补强为可审计图像验收：
+保存 live BEV、oracle map、BEV-vs-oracle diff、semantic BEV 四类 checkpoint 图。
+```
+
+实现内容：
+
+- `phase23_habitat_control_server.py` 在 oracle metrics enabled 时返回：
+  - `oracle_png`
+  - `oracle_diff_png`
+- `phase27_live_control_eval.py` 自动保存 oracle/oracle_diff checkpoint 图。
+- `summary.html` 增加 BEV / Oracle / Oracle Diff / Semantic BEV 四列。
+
+远端验收输出：
+
+```text
+remote: ~/RSC_Nav/outputs/phase30_live_oracle_visuals/mp3d_oracle_visuals_20260622-204418/
+local:  outputs/phase30_live_oracle_visuals/mp3d_oracle_visuals_20260622-204418/
+url:    http://39.101.65.229:43901/
+```
+
+保存文件：
+
+```text
+eval/step_0000_oracle.png
+eval/step_0000_oracle_diff.png
+eval/step_0012_oracle.png
+eval/step_0012_oracle_diff.png
+eval/step_0024_oracle.png
+eval/step_0024_oracle_diff.png
+eval/step_0036_oracle.png
+eval/step_0036_oracle_diff.png
+eval/step_0036_final_bev.png
+eval/step_0036_final_oracle.png
+eval/step_0036_final_oracle_diff.png
+eval/step_0036_final_semantic_bev.png
+eval/metrics.json
+eval/summary.html
+```
+
+最终自动验收：
+
+```text
+passed: true
+
+oracle geometry:
+  free_iou_observed: 0.7043
+  free_f1_observed: 0.8265
+  occupied_f1_observed: 0.7705
+  occupied_boundary_chamfer_m: 0.1033
+
+semantic/object:
+  wall: 8
+  door: 3
+  table: 2
+  chair: 6
+  num_items: 19
+  mean_confidence: 0.7565
+  mean_freshness: 0.8488
+
+object stability:
+  tracked_items: 19
+  mean_step_drift_m: 0.0477
+  max_tail_drift_m: 0.7262
+```
+
+结论：
+
+```text
+当前 live 自动验收已经同时保存数值证据与图像证据。
+Oracle Diff 图可以直接定位 free/occupied 与 navmesh oracle 的一致/错误区域，
+比单独的 BEV 或纯 JSON 指标更适合作为后续迭代和论文实验记录。
+```
+
 ### 下一步
 
 优先级：
