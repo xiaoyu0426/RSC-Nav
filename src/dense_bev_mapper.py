@@ -291,6 +291,10 @@ def _subsample_points(points: np.ndarray, max_points: int) -> np.ndarray:
     return points[idx]
 
 
+def _safe_div(numerator: float, denominator: float) -> float:
+    return numerator / denominator if denominator > 0.0 else 0.0
+
+
 def _valid_depth(depth: np.ndarray) -> np.ndarray:
     depth = np.asarray(depth, dtype=np.float32)
     if depth.ndim == 3 and depth.shape[-1] == 1:
