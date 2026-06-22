@@ -23,8 +23,9 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from bev_memory import BEVMemory
-from observation_adapter import HabitatObservationAdapter
+from dense_bev_mapper import DenseBEVConfig, DenseBEVMapper
+from object_memory_store import ObjectMemoryStore
+from semantic_bev_memory import SEMANTIC_COLORS, SemanticBEVAccumulator, semantic_array
 
 
 HTML = r"""<!doctype html>
@@ -174,6 +175,10 @@ HTML = r"""<!doctype html>
         <h2>Depth</h2>
         <img id="depth" class="media" alt="Depth view" />
       </section>
+      <section id="semantic-panel" style="display:none">
+        <h2>Semantic BEV</h2>
+        <img id="semantic" class="media" alt="Semantic BEV map" />
+      </section>
       <section>
         <h2>State</h2>
         <div class="metrics">
@@ -183,6 +188,8 @@ HTML = r"""<!doctype html>
           <div class="metric"><span>Explored</span><strong id="explored">-</strong></div>
           <div class="metric"><span>Occupied</span><strong id="occupied">-</strong></div>
           <div class="metric"><span>Step</span><strong id="step">-</strong></div>
+          <div class="metric"><span>Objects</span><strong id="objects">-</strong></div>
+          <div class="metric"><span>Freshness</span><strong id="freshness">-</strong></div>
         </div>
         <div class="controls">
           <button onclick="sendAction('turn_left')">A</button>
@@ -192,8 +199,11 @@ HTML = r"""<!doctype html>
           <button onclick="sendAction('move_back')">S</button>
           <button onclick="sendAction('look_down')">Look Down</button>
           <button class="wide" onclick="resetSim()">Reset</button>
+          <button onclick="saveMemory()">Save</button>
+          <button onclick="loadMemory()">Load</button>
+          <button onclick="getState()">Refresh</button>
         </div>
-        <div class="hint">Keyboard: W forward, A/D turn, S back, Q/E look, R reset.</div>
+        <div class="hint" id="memory">Keyboard: W forward, A/D turn, S back, Q/E look, R reset.</div>
       </section>
     </aside>
   </main>
@@ -210,12 +220,24 @@ HTML = r"""<!doctype html>
       document.getElementById("rgb").src = "data:image/jpeg;base64," + data.rgb_jpeg;
       document.getElementById("depth").src = "data:image/png;base64," + data.depth_png;
       document.getElementById("bev").src = "data:image/png;base64," + data.bev_png;
+      const semanticPanel = document.getElementById("semantic-panel");
+      if (data.semantic_png) {
+        document.getElementById("semantic").src = "data:image/png;base64," + data.semantic_png;
+        semanticPanel.style.display = "";
+      } else {
+        semanticPanel.style.display = "none";
+      }
       document.getElementById("pose").textContent = `${data.pose.x.toFixed(2)}, ${data.pose.y.toFixed(2)}`;
       document.getElementById("heading").textContent = `${data.pose.heading_deg.toFixed(1)} deg`;
       document.getElementById("rays").textContent = data.ray_count;
       document.getElementById("explored").textContent = data.bev.num_explored_cells;
       document.getElementById("occupied").textContent = data.bev.num_occupied_cells;
       document.getElementById("step").textContent = data.step;
+      const memory = data.memory || {};
+      document.getElementById("objects").textContent = `${memory.num_items || 0} (${memory.active_items || 0} active)`;
+      document.getElementById("freshness").textContent = (memory.mean_freshness || 0).toFixed(3);
+      const classes = memory.per_class ? Object.entries(memory.per_class).map(([k, v]) => `${k}:${v}`).join(", ") : "-";
+      document.getElementById("memory").textContent = `Memory: ${classes}. Keyboard: W forward, A/D turn, S back, Q/E look, R reset.`;
       setStatus(`ready: ${data.scene_name}`);
     }
 
@@ -259,6 +281,18 @@ HTML = r"""<!doctype html>
       }
     }
 
+    async function saveMemory() {
+      const res = await fetch("/api/save_memory", {method: "POST"});
+      if (!res.ok) throw new Error(await res.text());
+      applyState(await res.json());
+    }
+
+    async function loadMemory() {
+      const res = await fetch("/api/load_memory", {method: "POST"});
+      if (!res.ok) throw new Error(await res.text());
+      applyState(await res.json());
+    }
+
     document.addEventListener("keydown", (event) => {
       if (event.repeat || busy) return;
       const key = event.key.toLowerCase();
@@ -279,17 +313,41 @@ HTML = r"""<!doctype html>
 
 
 class HabitatControlSession:
-    def __init__(self, scene: Path, resolution: int, move_amount: float, turn_amount: float) -> None:
+    def __init__(
+        self,
+        scene: Path,
+        resolution: int,
+        move_amount: float,
+        turn_amount: float,
+        scene_dataset_config: Path | None = None,
+        bev_resolution: float = 0.05,
+        grid_size: int = 240,
+        sample_stride: int = 2,
+        obstacle_dilation_cells: int = 2,
+        semantic_categories: list[str] | None = None,
+        semantic_confidence_saturation: float = 80.0,
+        freshness_tau_steps: float = 20.0,
+        memory_path: Path | None = None,
+    ) -> None:
         self.scene = scene
         self.resolution = resolution
         self.move_amount = move_amount
         self.turn_amount = turn_amount
+        self.scene_dataset_config = scene_dataset_config
+        self.bev_resolution = bev_resolution
+        self.grid_size = grid_size
+        self.sample_stride = sample_stride
+        self.obstacle_dilation_cells = obstacle_dilation_cells
+        self.semantic_categories = semantic_categories or ["wall", "door", "table", "chair"]
+        self.semantic_confidence_saturation = semantic_confidence_saturation
+        self.freshness_tau_steps = freshness_tau_steps
+        self.memory_path = memory_path
         self.lock = threading.Lock()
         self.step_count = 0
 
         self._setup_sim()
-        self._reset_memory()
         self._reset_agent()
+        self._reset_memory()
 
     def close(self) -> None:
         self.sim.close()
@@ -297,8 +355,8 @@ class HabitatControlSession:
     def reset(self) -> dict[str, Any]:
         with self.lock:
             self.step_count = 0
-            self._reset_memory()
             self._reset_agent()
+            self._reset_memory()
             return self._state_payload()
 
     def state(self) -> dict[str, Any]:
@@ -334,6 +392,8 @@ class HabitatControlSession:
         sim_cfg = habitat_sim.SimulatorConfiguration()
         sim_cfg.scene_id = str(self.scene)
         sim_cfg.enable_physics = False
+        if self.scene_dataset_config is not None:
+            sim_cfg.scene_dataset_config_file = str(self.scene_dataset_config)
 
         agent_cfg = habitat_sim.agent.AgentConfiguration()
         agent_cfg.sensor_specifications = sensor_specs
@@ -356,13 +416,6 @@ class HabitatControlSession:
         }
 
         self.sim = habitat_sim.Simulator(habitat_sim.Configuration(sim_cfg, [agent_cfg]))
-        self.adapter = HabitatObservationAdapter(
-            scene_id=str(self.scene),
-            episode_id="phase23_remote_control",
-            hfov_deg=90.0,
-            max_rays=17,
-            max_depth=10.0,
-        )
 
     def _camera_spec(self, habitat_sim, SensorSubType, sensor_type, uuid: str):
         spec = habitat_sim.CameraSensorSpec()
@@ -374,13 +427,32 @@ class HabitatControlSession:
         return spec
 
     def _reset_memory(self) -> None:
-        self.bev_grid_size = (160, 160)
-        self.bev_resolution = 0.1
-        self.bev_origin = (0.0, 0.0)
-        self.bev = BEVMemory(
-            grid_size=self.bev_grid_size,
+        agent_state = self.sim.get_agent(0).get_state()
+        pose = self._pose_from_state(agent_state)
+        config = DenseBEVConfig(
+            grid_size=(self.grid_size, self.grid_size),
             resolution=self.bev_resolution,
-            origin_world_xy=self.bev_origin,
+            sample_stride=self.sample_stride,
+            max_depth_m=6.0,
+            obstacle_dilation_radius_cells=self.obstacle_dilation_cells,
+        )
+        origin = (
+            pose["x"] - (config.grid_size[0] // 2) * config.resolution,
+            pose["y"] - (config.grid_size[1] // 2) * config.resolution,
+        )
+        self.bev = DenseBEVMapper(origin_world_xz=origin, config=config)
+        self.semantic_bev = None
+        if self.scene_dataset_config is not None:
+            self.semantic_bev = SemanticBEVAccumulator(
+                mapper=self.bev,
+                semantic_scene=self.sim.semantic_scene,
+                categories=self.semantic_categories,
+                confidence_saturation=self.semantic_confidence_saturation,
+                freshness_tau_steps=self.freshness_tau_steps,
+            )
+        self.memory_store = ObjectMemoryStore(
+            scene_id=str(self.scene),
+            freshness_tau_steps=self.freshness_tau_steps,
         )
 
     def _reset_agent(self) -> None:
@@ -392,16 +464,6 @@ class HabitatControlSession:
             if point.shape == (3,) and np.isfinite(point).all():
                 state.position = point
         agent.set_state(state)
-        pose = self._pose_from_state(agent.get_state())
-        self.bev_origin = (
-            pose["x"] - (self.bev_grid_size[0] // 2) * self.bev_resolution,
-            pose["y"] - (self.bev_grid_size[1] // 2) * self.bev_resolution,
-        )
-        self.bev = BEVMemory(
-            grid_size=self.bev_grid_size,
-            resolution=self.bev_resolution,
-            origin_world_xy=self.bev_origin,
-        )
 
     def _move_back(self) -> None:
         agent = self.sim.get_agent(0)
@@ -419,32 +481,70 @@ class HabitatControlSession:
         depth = _valid_depth(observations.get("depth"))
         semantic = observations.get("semantic") if "semantic" in observations else None
         agent_state = self.sim.get_agent(0).get_state()
+        sensor_state = agent_state.sensor_states.get("depth") or next(iter(agent_state.sensor_states.values()))
         pose = self._pose_from_state(agent_state)
 
-        raw = {
-            "frame_id": f"phase23_remote_control_{self.step_count:05d}",
-            "time": self.step_count,
-            "scene_id": str(self.scene),
-            "episode_id": "phase23_remote_control",
-            "pose": pose,
-            "rgb": rgb,
-            "depth": depth,
-            "semantic": semantic,
-        }
-        frame = self.adapter.to_frame(raw)
-        self.bev.update_from_frame(frame)
+        snapshot = self.bev.update_from_depth(
+            depth=depth,
+            agent_position_xyz=agent_state.position,
+            sensor_position_xyz=sensor_state.position,
+            sensor_rotation=sensor_state.rotation,
+            hfov_deg=90.0,
+        )
+        semantic_report = None
+        if self.semantic_bev is not None and semantic is not None:
+            self.semantic_bev.update_from_observation(
+                depth=depth,
+                semantic=semantic_array(semantic),
+                sensor_position_xyz=np.asarray(sensor_state.position, dtype=np.float32),
+                sensor_rotation=sensor_state.rotation,
+                floor_y=float(np.asarray(agent_state.position, dtype=np.float32)[1]),
+                hfov_deg=90.0,
+                step=self.step_count,
+            )
+            semantic_report = self.semantic_bev.report()
+            self.memory_store.update_from_tracks(
+                semantic_report.get("tracks", []),
+                current_step=self.step_count,
+            )
+        else:
+            self.memory_store.decay(current_step=self.step_count)
 
         return {
             "step": self.step_count,
             "scene": str(self.scene),
             "scene_name": self.scene.name,
             "pose": pose,
-            "ray_count": len(frame.rays),
-            "bev": self.bev.snapshot(),
+            "ray_count": _sample_count(depth, self.bev.config.sample_stride),
+            "bev": snapshot,
+            "semantic": _semantic_payload(semantic_report),
+            "memory": self.memory_store.summary(),
             "rgb_jpeg": _image_to_base64(_rgb_image(rgb), "JPEG", quality=86),
             "depth_png": _image_to_base64(_depth_image(depth), "PNG"),
             "bev_png": _image_to_base64(_bev_image(self.bev), "PNG"),
+            "semantic_png": (
+                _image_to_base64(_semantic_bev_image(self.semantic_bev, self.bev.trajectory), "PNG")
+                if self.semantic_bev is not None
+                else None
+            ),
         }
+
+    def save_memory(self) -> dict[str, Any]:
+        with self.lock:
+            if self.memory_path is None:
+                raise RuntimeError("No --memory-path was provided")
+            self.memory_path.parent.mkdir(parents=True, exist_ok=True)
+            self.memory_store.save(self.memory_path)
+            return self._state_payload()
+
+    def load_memory(self) -> dict[str, Any]:
+        with self.lock:
+            if self.memory_path is None:
+                raise RuntimeError("No --memory-path was provided")
+            if not self.memory_path.exists():
+                raise FileNotFoundError(self.memory_path)
+            self.memory_store = ObjectMemoryStore.load(self.memory_path)
+            return self._state_payload()
 
     def _pose_from_state(self, state) -> dict[str, float]:
         position = np.asarray(getattr(state, "position", [0.0, 0.0, 0.0]), dtype=np.float32)
@@ -471,6 +571,12 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if self.path == "/api/reset":
                 self._send_json(self.session.reset())
+                return
+            if self.path == "/api/save_memory":
+                self._send_json(self.session.save_memory())
+                return
+            if self.path == "/api/load_memory":
+                self._send_json(self.session.load_memory())
                 return
             if self.path == "/api/action":
                 length = int(self.headers.get("Content-Length", "0"))
@@ -505,18 +611,41 @@ def main() -> None:
     parser.add_argument("--resolution", type=int, default=160)
     parser.add_argument("--move-amount", type=float, default=0.25)
     parser.add_argument("--turn-amount", type=float, default=15.0)
+    parser.add_argument("--scene-dataset-config")
+    parser.add_argument("--bev-resolution", type=float, default=0.05)
+    parser.add_argument("--grid-size", type=int, default=240)
+    parser.add_argument("--sample-stride", type=int, default=2)
+    parser.add_argument("--obstacle-dilation-cells", type=int, default=2)
+    parser.add_argument("--semantic-categories", default="wall,door,table,chair")
+    parser.add_argument("--semantic-confidence-saturation", type=float, default=80.0)
+    parser.add_argument("--freshness-tau-steps", type=float, default=20.0)
+    parser.add_argument("--memory-path")
     args = parser.parse_args()
 
     ensure_conda_nvidia_egl_vendor()
     scene = Path(args.scene).expanduser().resolve()
     if not scene.exists():
         raise FileNotFoundError(scene)
+    scene_dataset_config = Path(args.scene_dataset_config).expanduser().resolve() if args.scene_dataset_config else None
+    if scene_dataset_config is not None and not scene_dataset_config.exists():
+        raise FileNotFoundError(scene_dataset_config)
+    semantic_categories = [item.strip().lower() for item in args.semantic_categories.split(",") if item.strip()]
+    memory_path = Path(args.memory_path).expanduser().resolve() if args.memory_path else None
 
     session = HabitatControlSession(
         scene=scene,
         resolution=args.resolution,
         move_amount=args.move_amount,
         turn_amount=args.turn_amount,
+        scene_dataset_config=scene_dataset_config,
+        bev_resolution=args.bev_resolution,
+        grid_size=args.grid_size,
+        sample_stride=args.sample_stride,
+        obstacle_dilation_cells=args.obstacle_dilation_cells,
+        semantic_categories=semantic_categories,
+        semantic_confidence_saturation=args.semantic_confidence_saturation,
+        freshness_tau_steps=args.freshness_tau_steps,
+        memory_path=memory_path,
     )
     Handler.session = session
     server = HTTPServer((args.host, args.port), Handler)
@@ -581,13 +710,13 @@ def _depth_image(depth: np.ndarray) -> Image.Image:
     return Image.fromarray(np.uint8(np.clip(norm, 0, 1) * 255))
 
 
-def _bev_image(bev: BEVMemory) -> Image.Image:
+def _bev_image(bev: DenseBEVMapper) -> Image.Image:
     fig, ax = plt.subplots(figsize=(6, 6))
     state = bev.occupancy_state().T
     cmap = mcolors.ListedColormap(["#d9d9d9", "#ffffff", "#333333"])
     ax.imshow(state, origin="lower", cmap=cmap, vmin=0, vmax=2, alpha=0.86)
-    ax.set_xlim(-0.5, bev.grid_size[0] - 0.5)
-    ax.set_ylim(-0.5, bev.grid_size[1] - 0.5)
+    ax.set_xlim(-0.5, bev.config.grid_size[0] - 0.5)
+    ax.set_ylim(-0.5, bev.config.grid_size[1] - 0.5)
     ax.set_xticks([])
     ax.set_yticks([])
     if bev.trajectory:
@@ -600,6 +729,50 @@ def _bev_image(bev: BEVMemory) -> Image.Image:
     plt.close(fig)
     buffer.seek(0)
     return Image.open(buffer).copy()
+
+
+def _semantic_bev_image(semantic_bev: SemanticBEVAccumulator, trajectory) -> Image.Image:
+    fig, ax = plt.subplots(figsize=(6, 6))
+    state = semantic_bev.semantic_state()
+    colors = ["#d9d9d9"] + [
+        SEMANTIC_COLORS.get(category, "#9467bd")
+        for category in semantic_bev.categories
+    ]
+    ax.imshow((state + 1).T, origin="lower", cmap=mcolors.ListedColormap(colors), vmin=0, vmax=len(colors) - 1)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    if trajectory:
+        xs, ys = zip(*trajectory)
+        ax.plot(xs, ys, color="#1f77b4", linewidth=1.8)
+        ax.plot(xs[-1], ys[-1], color="#1f77b4", marker="*", markersize=12)
+    fig.tight_layout(pad=0)
+    buffer = BytesIO()
+    fig.savefig(buffer, format="png", dpi=120)
+    plt.close(fig)
+    buffer.seek(0)
+    return Image.open(buffer).copy()
+
+
+def _semantic_payload(report: dict | None) -> dict:
+    if report is None:
+        return {
+            "enabled": False,
+            "observed_target_instances": 0,
+            "semantic_cells": 0,
+            "mean_freshness": 0.0,
+            "per_class_cells": {},
+        }
+    return {
+        key: value
+        for key, value in report.items()
+        if key != "tracks"
+    }
+
+
+def _sample_count(depth: np.ndarray, stride: int) -> int:
+    stride = max(1, int(stride))
+    sampled = depth[::stride, ::stride]
+    return int((np.isfinite(sampled) & (sampled > 0)).sum())
 
 
 def _image_to_base64(image: Image.Image, fmt: str, **save_kwargs) -> str:
