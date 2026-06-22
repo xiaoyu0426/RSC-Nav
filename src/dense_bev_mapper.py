@@ -194,10 +194,8 @@ def depth_to_world_points(
     z_cam = -z
     camera_points = np.stack([x_cam[valid], y_cam[valid], z_cam[valid]], axis=1)
 
-    world_points = np.empty_like(camera_points, dtype=np.float32)
-    for idx, point in enumerate(camera_points):
-        world_points[idx] = sensor_position_xyz + np.asarray(sensor_rotation.transform_vector(point), dtype=np.float32)
-    return world_points
+    rotated_points = _rotate_vectors(sensor_rotation, camera_points)
+    return (sensor_position_xyz.reshape(1, 3) + rotated_points).astype(np.float32)
 
 
 def oracle_navmesh_mask(pathfinder, origin_world_xz: WorldXZ, grid_size: Tuple[int, int], resolution: float, height: float) -> np.ndarray:
@@ -300,6 +298,19 @@ def _valid_depth(depth: np.ndarray) -> np.ndarray:
     if depth.ndim != 2:
         raise ValueError(f"Expected depth shape (H, W), got {depth.shape}")
     return depth
+
+
+def _rotate_vectors(rotation, points: np.ndarray) -> np.ndarray:
+    if hasattr(rotation, "transform_vector"):
+        return np.asarray([rotation.transform_vector(point) for point in points], dtype=np.float32)
+
+    try:
+        import quaternion as np_quaternion
+
+        matrix = np.asarray(np_quaternion.as_rotation_matrix(rotation), dtype=np.float32)
+        return (points @ matrix.T).astype(np.float32)
+    except Exception as exc:
+        raise TypeError(f"Unsupported sensor rotation type: {type(rotation)!r}") from exc
 
 
 def _bresenham(start: GridCoord, end: GridCoord):
