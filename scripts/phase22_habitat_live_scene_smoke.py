@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -28,6 +29,12 @@ def main() -> None:
     parser.add_argument("--resolution", type=int, default=128)
     parser.add_argument("--max-rays", type=int, default=13)
     parser.add_argument("--hfov-deg", type=float, default=90.0)
+    parser.add_argument(
+        "--gpu-device-id",
+        type=int,
+        default=_env_int("RSCNAV_HABITAT_GPU_DEVICE_ID"),
+        help="Habitat-Sim SimulatorConfiguration.gpu_device_id.",
+    )
     args = parser.parse_args()
 
     out_dir = Path(args.out_dir)
@@ -45,14 +52,17 @@ def main() -> None:
         SensorType=SensorType,
         scene_path=str(scene_path),
         resolution=args.resolution,
+        gpu_device_id=args.gpu_device_id,
     )
     try:
+        agent_state = _place_agent_on_navigable_point(sim)
         observations = sim.get_sensor_observations()
     finally:
         sim.close()
 
     rgb = _rgb_array(observations.get("rgb"))
     depth = _valid_depth(observations.get("depth"))
+    render_quality = _validate_live_render(rgb, depth)
     semantic = observations.get("semantic") if "semantic" in sensor_uuids else None
 
     raw_observation = {
@@ -60,7 +70,7 @@ def main() -> None:
         "time": 1,
         "scene_id": str(scene_path),
         "episode_id": "phase22_live_scene_smoke",
-        "pose": {"x": 12.0, "y": 12.0, "heading_deg": 0.0},
+        "pose": _agent_state_to_bev_pose(agent_state),
         "rgb": rgb,
         "depth": depth,
         "semantic": semantic,
@@ -91,7 +101,10 @@ def main() -> None:
         "phase": "phase22_habitat_live_scene_smoke",
         "goal": "render one live Habitat-Sim scene frame, convert to ObservationFrame, update BEV",
         "scene": str(scene_path),
+        "gpu_device_id": args.gpu_device_id,
         "sensor_uuids": sensor_uuids,
+        "agent_state": _agent_state_log(agent_state),
+        "render_quality": render_quality,
         "observation_shapes": {
             key: list(value.shape) for key, value in observations.items() if hasattr(value, "shape")
         },
@@ -117,7 +130,14 @@ def main() -> None:
     print("Explored cells:", int(bev.explored.sum()))
 
 
-def _make_simulator(habitat_sim, SensorSubType, SensorType, scene_path: str, resolution: int):
+def _make_simulator(
+    habitat_sim,
+    SensorSubType,
+    SensorType,
+    scene_path: str,
+    resolution: int,
+    gpu_device_id: int | None,
+):
     sensor_specs = [
         _camera_spec(habitat_sim, SensorSubType, SensorType.COLOR, "rgb", resolution),
         _camera_spec(habitat_sim, SensorSubType, SensorType.DEPTH, "depth", resolution),
@@ -126,10 +146,10 @@ def _make_simulator(habitat_sim, SensorSubType, SensorType, scene_path: str, res
         sensor_specs.append(
             _camera_spec(habitat_sim, SensorSubType, SensorType.SEMANTIC, "semantic", resolution)
         )
-        return _build_simulator(habitat_sim, scene_path, sensor_specs), [spec.uuid for spec in sensor_specs]
+        return _build_simulator(habitat_sim, scene_path, sensor_specs, gpu_device_id), [spec.uuid for spec in sensor_specs]
     except Exception:
         sensor_specs = sensor_specs[:2]
-        return _build_simulator(habitat_sim, scene_path, sensor_specs), [spec.uuid for spec in sensor_specs]
+        return _build_simulator(habitat_sim, scene_path, sensor_specs, gpu_device_id), [spec.uuid for spec in sensor_specs]
 
 
 def _camera_spec(habitat_sim, SensorSubType, sensor_type, uuid: str, resolution: int):
@@ -142,13 +162,66 @@ def _camera_spec(habitat_sim, SensorSubType, sensor_type, uuid: str, resolution:
     return spec
 
 
-def _build_simulator(habitat_sim, scene_path: str, sensor_specs):
+def _build_simulator(habitat_sim, scene_path: str, sensor_specs, gpu_device_id: int | None):
     sim_cfg = habitat_sim.SimulatorConfiguration()
     sim_cfg.scene_id = scene_path
     sim_cfg.enable_physics = False
+    if gpu_device_id is not None:
+        sim_cfg.gpu_device_id = gpu_device_id
     agent_cfg = habitat_sim.agent.AgentConfiguration()
     agent_cfg.sensor_specifications = sensor_specs
     return habitat_sim.Simulator(habitat_sim.Configuration(sim_cfg, [agent_cfg]))
+
+
+def _place_agent_on_navigable_point(sim):
+    agent = sim.get_agent(0)
+    state = agent.get_state()
+    pathfinder = getattr(sim, "pathfinder", None)
+    if pathfinder is None or not getattr(pathfinder, "is_loaded", False):
+        return state
+
+    point = np.asarray(pathfinder.get_random_navigable_point(), dtype=np.float32)
+    if point.shape == (3,) and np.isfinite(point).all():
+        state.position = point
+        agent.set_state(state)
+        state = agent.get_state()
+    return state
+
+
+def _agent_state_to_bev_pose(agent_state) -> dict:
+    position = np.asarray(getattr(agent_state, "position", [12.0, 0.0, 12.0]), dtype=np.float32)
+    return {
+        "x": float(position[0]),
+        "y": float(position[2] if position.size > 2 else position[-1]),
+        "heading_deg": _heading_deg_from_rotation(getattr(agent_state, "rotation", None)),
+    }
+
+
+def _agent_state_log(agent_state) -> dict:
+    position = np.asarray(getattr(agent_state, "position", []), dtype=np.float32)
+    return {
+        "position": [float(v) for v in position.tolist()],
+        "heading_deg": _heading_deg_from_rotation(getattr(agent_state, "rotation", None)),
+    }
+
+
+def _heading_deg_from_rotation(rotation) -> float:
+    if rotation is None:
+        return 0.0
+    try:
+        vector = np.asarray(rotation.transform_vector([0.0, 0.0, -1.0]), dtype=np.float32)
+    except Exception:
+        return 0.0
+    if vector.size < 3 or not np.isfinite(vector).all():
+        return 0.0
+    return float(np.degrees(np.arctan2(vector[0], -vector[2])))
+
+
+def _env_int(name: str) -> int | None:
+    raw = os.environ.get(name)
+    if raw in (None, ""):
+        return None
+    return int(raw)
 
 
 def _rgb_array(raw_rgb) -> np.ndarray:
@@ -167,9 +240,28 @@ def _valid_depth(raw_depth) -> np.ndarray:
     if depth.ndim == 3 and depth.shape[-1] == 1:
         depth = depth[:, :, 0]
     valid = np.isfinite(depth) & (depth > 0)
-    if valid.any():
-        return depth
-    return np.full(depth.shape, 10.0, dtype=np.float32)
+    if not valid.any():
+        raise RuntimeError("Habitat-Sim returned no positive finite depth values")
+    return depth
+
+
+def _validate_live_render(rgb: np.ndarray, depth: np.ndarray) -> dict:
+    valid_depth = np.isfinite(depth) & (depth > 0)
+    if not valid_depth.any():
+        raise RuntimeError("Live Habitat render has no valid depth pixels")
+
+    rgb_std = float(np.std(rgb.astype(np.float32)))
+    valid_depth_values = depth[valid_depth]
+    depth_span = float(np.nanmax(valid_depth_values) - np.nanmin(valid_depth_values))
+    valid_depth_fraction = float(valid_depth.mean())
+    if rgb_std <= 0.1 and depth_span <= 1e-4:
+        raise RuntimeError("Live Habitat render appears blank: RGB and depth are both near-constant")
+
+    return {
+        "rgb_std": rgb_std,
+        "depth_span": depth_span,
+        "valid_depth_fraction": valid_depth_fraction,
+    }
 
 
 def _save_rgb(rgb: np.ndarray, path: Path) -> None:

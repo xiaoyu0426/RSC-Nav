@@ -36,6 +36,124 @@ run_capture() {
   return 0
 }
 
+cuda_device_candidates() {
+  if [ -n "${RSCNAV_CUDA_DEVICE_TRIES:-}" ]; then
+    printf '%s\n' "${RSCNAV_CUDA_DEVICE_TRIES}" | tr ',' ' '
+    return 0
+  fi
+  if command -v nvidia-smi >/dev/null 2>&1; then
+    nvidia-smi --query-gpu=index --format=csv,noheader 2>/dev/null | tr '\n' ' '
+    return 0
+  fi
+  printf '%s\n' "default"
+}
+
+habitat_gpu_device_candidates() {
+  if [ -n "${RSCNAV_HABITAT_GPU_DEVICE_TRIES:-}" ]; then
+    printf '%s\n' "${RSCNAV_HABITAT_GPU_DEVICE_TRIES}" | tr ',' ' '
+    return 0
+  fi
+  cuda_device_candidates
+}
+
+run_capture_habitat_gpu_retry() {
+  local name="$1"
+  shift
+  local cuda_candidates
+  local habitat_candidates
+  cuda_candidates="$(cuda_device_candidates)"
+  habitat_candidates="$(habitat_gpu_device_candidates)"
+  if [ -z "${cuda_candidates// }" ]; then
+    cuda_candidates="default"
+  fi
+  if [ -z "${habitat_candidates// }" ]; then
+    habitat_candidates="default"
+  fi
+
+  local last_attempt=""
+  local selected_cuda=""
+  local selected_habitat_gpu=""
+
+  try_habitat_gpu_attempt() {
+    local attempt_name="$1"
+    local cuda_visible="$2"
+    local habitat_gpu="$3"
+    shift 3
+
+    local args=("$@")
+    if [ "${habitat_gpu}" != "default" ]; then
+      args+=("--gpu-device-id" "${habitat_gpu}")
+    fi
+
+    last_attempt="${attempt_name}"
+    if [ "${cuda_visible}" = "default" ]; then
+      run_capture "${attempt_name}" "${args[@]}"
+    else
+      CUDA_VISIBLE_DEVICES="${cuda_visible}" run_capture "${attempt_name}" "${args[@]}"
+    fi
+
+    local code
+    code="$(cat "${LOG_DIR}/${attempt_name}.exit" 2>/dev/null || printf '1')"
+    if [ "${code}" = "0" ]; then
+      selected_cuda="${cuda_visible}"
+      selected_habitat_gpu="${habitat_gpu}"
+      return 0
+    fi
+    return 1
+  }
+
+  if try_habitat_gpu_attempt "${name}.default" "default" "default" "$@"; then
+    :
+  else
+    local habitat_gpu
+    local cuda_device
+    for habitat_gpu in ${habitat_candidates}; do
+      if [ "${habitat_gpu}" = "default" ]; then
+        continue
+      fi
+      if try_habitat_gpu_attempt "${name}.gpu${habitat_gpu}" "default" "${habitat_gpu}" "$@"; then
+        break
+      fi
+    done
+
+    if [ -z "${selected_habitat_gpu}" ]; then
+      for cuda_device in ${cuda_candidates}; do
+        if [ "${cuda_device}" = "default" ]; then
+          continue
+        fi
+        if try_habitat_gpu_attempt "${name}.cuda${cuda_device}.gpu0" "${cuda_device}" "0" "$@"; then
+          break
+        fi
+        if [ "${cuda_device}" != "0" ]; then
+          if try_habitat_gpu_attempt "${name}.cuda${cuda_device}.gpu${cuda_device}" "${cuda_device}" "${cuda_device}" "$@"; then
+            break
+          fi
+        fi
+      done
+    fi
+  fi
+
+  if [ -n "${selected_habitat_gpu}" ]; then
+    cp "${LOG_DIR}/${last_attempt}.stdout.log" "${LOG_DIR}/${name}.stdout.log"
+    cp "${LOG_DIR}/${last_attempt}.stderr.log" "${LOG_DIR}/${name}.stderr.log"
+    printf '0\n' >"${LOG_DIR}/${name}.exit"
+    printf '%s\n' "${selected_cuda}" >"${LOG_DIR}/${name}.selected_cuda_visible_devices"
+    printf '%s\n' "${selected_habitat_gpu}" >"${LOG_DIR}/${name}.selected_habitat_gpu_device_id"
+    log "OK ${name} selected_cuda_visible_devices=${selected_cuda} selected_habitat_gpu_device_id=${selected_habitat_gpu}"
+    return 0
+  fi
+
+  if [ -n "${last_attempt}" ]; then
+    cp "${LOG_DIR}/${last_attempt}.stdout.log" "${LOG_DIR}/${name}.stdout.log"
+    cp "${LOG_DIR}/${last_attempt}.stderr.log" "${LOG_DIR}/${name}.stderr.log"
+    cp "${LOG_DIR}/${last_attempt}.exit" "${LOG_DIR}/${name}.exit"
+  else
+    printf '1\n' >"${LOG_DIR}/${name}.exit"
+  fi
+  log "FAIL ${name}; tried CUDA candidates: ${cuda_candidates}; Habitat gpu candidates: ${habitat_candidates}"
+  return 0
+}
+
 write_env_report() {
   {
     echo "timestamp=${STAMP}"
@@ -56,6 +174,9 @@ write_env_report() {
     echo
     echo "## nvidia-smi"
     nvidia-smi || true
+    echo
+    echo "## nvidia-smi gpu indices"
+    nvidia-smi --query-gpu=index,name,uuid --format=csv,noheader 2>/dev/null || true
     echo
     echo "## glvnd vendors"
     find /usr/share/glvnd /etc/glvnd -maxdepth 3 -type f 2>/dev/null -print -exec cat {} \; || true
@@ -180,11 +301,11 @@ PY
 
   run_capture pip_check conda_run python -m pip check
   run_capture contract_smoke conda_run python "${ROOT}/scripts/phase22_habitat_adapter_contract_test.py"
-  run_capture none_live_smoke conda_run python "${ROOT}/scripts/phase22_habitat_sim_none_smoke.py"
+  run_capture_habitat_gpu_retry none_live_smoke conda_run python "${ROOT}/scripts/phase22_habitat_sim_none_smoke.py"
 
   download_test_scene_if_needed
   if [ -n "${SCENE_PATH}" ] && [ -f "${SCENE_PATH}" ]; then
-    run_capture scene_live_smoke conda_run python "${ROOT}/scripts/phase22_habitat_live_scene_smoke.py" \
+    run_capture_habitat_gpu_retry scene_live_smoke conda_run python "${ROOT}/scripts/phase22_habitat_live_scene_smoke.py" \
       --scene "${SCENE_PATH}" \
       --out-dir "${ROOT}/outputs/phase22_live"
   else

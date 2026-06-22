@@ -21,10 +21,32 @@ From the repository root, run:
 bash scripts/phase22_remote_linux_run.sh
 ```
 
-If a Habitat scene is already available, prefer:
+For the current goal, prefer a real scene path. If a Habitat scene is already
+available, run:
 
 ```bash
 RSCNAV_HABITAT_SCENE=/abs/path/to/scene.glb bash scripts/phase22_remote_linux_run.sh
+```
+
+If no local scene is available, allow the runner to download Habitat test scenes:
+
+```bash
+RSCNAV_DOWNLOAD_TEST_SCENES=1 bash scripts/phase22_remote_linux_run.sh
+```
+
+On multi-GPU machines, the runner automatically retries the live rendering smoke
+with a small matrix of `CUDA_VISIBLE_DEVICES=<gpu_index>` and Habitat-Sim
+`SimulatorConfiguration.gpu_device_id`. To restrict the search, set:
+
+```bash
+RSCNAV_CUDA_DEVICE_TRIES="0 1 2 3" RSCNAV_HABITAT_SCENE=/abs/path/to/scene.glb bash scripts/phase22_remote_linux_run.sh
+```
+
+If Habitat-Sim should try a different internal device list than the visible CUDA
+device list, also set:
+
+```bash
+RSCNAV_CUDA_DEVICE_TRIES="0 1 2 3" RSCNAV_HABITAT_GPU_DEVICE_TRIES="0 1 2 3" RSCNAV_HABITAT_SCENE=/abs/path/to/scene.glb bash scripts/phase22_remote_linux_run.sh
 ```
 
 The script creates a tarball like:
@@ -65,8 +87,11 @@ Report success only when:
 - `logs/pip_check.exit` is `0`
 - `logs/contract_smoke.exit` is `0`
 - `logs/none_live_smoke.exit` is `0`
-- `logs/scene_live_smoke.exit` is `0` if a scene is available
+- `logs/scene_live_smoke.exit` is `0`
+- `repo_outputs/phase22_live/phase22_habitat_live_scene_log.json` exists
+- `repo_outputs/phase22_live/rgb.png`, `depth.png`, and `bev_overlay.png` exist
+- `logs/none_live_smoke.selected_habitat_gpu_device_id` exists
+- `logs/scene_live_smoke.selected_habitat_gpu_device_id` exists
 
 If `none_live_smoke` fails at EGL, report it as an environment blocker, not a
 project-code blocker.
-

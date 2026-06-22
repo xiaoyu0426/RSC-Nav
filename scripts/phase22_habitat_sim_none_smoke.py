@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -17,12 +19,26 @@ OUT_DIR = ROOT / "outputs" / "phase22_sim"
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Phase 2.2 Habitat-Sim NONE-scene smoke.")
+    parser.add_argument(
+        "--gpu-device-id",
+        type=int,
+        default=_env_int("RSCNAV_HABITAT_GPU_DEVICE_ID"),
+        help="Habitat-Sim SimulatorConfiguration.gpu_device_id.",
+    )
+    args = parser.parse_args()
+
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
     import habitat_sim
     from habitat_sim import SensorSubType, SensorType
 
-    sim, sensor_uuids = _make_simulator(habitat_sim, SensorSubType, SensorType)
+    sim, sensor_uuids = _make_simulator(
+        habitat_sim,
+        SensorSubType,
+        SensorType,
+        gpu_device_id=args.gpu_device_id,
+    )
     try:
         observations = sim.get_sensor_observations()
     finally:
@@ -61,6 +77,7 @@ def main() -> None:
     log = {
         "phase": "phase22_habitat_sim_none_smoke",
         "goal": "start Habitat-Sim headless without dataset, read RGB-D, convert to ObservationFrame, update BEV",
+        "gpu_device_id": args.gpu_device_id,
         "sensor_uuids": sensor_uuids,
         "observation_shapes": {
             key: list(value.shape) for key, value in observations.items() if hasattr(value, "shape")
@@ -84,7 +101,7 @@ def main() -> None:
     print("Explored cells:", int(bev.explored.sum()))
 
 
-def _make_simulator(habitat_sim, SensorSubType, SensorType):
+def _make_simulator(habitat_sim, SensorSubType, SensorType, gpu_device_id: int | None):
     sensor_specs = [
         _camera_spec(habitat_sim, SensorSubType, SensorType.COLOR, "rgb"),
         _camera_spec(habitat_sim, SensorSubType, SensorType.DEPTH, "depth"),
@@ -93,10 +110,10 @@ def _make_simulator(habitat_sim, SensorSubType, SensorType):
         sensor_specs.append(
             _camera_spec(habitat_sim, SensorSubType, SensorType.SEMANTIC, "semantic")
         )
-        return _build_simulator(habitat_sim, sensor_specs), [spec.uuid for spec in sensor_specs]
+        return _build_simulator(habitat_sim, sensor_specs, gpu_device_id), [spec.uuid for spec in sensor_specs]
     except Exception:
         sensor_specs = sensor_specs[:2]
-        return _build_simulator(habitat_sim, sensor_specs), [spec.uuid for spec in sensor_specs]
+        return _build_simulator(habitat_sim, sensor_specs, gpu_device_id), [spec.uuid for spec in sensor_specs]
 
 
 def _camera_spec(habitat_sim, SensorSubType, sensor_type, uuid: str):
@@ -109,13 +126,22 @@ def _camera_spec(habitat_sim, SensorSubType, sensor_type, uuid: str):
     return spec
 
 
-def _build_simulator(habitat_sim, sensor_specs):
+def _build_simulator(habitat_sim, sensor_specs, gpu_device_id: int | None):
     sim_cfg = habitat_sim.SimulatorConfiguration()
     sim_cfg.scene_id = "NONE"
     sim_cfg.enable_physics = False
+    if gpu_device_id is not None:
+        sim_cfg.gpu_device_id = gpu_device_id
     agent_cfg = habitat_sim.agent.AgentConfiguration()
     agent_cfg.sensor_specifications = sensor_specs
     return habitat_sim.Simulator(habitat_sim.Configuration(sim_cfg, [agent_cfg]))
+
+
+def _env_int(name: str) -> int | None:
+    raw = os.environ.get(name)
+    if raw in (None, ""):
+        return None
+    return int(raw)
 
 
 def _valid_depth(raw_depth) -> np.ndarray:
