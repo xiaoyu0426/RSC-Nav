@@ -26,6 +26,8 @@ IMAGE_KEYS = {
     "rgb_jpeg": ("rgb", ".jpg"),
     "depth_png": ("depth", ".png"),
     "bev_png": ("bev", ".png"),
+    "oracle_png": ("oracle", ".png"),
+    "oracle_diff_png": ("oracle_diff", ".png"),
     "semantic_png": ("semantic_bev", ".png"),
 }
 
@@ -306,12 +308,15 @@ def _write_summary_html(out_dir: Path, url: str, metrics: dict, checkpoints: lis
     for checkpoint in checkpoints:
         step = int(checkpoint["step"])
         for stem in (f"step_{step:04d}", f"step_{step:04d}_final"):
-            semantic = out_dir / f"{stem}_semantic_bev.png"
             bev = out_dir / f"{stem}_bev.png"
-            if semantic.exists() or bev.exists():
+            oracle = out_dir / f"{stem}_oracle.png"
+            diff = out_dir / f"{stem}_oracle_diff.png"
+            semantic = out_dir / f"{stem}_semantic_bev.png"
+            if semantic.exists() or bev.exists() or diff.exists():
                 image_rows.append(
                     f"<tr><td>{step}</td><td>{checkpoint['reason']}</td>"
-                    f"<td>{_img_tag(bev)}</td><td>{_img_tag(semantic)}</td></tr>"
+                    f"<td>{_img_tag(bev)}</td><td>{_img_tag(oracle)}</td>"
+                    f"<td>{_img_tag(diff)}</td><td>{_img_tag(semantic)}</td></tr>"
                 )
                 break
     html = f"""<!doctype html>
@@ -330,7 +335,7 @@ table{{border-collapse:collapse}}
 <p>Passed: <strong>{metrics['passed']}</strong></p>
 <pre>{json.dumps(metrics, indent=2)}</pre>
 <table>
-<tr><th>Step</th><th>Reason</th><th>BEV</th><th>Semantic BEV</th></tr>
+<tr><th>Step</th><th>Reason</th><th>BEV</th><th>Oracle</th><th>Oracle Diff</th><th>Semantic BEV</th></tr>
 {''.join(image_rows)}
 </table>
 </body></html>

@@ -589,6 +589,16 @@ class HabitatControlSession:
             "rgb_jpeg": _image_to_base64(_rgb_image(rgb), "JPEG", quality=86),
             "depth_png": _image_to_base64(_depth_image(depth), "PNG"),
             "bev_png": _image_to_base64(_bev_image(self.bev), "PNG"),
+            "oracle_png": (
+                _image_to_base64(_oracle_image(self.oracle_free_mask, self.bev.trajectory), "PNG")
+                if self.oracle_free_mask is not None
+                else None
+            ),
+            "oracle_diff_png": (
+                _image_to_base64(_oracle_diff_image(self.bev, self.oracle_free_mask), "PNG")
+                if self.oracle_free_mask is not None
+                else None
+            ),
             "semantic_png": (
                 _image_to_base64(_semantic_bev_image(self.semantic_bev, self.bev.trajectory), "PNG")
                 if self.semantic_bev is not None
@@ -906,6 +916,48 @@ def _semantic_bev_image(semantic_bev: SemanticBEVAccumulator, trajectory) -> Ima
     ax.set_yticks([])
     if trajectory:
         xs, ys = zip(*trajectory)
+        ax.plot(xs, ys, color="#1f77b4", linewidth=1.8)
+        ax.plot(xs[-1], ys[-1], color="#1f77b4", marker="*", markersize=12)
+    fig.tight_layout(pad=0)
+    buffer = BytesIO()
+    fig.savefig(buffer, format="png", dpi=120)
+    plt.close(fig)
+    buffer.seek(0)
+    return Image.open(buffer).copy()
+
+
+def _oracle_image(oracle_free: np.ndarray, trajectory) -> Image.Image:
+    fig, ax = plt.subplots(figsize=(6, 6))
+    state = np.where(oracle_free.T, 1, 2)
+    cmap = mcolors.ListedColormap(["#d9d9d9", "#ffffff", "#333333"])
+    ax.imshow(state, origin="lower", cmap=cmap, vmin=0, vmax=2, alpha=0.86)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    if trajectory:
+        xs, ys = zip(*trajectory)
+        ax.plot(xs, ys, color="#1f77b4", linewidth=1.8)
+        ax.plot(xs[-1], ys[-1], color="#1f77b4", marker="*", markersize=12)
+    fig.tight_layout(pad=0)
+    buffer = BytesIO()
+    fig.savefig(buffer, format="png", dpi=120)
+    plt.close(fig)
+    buffer.seek(0)
+    return Image.open(buffer).copy()
+
+
+def _oracle_diff_image(bev: DenseBEVMapper, oracle_free: np.ndarray) -> Image.Image:
+    diff = np.zeros(bev.config.grid_size, dtype=np.int8)
+    diff[np.logical_and(bev.free_mask(), oracle_free)] = 1
+    diff[np.logical_and(bev.free_mask(), ~oracle_free)] = 2
+    diff[np.logical_and(bev.occupied_mask(), oracle_free)] = 3
+    diff[np.logical_and(bev.occupied_mask(), ~oracle_free)] = 4
+    fig, ax = plt.subplots(figsize=(6, 6))
+    cmap = mcolors.ListedColormap(["#d9d9d9", "#ffffff", "#f4a261", "#4ea8de", "#333333"])
+    ax.imshow(diff.T, origin="lower", cmap=cmap, vmin=0, vmax=4)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    if bev.trajectory:
+        xs, ys = zip(*bev.trajectory)
         ax.plot(xs, ys, color="#1f77b4", linewidth=1.8)
         ax.plot(xs[-1], ys[-1], color="#1f77b4", marker="*", markersize=12)
     fig.tight_layout(pad=0)
