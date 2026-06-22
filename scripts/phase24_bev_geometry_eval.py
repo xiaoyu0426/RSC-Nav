@@ -47,6 +47,8 @@ def main() -> None:
     parser.add_argument("--move-amount", type=float, default=0.25)
     parser.add_argument("--turn-amount", type=float, default=15.0)
     parser.add_argument("--max-steps", type=int, default=len(DEFAULT_ACTIONS))
+    parser.add_argument("--trajectory-mode", choices=("path", "actions"), default="path")
+    parser.add_argument("--path-min-distance", type=float, default=3.0)
     args = parser.parse_args()
 
     scene = Path(args.scene).expanduser().resolve()
@@ -69,6 +71,15 @@ def main() -> None:
     )
     try:
         agent_state = _reset_agent(sim)
+        path_positions = []
+        if args.trajectory_mode == "path":
+            path_positions = _sample_navigable_path(
+                sim,
+                min_distance_m=args.path_min_distance,
+                max_samples=args.max_steps + 1,
+            )
+            if path_positions:
+                agent_state = _set_agent_pose(sim, path_positions[0], _next_point(path_positions, 0))
         pose = _pose_xz(agent_state)
         config = DenseBEVConfig(
             grid_size=(args.grid_size, args.grid_size),
@@ -84,9 +95,15 @@ def main() -> None:
 
         frames = []
         actions = DEFAULT_ACTIONS[: args.max_steps]
-        for step, action in enumerate(["__initial__"] + actions):
-            if action != "__initial__":
+        trajectory_steps = _trajectory_steps(args.trajectory_mode, actions, path_positions)
+        last_step = max(0, len(trajectory_steps) - 1)
+        mid_step = last_step // 2
+        for step, item in enumerate(trajectory_steps):
+            action = item["label"]
+            if args.trajectory_mode == "actions" and action != "__initial__":
                 sim.step(action)
+            elif args.trajectory_mode == "path":
+                agent_state = _set_agent_pose(sim, item["position"], item.get("next_position"))
             agent_state = sim.get_agent(0).get_state()
             observations = sim.get_sensor_observations()
             depth = _valid_depth(observations.get("depth"))
@@ -98,7 +115,7 @@ def main() -> None:
                 sensor_rotation=sensor_state.rotation,
                 hfov_deg=90.0,
             )
-            if step in {0, len(actions) // 2, len(actions)}:
+            if step in {0, mid_step, last_step}:
                 frame_prefix = f"frame_{step:03d}"
                 rgb = _rgb_array(observations.get("rgb"))
                 _save_rgb(rgb, out_dir / f"{frame_prefix}_rgb.png")
@@ -144,6 +161,8 @@ def main() -> None:
                 "sample_stride": args.sample_stride,
                 "move_amount": args.move_amount,
                 "turn_amount": args.turn_amount,
+                "trajectory_mode": args.trajectory_mode,
+                "path_min_distance_m": args.path_min_distance,
             },
             "mapper_snapshot": mapper.snapshot(),
             "metrics": metrics,
@@ -208,6 +227,107 @@ def _reset_agent(sim):
             state.position = point
     agent.set_state(state)
     return agent.get_state()
+
+
+def _sample_navigable_path(sim, min_distance_m: float, max_samples: int, attempts: int = 80) -> list[np.ndarray]:
+    pathfinder = getattr(sim, "pathfinder", None)
+    if pathfinder is None or not getattr(pathfinder, "is_loaded", False):
+        return []
+
+    import habitat_sim
+
+    best_points = []
+    best_distance = -1.0
+    for _ in range(attempts):
+        path = habitat_sim.ShortestPath()
+        path.requested_start = np.asarray(pathfinder.get_random_navigable_point(), dtype=np.float32)
+        path.requested_end = np.asarray(pathfinder.get_random_navigable_point(), dtype=np.float32)
+        if not pathfinder.find_path(path):
+            continue
+        distance = float(path.geodesic_distance)
+        points = [np.asarray(point, dtype=np.float32) for point in path.points]
+        if distance > best_distance and len(points) >= 2:
+            best_distance = distance
+            best_points = points
+        if distance >= min_distance_m and len(points) >= 2:
+            return _resample_polyline(points, max_samples)
+    return _resample_polyline(best_points, max_samples) if best_points else []
+
+
+def _resample_polyline(points: list[np.ndarray], max_samples: int) -> list[np.ndarray]:
+    if len(points) <= 2 or max_samples <= 2:
+        return points[:max_samples]
+
+    cumulative = [0.0]
+    for prev, cur in zip(points[:-1], points[1:]):
+        cumulative.append(cumulative[-1] + float(np.linalg.norm(cur - prev)))
+    total = cumulative[-1]
+    if total <= 0.0:
+        return points[:1]
+
+    targets = np.linspace(0.0, total, max_samples)
+    out = []
+    segment = 0
+    for target in targets:
+        while segment + 1 < len(cumulative) and cumulative[segment + 1] < target:
+            segment += 1
+        if segment + 1 >= len(points):
+            out.append(points[-1].copy())
+            continue
+        span = cumulative[segment + 1] - cumulative[segment]
+        alpha = 0.0 if span <= 0.0 else (target - cumulative[segment]) / span
+        out.append((1.0 - alpha) * points[segment] + alpha * points[segment + 1])
+    return [np.asarray(point, dtype=np.float32) for point in out]
+
+
+def _trajectory_steps(mode: str, actions: list[str], path_positions: list[np.ndarray]) -> list[dict]:
+    if mode == "path" and path_positions:
+        return [
+            {
+                "label": "path_waypoint",
+                "position": position,
+                "next_position": _next_point(path_positions, idx),
+            }
+            for idx, position in enumerate(path_positions)
+        ]
+    return [{"label": "__initial__"}] + [{"label": action} for action in actions]
+
+
+def _next_point(points: list[np.ndarray], idx: int):
+    if not points:
+        return None
+    if idx + 1 < len(points):
+        return points[idx + 1]
+    if idx > 0:
+        return points[idx - 1]
+    return None
+
+
+def _set_agent_pose(sim, position: np.ndarray, look_at):
+    agent = sim.get_agent(0)
+    state = agent.get_state()
+    state.position = np.asarray(position, dtype=np.float32)
+    if look_at is not None:
+        rotation = _rotation_toward(state.position, np.asarray(look_at, dtype=np.float32))
+        if rotation is not None:
+            state.rotation = rotation
+    try:
+        agent.set_state(state, infer_sensor_states=True)
+    except TypeError:
+        agent.set_state(state)
+    return agent.get_state()
+
+
+def _rotation_toward(position: np.ndarray, look_at: np.ndarray):
+    direction = np.asarray(look_at - position, dtype=np.float32)
+    norm = float(np.linalg.norm(direction[[0, 2]]))
+    if norm <= 1e-6:
+        return None
+    direction = direction / max(float(np.linalg.norm(direction)), 1e-6)
+    yaw = float(np.arctan2(-direction[0], -direction[2]))
+    import quaternion
+
+    return quaternion.from_rotation_vector([0.0, yaw, 0.0])
 
 
 def _pose_xz(agent_state) -> tuple[float, float]:
