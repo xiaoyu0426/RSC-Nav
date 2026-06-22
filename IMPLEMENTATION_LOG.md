@@ -674,6 +674,106 @@ MP3D example scene 可作为 semantic GT 上限版的第一测试场景。
 它包含当前目标类别 wall / door / table / chair，并可通过 semantic sensor 输出 instance id。
 ```
 
+### Semantic GT 上限版验收
+
+新增/更新：
+
+```text
+scripts/phase24_bev_geometry_eval.py
+src/dense_bev_mapper.py
+```
+
+新增能力：
+
+```text
+depth + semantic sensor instance id + pose
+-> semantic GT BEV projection
+-> per-class BEV cells
+-> per-instance visible track
+-> confidence / first_seen / last_seen
+-> semantic_tracks.json
+```
+
+运行场景：
+
+```text
+scene:   /workspace/yujiexiao/.rscnav/habitat_data/versioned_data/mp3d_example_scene_1.1/17DRP5sb8fy/17DRP5sb8fy.glb
+dataset: /workspace/yujiexiao/.rscnav/habitat_data/versioned_data/mp3d_example_scene_1.1/mp3d.scene_dataset_config.json
+categories: wall, door, table, chair
+trajectory_mode: path
+path_min_distance_m: 4.0
+```
+
+输出：
+
+```text
+remote: ~/RSC_Nav/outputs/phase24_bev_eval/mp3d_semantic_20260622-193635/
+local:  outputs/phase24_bev_eval/mp3d_semantic_20260622-193635/
+tar:    outputs/phase24_bev_eval/rscnav_phase24_mp3d_semantic_20260622-193635.tar.gz
+```
+
+保存的验收图：
+
+```text
+outputs/phase24_bev_eval/mp3d_semantic_20260622-193635/ours_bev.png
+outputs/phase24_bev_eval/mp3d_semantic_20260622-193635/oracle_bev.png
+outputs/phase24_bev_eval/mp3d_semantic_20260622-193635/diff_bev.png
+outputs/phase24_bev_eval/mp3d_semantic_20260622-193635/confidence.png
+outputs/phase24_bev_eval/mp3d_semantic_20260622-193635/semantic_bev.png
+outputs/phase24_bev_eval/mp3d_semantic_20260622-193635/semantic_confidence.png
+outputs/phase24_bev_eval/mp3d_semantic_20260622-193635/frame_000_semantic.png
+outputs/phase24_bev_eval/mp3d_semantic_20260622-193635/frame_019_semantic.png
+outputs/phase24_bev_eval/mp3d_semantic_20260622-193635/frame_038_semantic.png
+outputs/phase24_bev_eval/mp3d_semantic_20260622-193635/semantic_tracks.json
+outputs/phase24_bev_eval/mp3d_semantic_20260622-193635/summary.html
+outputs/phase24_bev_eval/mp3d_semantic_20260622-193635/metrics.json
+```
+
+几何指标：
+
+```text
+free_iou_observed:             0.5652
+free_precision:                0.5814
+free_recall_observed:          0.9530
+occupied_precision_observed:   0.7446
+occupied_recall_observed:      0.1664
+occupied_boundary_chamfer_m:   0.1459
+observed_cells:                24882
+```
+
+语义指标：
+
+```text
+indexed_target_instances: 34
+observed_target_instances: 29
+semantic_cells: 4589
+wall_cells: 3019
+door_cells: 279
+table_cells: 247
+chair_cells: 1044
+mean_centroid_error_m: 2.2008
+```
+
+语义上限版当前结论：
+
+```text
+pass as semantic projection smoke
+not yet pass as final object stability metric
+```
+
+已证明：
+
+- Habitat semantic sensor 可在开发机 headless 环境中渲染目标类别 instance id。
+- wall / door / table / chair 能投影到同一个 allocentric BEV。
+- 语义 evidence、confidence、visible instance track、first_seen / last_seen 能保存为验收产物。
+- 验收图和 JSON 已保存。
+
+需要改进：
+
+- 当前 centroid error 使用可见表面点云中心对比完整 object AABB 中心；对墙、门、桌椅的部分可见视角偏差较大，不能作为最终 object stability 指标。
+- 下一轮应使用 semantic instance id 的跨帧稳定性、footprint IoU、dominant id purity、ID switch / fragmentation 作为 object memory 评价。
+- MP3D 场景几何 free IoU 低于 apartment_1，说明几何占用层仍需做多高度 bin、边界/墙面连续性和更合理的 obstacle recall。
+
 ### 下一步
 
 优先级：
