@@ -459,3 +459,228 @@ Phase 2.2 项目侧和 WSL conda/Habitat import 已完成。
 - 原生 Linux / 双系统 NVIDIA EGL；
 - 或 Docker + NVIDIA runtime 暴露 EGL；
 - 或先使用预计算 Habitat observations 继续 Phase 3。
+
+---
+
+## 2026-06-22: Phase 2.3 / 2.4 Real Habitat-Sim Live BEV Evaluation
+
+### 当前目标
+
+当前 live 目标已收敛为：
+
+```text
+真实 Habitat-Sim headless live rendering
+-> RGB / depth / pose
+-> allocentric BEV semantic-spatial memory
+-> 墙面、门、桌子、椅子的位置、类别、置信度和 freshness
+-> oracle map / semantic GT / object stability 自动验收
+-> 支撑后续长期记忆复用与更新实验
+```
+
+当前子目标顺序：
+
+```text
+1. dense depth + pose 几何 BEV 稳定性自动验收
+2. Habitat semantic GT 上限版
+3. object memory 的 confidence / freshness / ID stability
+```
+
+### 远端开发机环境
+
+开发机 workspace：
+
+```text
+ssh yujiexiao@39.101.65.229 -p 1040
+~/RSC_Nav
+conda env: rscnav-habitat22
+```
+
+约束：
+
+```text
+开发机禁止 push，仅允许 pull / fast-forward 更新。
+本机提交后通过 git bundle 传到开发机，再在开发机 git pull --ff-only。
+```
+
+已验证真实 headless rendering：
+
+```text
+scene: /workspace/yujiexiao/.rscnav/habitat_data/versioned_data/habitat_test_scenes/apartment_1.glb
+renderer: NVIDIA A800-SXM4-80GB
+Habitat-Sim RGB / depth rendering: pass
+```
+
+### 新增实现
+
+相关 commits：
+
+```text
+d526e6a Add dense BEV geometry evaluation
+1aec25d Support Habitat quaternion sensor rotations
+6a34a92 Fix BEV metric safe division
+d866aaf Use navigable paths for BEV geometry eval
+```
+
+新增文件：
+
+```text
+src/dense_bev_mapper.py
+scripts/phase24_bev_geometry_eval.py
+```
+
+`src/dense_bev_mapper.py` 实现：
+
+- dense depth deprojection：depth + camera intrinsics + sensor pose -> world points。
+- allocentric BEV grid：世界坐标系固定，agent 移动时地图不随视角旋转。
+- ray carving：从 agent cell 到 depth endpoint 更新 free cells。
+- height-band occupied update：根据相对地面高度筛选墙/障碍证据。
+- occupancy log-odds、explored mask、observation count、confidence map。
+- Habitat navmesh oracle mask。
+- 自动指标：free-space IoU、precision / recall、occupied precision / recall、occupied boundary Chamfer。
+
+`scripts/phase24_bev_geometry_eval.py` 实现：
+
+- 在真实 Habitat-Sim 场景中执行评估轨迹。
+- 默认使用 navmesh shortest-path waypoints，而不是随机动作序列，以避免轨迹撞墙或覆盖过短。
+- 输出 RGB / depth sample frames。
+- 输出 `ours_bev.png`、`oracle_bev.png`、`diff_bev.png`、`confidence.png`、`metrics.json`、`summary.html`。
+
+### 验收结果
+
+短动作序列首次验收：
+
+```text
+remote: ~/RSC_Nav/outputs/phase24_bev_eval/apartment_1_20260622-192134/
+local:  outputs/phase24_bev_eval/apartment_1_20260622-192134/
+
+free_iou_observed: 0.1149
+free_recall_observed: 1.0000
+occupied_precision_observed: 1.0000
+occupied_recall_observed: 0.2325
+observed_cells: 298
+```
+
+结论：几何链路跑通，但轨迹太短，起点靠近 navmesh 边界，不能作为稳定验收依据。
+
+path-mode 评估：
+
+```text
+remote: ~/RSC_Nav/outputs/phase24_bev_eval/apartment_1_path_20260622-192448/
+local:  outputs/phase24_bev_eval/apartment_1_path_20260622-192448/
+tar:    outputs/phase24_bev_eval/rscnav_phase24_apartment_1_path_20260622-192448.tar.gz
+
+scene: /workspace/yujiexiao/.rscnav/habitat_data/versioned_data/habitat_test_scenes/apartment_1.glb
+trajectory_mode: path
+path_min_distance_m: 3.0
+rgbd_resolution: 160
+bev_resolution: 0.05
+grid_size: 240
+sample_stride: 2
+```
+
+关键指标：
+
+```text
+free_iou_observed:             0.8223
+free_precision:                0.8237
+free_recall_observed:          0.9980
+occupied_precision_observed:   0.9501
+occupied_recall_observed:      0.1540
+occupied_boundary_chamfer_m:   0.2989
+pred_free_cells:               11278
+pred_occupied_cells:           381
+observed_cells:                11659
+oracle_free_observed_cells:    9309
+oracle_obstacle_observed_cells:2350
+```
+
+保存的验收图：
+
+```text
+outputs/phase24_bev_eval/apartment_1_path_20260622-192448/ours_bev.png
+outputs/phase24_bev_eval/apartment_1_path_20260622-192448/oracle_bev.png
+outputs/phase24_bev_eval/apartment_1_path_20260622-192448/diff_bev.png
+outputs/phase24_bev_eval/apartment_1_path_20260622-192448/confidence.png
+outputs/phase24_bev_eval/apartment_1_path_20260622-192448/summary.html
+outputs/phase24_bev_eval/apartment_1_path_20260622-192448/metrics.json
+```
+
+### 当前结论
+
+几何 BEV 第一阶段结论：
+
+```text
+pass with reservations
+```
+
+已证明：
+
+- 真实 Habitat-Sim headless live rendering 可用。
+- depth + pose -> allocentric BEV 的坐标链路可运行。
+- agent 沿 navmesh path 移动时，BEV free-space 在世界坐标中相对稳定。
+- confidence map 能随观测累积。
+- 自动验收产物和结果图已保存。
+
+尚未完成：
+
+- occupied / wall recall 偏低，说明当前 height-band endpoint update 对墙/障碍召回不足。
+- `apartment_1.glb` 没有 semantic annotations，不能用于桌子、椅子、门的严格 semantic GT 自动验收。
+- 还没有 object-level track、confidence/freshness、ID stability。
+
+### Semantic GT 数据源探测
+
+已在开发机下载 Habitat-Sim 官方 MP3D example scene：
+
+```text
+python -m habitat_sim.utils.datasets_download --uids mp3d_example_scene --data-path /workspace/yujiexiao/.rscnav/habitat_data
+```
+
+数据路径：
+
+```text
+scene:   /workspace/yujiexiao/.rscnav/habitat_data/versioned_data/mp3d_example_scene_1.1/17DRP5sb8fy/17DRP5sb8fy.glb
+dataset: /workspace/yujiexiao/.rscnav/habitat_data/versioned_data/mp3d_example_scene_1.1/mp3d.scene_dataset_config.json
+navmesh: /workspace/yujiexiao/.rscnav/habitat_data/versioned_data/mp3d_example_scene_1.1/17DRP5sb8fy/17DRP5sb8fy.navmesh
+house:   /workspace/yujiexiao/.rscnav/habitat_data/versioned_data/mp3d_example_scene_1.1/17DRP5sb8fy/17DRP5sb8fy.house
+```
+
+语义探测结果：
+
+```text
+pathfinder_loaded: true
+levels: 1
+regions: 10
+objects: 187
+num_categories: 31
+wall: 10
+door: 9
+table: 4
+chair: 11
+sofa: 2
+bed: 2
+```
+
+semantic sensor smoke：
+
+```text
+semantic_sensor_shape: 64 x 64
+semantic_sensor_unique_count: 2 in one random view
+```
+
+结论：
+
+```text
+MP3D example scene 可作为 semantic GT 上限版的第一测试场景。
+它包含当前目标类别 wall / door / table / chair，并可通过 semantic sensor 输出 instance id。
+```
+
+### 下一步
+
+优先级：
+
+```text
+1. 验证 MP3D example scene / HM3D-Sem / ReplicaCAD 中至少一个 semantic GT 数据源可用。
+2. 在 evaluator 中加入 semantic sensor，上限验证 table / chair / door / wall 的 BEV 投影。
+3. 增加 object memory track：category、centroid、footprint、confidence、freshness、last_seen_step。
+4. 对 occupied recall 做第二轮几何改进：多高度 bin、端点膨胀、墙面连续性/边界更新。
+```

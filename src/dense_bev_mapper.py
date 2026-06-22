@@ -173,6 +173,27 @@ def depth_to_world_points(
     min_depth_m: float,
     max_depth_m: float,
 ) -> np.ndarray:
+    samples = depth_to_world_samples(
+        depth=depth,
+        sensor_position_xyz=sensor_position_xyz,
+        sensor_rotation=sensor_rotation,
+        hfov_deg=hfov_deg,
+        stride=stride,
+        min_depth_m=min_depth_m,
+        max_depth_m=max_depth_m,
+    )
+    return samples["points_world"]
+
+
+def depth_to_world_samples(
+    depth: np.ndarray,
+    sensor_position_xyz: np.ndarray,
+    sensor_rotation,
+    hfov_deg: float,
+    stride: int,
+    min_depth_m: float,
+    max_depth_m: float,
+) -> dict:
     depth = _valid_depth(depth)
     height, width = depth.shape
     stride = max(1, int(stride))
@@ -182,7 +203,12 @@ def depth_to_world_points(
     z = depth[vv, uu].astype(np.float32)
     valid = np.isfinite(z) & (z >= min_depth_m) & (z <= max_depth_m)
     if not valid.any():
-        return np.empty((0, 3), dtype=np.float32)
+        return {
+            "points_world": np.empty((0, 3), dtype=np.float32),
+            "rows": np.empty((0,), dtype=np.int32),
+            "cols": np.empty((0,), dtype=np.int32),
+            "depth": np.empty((0,), dtype=np.float32),
+        }
 
     fx = width / (2.0 * np.tan(np.deg2rad(hfov_deg) / 2.0))
     fy = fx
@@ -195,7 +221,13 @@ def depth_to_world_points(
     camera_points = np.stack([x_cam[valid], y_cam[valid], z_cam[valid]], axis=1)
 
     rotated_points = _rotate_vectors(sensor_rotation, camera_points)
-    return (sensor_position_xyz.reshape(1, 3) + rotated_points).astype(np.float32)
+    points_world = (sensor_position_xyz.reshape(1, 3) + rotated_points).astype(np.float32)
+    return {
+        "points_world": points_world,
+        "rows": vv[valid].astype(np.int32),
+        "cols": uu[valid].astype(np.int32),
+        "depth": z[valid].astype(np.float32),
+    }
 
 
 def oracle_navmesh_mask(pathfinder, origin_world_xz: WorldXZ, grid_size: Tuple[int, int], resolution: float, height: float) -> np.ndarray:
