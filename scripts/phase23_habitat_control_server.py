@@ -25,7 +25,15 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from dense_bev_mapper import DenseBEVConfig, DenseBEVMapper, mapping_metrics, oracle_navmesh_mask
 from object_memory_store import ObjectMemoryStore
-from semantic_bev_memory import SEMANTIC_COLORS, SemanticBEVAccumulator, semantic_array
+from semantic_bev_memory import (
+    SEMANTIC_COLORS,
+    SemanticBEVAccumulator,
+    _camera_axes,
+    _object_visibility_points,
+    _patch_depth,
+    _project_world_point,
+    semantic_array,
+)
 
 
 HTML = r"""<!doctype html>
@@ -327,6 +335,12 @@ class HabitatControlSession:
         semantic_categories: list[str] | None = None,
         semantic_confidence_saturation: float = 80.0,
         freshness_tau_steps: float = 20.0,
+        negative_evidence_scale: float = 1.0,
+        object_memory_missing_confidence_threshold: float = 0.35,
+        object_memory_missing_missed_weight_threshold: float = 6.0,
+        object_memory_stale_missed_weight_threshold: float = 2.5,
+        semantic_prior_decay: bool = False,
+        semantic_prior_decay_scale: float = 1.0,
         memory_path: Path | None = None,
         start_path_min_distance: float = 3.0,
         start_path_samples: int = 48,
@@ -344,6 +358,12 @@ class HabitatControlSession:
         self.semantic_categories = semantic_categories or ["wall", "door", "table", "chair"]
         self.semantic_confidence_saturation = semantic_confidence_saturation
         self.freshness_tau_steps = freshness_tau_steps
+        self.negative_evidence_scale = max(0.0, float(negative_evidence_scale))
+        self.object_memory_missing_confidence_threshold = float(object_memory_missing_confidence_threshold)
+        self.object_memory_missing_missed_weight_threshold = float(object_memory_missing_missed_weight_threshold)
+        self.object_memory_stale_missed_weight_threshold = float(object_memory_stale_missed_weight_threshold)
+        self.semantic_prior_decay = bool(semantic_prior_decay)
+        self.semantic_prior_decay_scale = max(0.0, float(semantic_prior_decay_scale))
         self.memory_path = memory_path
         self.start_path_min_distance = start_path_min_distance
         self.start_path_samples = start_path_samples
@@ -351,6 +371,10 @@ class HabitatControlSession:
         self.lock = threading.Lock()
         self.step_count = 0
         self.memory_step_count = 0
+        self.last_payload: dict[str, Any] | None = None
+        self.memory_origin_world_xz: tuple[float, float] | None = None
+        self.last_evidence_pose: dict[str, float] | None = None
+        self.last_loaded_bev_transform: dict[str, Any] | None = None
 
         self._setup_sim()
         self._reset_agent()
@@ -364,11 +388,14 @@ class HabitatControlSession:
             self.step_count = 0
             self._reset_agent()
             self._reset_memory()
-            return self._state_payload()
+            self.last_payload = self._state_payload()
+            return self.last_payload
 
     def state(self) -> dict[str, Any]:
         with self.lock:
-            return self._state_payload()
+            if self.last_payload is None:
+                self.last_payload = self._state_payload()
+            return self.last_payload
 
     def action(self, action: str) -> dict[str, Any]:
         with self.lock:
@@ -382,7 +409,8 @@ class HabitatControlSession:
                 raise ValueError(f"Unknown action: {action}")
             self.step_count += 1
             self.memory_step_count += 1
-            return self._state_payload()
+            self.last_payload = self._state_payload()
+            return self.last_payload
 
     def _setup_sim(self) -> None:
         import habitat_sim
@@ -446,7 +474,7 @@ class HabitatControlSession:
             max_depth_m=6.0,
             obstacle_dilation_radius_cells=self.obstacle_dilation_cells,
         )
-        origin = (
+        origin = self.memory_origin_world_xz or (
             pose["x"] - (config.grid_size[0] // 2) * config.resolution,
             pose["y"] - (config.grid_size[1] // 2) * config.resolution,
         )
@@ -462,6 +490,7 @@ class HabitatControlSession:
                 height=float(np.asarray(agent_state.position, dtype=np.float32)[1]),
             )
         self.semantic_bev = None
+        self.last_evidence_pose = None
         if self.scene_dataset_config is not None:
             self.semantic_bev = SemanticBEVAccumulator(
                 mapper=self.bev,
@@ -473,6 +502,9 @@ class HabitatControlSession:
         self.memory_store = ObjectMemoryStore(
             scene_id=str(self.scene),
             freshness_tau_steps=self.freshness_tau_steps,
+            missing_confidence_threshold=self.object_memory_missing_confidence_threshold,
+            missing_missed_weight_threshold=self.object_memory_missing_missed_weight_threshold,
+            stale_missed_weight_threshold=self.object_memory_stale_missed_weight_threshold,
         )
 
     def _reset_agent(self) -> None:
@@ -547,6 +579,8 @@ class HabitatControlSession:
         agent_state = self.sim.get_agent(0).get_state()
         sensor_state = agent_state.sensor_states.get("depth") or next(iter(agent_state.sensor_states.values()))
         pose = self._pose_from_state(agent_state)
+        pose["sensor_pitch_deg"] = _pitch_deg_from_rotation(sensor_state.rotation)
+        evidence_update = self._evidence_update_from_pose(pose)
 
         snapshot = self.bev.update_from_depth(
             depth=depth,
@@ -556,8 +590,9 @@ class HabitatControlSession:
             hfov_deg=90.0,
         )
         semantic_report = None
+        observability_report = None
         if self.semantic_bev is not None and semantic is not None:
-            self.semantic_bev.update_from_observation(
+            semantic_update = self.semantic_bev.update_from_observation(
                 depth=depth,
                 semantic=semantic_array(semantic),
                 sensor_position_xyz=np.asarray(sensor_state.position, dtype=np.float32),
@@ -565,14 +600,69 @@ class HabitatControlSession:
                 floor_y=float(np.asarray(agent_state.position, dtype=np.float32)[1]),
                 hfov_deg=90.0,
                 step=self.memory_step_count,
+                evidence_weight=evidence_update["weight"],
+                prior_decay_weight=(
+                    evidence_update["negative_weight"] * self.semantic_prior_decay_scale
+                    if self.semantic_prior_decay
+                    else 0.0
+                ),
             )
             semantic_report = self.semantic_bev.report()
-            self.memory_store.update_from_tracks(
-                semantic_report.get("tracks", []),
-                current_step=self.memory_step_count,
+            semantic_report["prior_decay_update"] = semantic_update
+            seen_ids = self.semantic_bev.seen_ids_for_step(self.memory_step_count)
+            expected_visible_ids = self.semantic_bev.expected_visible_ids(
+                depth=depth,
+                sensor_position_xyz=np.asarray(sensor_state.position, dtype=np.float32),
+                sensor_rotation=sensor_state.rotation,
+                hfov_deg=90.0,
             )
+            current_tracks = [
+                track
+                for track in semantic_report.get("tracks", [])
+                if int(track.get("semantic_id", -1)) in seen_ids
+            ]
+            observability = {
+                int(item.semantic_id): _observability_label(
+                    semantic_id=int(item.semantic_id),
+                    seen_ids=seen_ids,
+                    expected_visible_ids=expected_visible_ids,
+                )
+                for item in self.memory_store.items.values()
+                if not str(item.source).startswith("prior_")
+            }
+            prior_expected_visible_ids = self._prior_expected_visible_item_ids(
+                depth=depth,
+                sensor_position_xyz=np.asarray(sensor_state.position, dtype=np.float32),
+                sensor_rotation=sensor_state.rotation,
+                floor_y=float(np.asarray(agent_state.position, dtype=np.float32)[1]),
+                hfov_deg=90.0,
+            )
+            for item in self.memory_store.items.values():
+                if str(item.source).startswith("prior_"):
+                    observability[item.id] = "expected_visible_miss" if item.id in prior_expected_visible_ids else "not_observable"
+            self.memory_store.update_from_tracks(
+                current_tracks,
+                current_step=self.memory_step_count,
+                observability=observability,
+                evidence_weight=evidence_update["weight"],
+                negative_evidence_weight=evidence_update["negative_weight"],
+            )
+            observability_report = {
+                "positive_ids": sorted(int(value) for value in seen_ids),
+                "expected_visible_ids": sorted(int(value) for value in expected_visible_ids),
+                "expected_visible_miss_ids": sorted(
+                    [key for key, value in observability.items() if value == "expected_visible_miss"],
+                    key=str,
+                ),
+                "not_observable_ids": sorted(
+                    [key for key, value in observability.items() if value == "not_observable"],
+                    key=str,
+                ),
+                "prior_expected_visible_ids": sorted(prior_expected_visible_ids),
+            }
         else:
             self.memory_store.decay(current_step=self.memory_step_count)
+        self.last_evidence_pose = pose
 
         return {
             "step": self.step_count,
@@ -580,13 +670,15 @@ class HabitatControlSession:
             "scene": str(self.scene),
             "scene_name": self.scene.name,
             "pose": pose,
+            "evidence_update": evidence_update,
             "ray_count": _sample_count(depth, self.bev.config.sample_stride),
             "bev": snapshot,
             "geometry_oracle": self._geometry_oracle_payload(),
             "semantic": _semantic_payload(semantic_report),
+            "observability": observability_report or {},
             "memory": self.memory_store.summary(),
             "memory_items": self.memory_store.to_dict()["items"],
-            "rgb_jpeg": _image_to_base64(_rgb_image(rgb), "JPEG", quality=86),
+            "rgb_jpeg": _image_to_base64(_rgb_image(rgb), "JPEG", quality=95),
             "depth_png": _image_to_base64(_depth_image(depth), "PNG"),
             "bev_png": _image_to_base64(_bev_image(self.bev), "PNG"),
             "oracle_png": (
@@ -612,7 +704,289 @@ class HabitatControlSession:
                 raise RuntimeError("No --memory-path was provided")
             self.memory_path.parent.mkdir(parents=True, exist_ok=True)
             self.memory_store.save(self.memory_path)
-            return self._state_payload()
+            if self.last_payload is None:
+                self.last_payload = self._state_payload()
+            payload = dict(self.last_payload)
+            payload["memory_saved_path"] = str(self.memory_path)
+            return payload
+
+    def save_bev_state(self, path: str | Path) -> None:
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        semantic_evidence = (
+            self.semantic_bev.combined_evidence().astype(np.float32)
+            if self.semantic_bev is not None
+            else np.zeros((0, *self.bev.config.grid_size), dtype=np.float32)
+        )
+        live_semantic_evidence = (
+            self.semantic_bev.evidence.astype(np.float32)
+            if self.semantic_bev is not None
+            else np.zeros((0, *self.bev.config.grid_size), dtype=np.float32)
+        )
+        prior_semantic_evidence = (
+            self.semantic_bev.prior_evidence.astype(np.float32)
+            if self.semantic_bev is not None
+            else np.zeros((0, *self.bev.config.grid_size), dtype=np.float32)
+        )
+        metadata = {
+            "scene": str(self.scene),
+            "grid_size": list(self.bev.config.grid_size),
+            "resolution": float(self.bev.config.resolution),
+            "origin_world_xz": list(self.bev.origin_world_xz),
+            "semantic_categories": list(self.semantic_categories),
+            "semantic_evidence_shape": list(semantic_evidence.shape),
+        }
+        trajectory = np.asarray(self.bev.trajectory, dtype=np.int32) if self.bev.trajectory else np.empty((0, 2), dtype=np.int32)
+        np.savez_compressed(
+            path,
+            metadata=json.dumps(metadata),
+            occupancy_logodds=self.bev.occupancy_logodds.astype(np.float32),
+            explored=self.bev.explored.astype(np.uint8),
+            observation_count=self.bev.observation_count.astype(np.int32),
+            trajectory=trajectory,
+            semantic_evidence=semantic_evidence,
+            live_semantic_evidence=live_semantic_evidence,
+            prior_semantic_evidence=prior_semantic_evidence,
+        )
+
+    def load_bev_state(
+        self,
+        path: str | Path,
+        load_semantic_evidence: bool = True,
+        align: str = "source",
+        keep_trajectory: bool = True,
+        load_semantic_as_prior: bool = False,
+    ) -> dict[str, Any]:
+        path = Path(path)
+        data = np.load(path, allow_pickle=False)
+        metadata = json.loads(str(data["metadata"]))
+        occupancy = np.asarray(data["occupancy_logodds"], dtype=np.float32)
+        explored = np.asarray(data["explored"], dtype=np.uint8).astype(bool)
+        observation_count = np.asarray(data["observation_count"], dtype=np.int32)
+        trajectory = np.asarray(data["trajectory"], dtype=np.int32)
+        if align not in {"source", "center"}:
+            raise ValueError(f"Unsupported BEV load alignment: {align!r}")
+
+        loaded_origin = tuple(float(value) for value in metadata["origin_world_xz"])
+        current_grid_size = tuple(int(value) for value in self.bev.config.grid_size)
+        current_origin = tuple(float(value) for value in self.bev.origin_world_xz)
+        resolution = float(metadata.get("resolution", self.bev_resolution))
+        paste_offset = (0, 0)
+
+        if align == "center":
+            target_shape = (
+                max(int(current_grid_size[0]), int(occupancy.shape[0])),
+                max(int(current_grid_size[1]), int(occupancy.shape[1])),
+            )
+            current_center = (
+                current_origin[0] + 0.5 * current_grid_size[0] * self.bev.config.resolution,
+                current_origin[1] + 0.5 * current_grid_size[1] * self.bev.config.resolution,
+            )
+            target_origin = (
+                current_center[0] - 0.5 * target_shape[0] * resolution,
+                current_center[1] - 0.5 * target_shape[1] * resolution,
+            )
+            paste_offset = (
+                (target_shape[0] - int(occupancy.shape[0])) // 2,
+                (target_shape[1] - int(occupancy.shape[1])) // 2,
+            )
+            target_occupancy = np.zeros(target_shape, dtype=np.float32)
+            target_explored = np.zeros(target_shape, dtype=bool)
+            target_observation_count = np.zeros(target_shape, dtype=np.int32)
+            ox, oy = paste_offset
+            sx, sy = occupancy.shape
+            target_occupancy[ox : ox + sx, oy : oy + sy] = occupancy
+            target_explored[ox : ox + sx, oy : oy + sy] = explored
+            target_observation_count[ox : ox + sx, oy : oy + sy] = observation_count
+            occupancy = target_occupancy
+            explored = target_explored
+            observation_count = target_observation_count
+        else:
+            target_shape = tuple(int(value) for value in occupancy.shape)
+            target_origin = loaded_origin
+
+        if tuple(occupancy.shape) != tuple(self.bev.config.grid_size) or align == "center":
+            config = DenseBEVConfig(
+                grid_size=tuple(int(value) for value in occupancy.shape),
+                resolution=resolution,
+                sample_stride=self.sample_stride,
+                max_depth_m=6.0,
+                obstacle_dilation_radius_cells=self.obstacle_dilation_cells,
+            )
+            self.grid_size = int(config.grid_size[0])
+            self.bev_resolution = float(config.resolution)
+            self.bev = DenseBEVMapper(
+                origin_world_xz=target_origin,
+                config=config,
+            )
+            if self.semantic_bev is not None:
+                self.semantic_bev.mapper = self.bev
+                if tuple(self.semantic_bev.evidence.shape[1:]) != tuple(self.bev.config.grid_size):
+                    self.semantic_bev.evidence = np.zeros(
+                        (len(self.semantic_bev.categories), *self.bev.config.grid_size),
+                        dtype=np.float32,
+                    )
+                    self.semantic_bev.prior_evidence = np.zeros_like(self.semantic_bev.evidence)
+        else:
+            self.bev.origin_world_xz = target_origin
+
+        self.bev.occupancy_logodds = occupancy.copy()
+        self.bev.explored = explored.copy()
+        self.bev.observation_count = observation_count.copy()
+        if keep_trajectory:
+            if align == "center" and paste_offset != (0, 0) and trajectory.size:
+                trajectory = trajectory.copy()
+                trajectory[:, 0] += int(paste_offset[0])
+                trajectory[:, 1] += int(paste_offset[1])
+            self.bev.trajectory = [tuple(int(value) for value in row) for row in trajectory.tolist()]
+        else:
+            self.bev.trajectory = []
+
+        loaded_semantic = False
+        if load_semantic_evidence and self.semantic_bev is not None and "semantic_evidence" in data.files:
+            evidence = np.asarray(data["semantic_evidence"], dtype=np.float32)
+            if evidence.shape == self.semantic_bev.evidence.shape:
+                if load_semantic_as_prior:
+                    self.semantic_bev.prior_evidence = evidence.copy()
+                    self.semantic_bev.evidence = np.zeros_like(self.semantic_bev.evidence)
+                else:
+                    self.semantic_bev.evidence = evidence.copy()
+                    self.semantic_bev.prior_evidence = np.zeros_like(self.semantic_bev.evidence)
+                loaded_semantic = True
+            elif align == "center" and evidence.ndim == 3 and evidence.shape[0] == self.semantic_bev.evidence.shape[0]:
+                target_evidence = np.zeros_like(self.semantic_bev.evidence)
+                ox, oy = paste_offset
+                sx, sy = evidence.shape[1:]
+                if ox >= 0 and oy >= 0 and ox + sx <= target_evidence.shape[1] and oy + sy <= target_evidence.shape[2]:
+                    target_evidence[:, ox : ox + sx, oy : oy + sy] = evidence
+                    if load_semantic_as_prior:
+                        self.semantic_bev.prior_evidence = target_evidence
+                        self.semantic_bev.evidence = np.zeros_like(self.semantic_bev.evidence)
+                    else:
+                        self.semantic_bev.evidence = target_evidence
+                        self.semantic_bev.prior_evidence = np.zeros_like(self.semantic_bev.evidence)
+                    loaded_semantic = True
+        pathfinder = getattr(self.sim, "pathfinder", None)
+        self.oracle_free_mask = None
+        if self.enable_oracle_metrics and pathfinder is not None and getattr(pathfinder, "is_loaded", False):
+            agent_state = self.sim.get_agent(0).get_state()
+            self.oracle_free_mask = oracle_navmesh_mask(
+                pathfinder=pathfinder,
+                origin_world_xz=self.bev.origin_world_xz,
+                grid_size=self.bev.config.grid_size,
+                resolution=self.bev.config.resolution,
+                height=float(np.asarray(agent_state.position, dtype=np.float32)[1]),
+            )
+        self.last_payload = None
+        self.last_loaded_bev_transform = {
+            "source_origin_world_xz": list(loaded_origin),
+            "target_origin_world_xz": list(self.bev.origin_world_xz),
+            "source_resolution": resolution,
+            "target_resolution": float(self.bev.config.resolution),
+            "paste_offset_cells": list(paste_offset),
+            "align": align,
+        }
+        return {
+            "path": str(path),
+            "source_scene": metadata.get("scene"),
+            "target_scene": str(self.scene),
+            "loaded_semantic_evidence": loaded_semantic,
+            "loaded_semantic_as_prior": bool(load_semantic_as_prior),
+            "align": align,
+            "kept_trajectory": bool(keep_trajectory),
+            "source_grid_size": list(int(value) for value in metadata.get("grid_size", occupancy.shape)),
+            "grid_size": list(self.bev.config.grid_size),
+            "origin_world_xz": list(self.bev.origin_world_xz),
+            "paste_offset_cells": list(paste_offset),
+        }
+
+    def load_object_memory(
+        self,
+        path: str | Path,
+        source: str = "prior_A",
+        align_to_loaded_bev: bool = True,
+        reset_evidence: bool = False,
+    ) -> dict[str, Any]:
+        loaded = ObjectMemoryStore.load(path)
+        transform = self.last_loaded_bev_transform if align_to_loaded_bev else None
+        next_negative_id = -1
+        imported = 0
+        for old_id, item in loaded.items.items():
+            new_id = f"{source}::{old_id}"
+            while any(existing.semantic_id == next_negative_id for existing in self.memory_store.items.values()):
+                next_negative_id -= 1
+            item.id = new_id
+            item.object_id = item.object_id or old_id
+            item.semantic_id = next_negative_id
+            next_negative_id -= 1
+            item.source = source
+            item.centroid_xz = _transform_xz_from_loaded_bev(item.centroid_xz, transform)
+            if reset_evidence:
+                item.missed_observation_count = 0
+                item.negative_evidence_count = 0
+                item.not_observable_count = 0
+                item.missed_observation_weight = 0.0
+                item.negative_evidence_weight = 0.0
+                item.not_observable_weight = 0.0
+            item.status = "active"
+            self.memory_store.items[new_id] = item
+            imported += 1
+        self.last_payload = None
+        return {
+            "path": str(path),
+            "source": source,
+            "source_scene": loaded.scene_id,
+            "target_scene": str(self.scene),
+            "imported_items": imported,
+            "align_to_loaded_bev": bool(align_to_loaded_bev),
+            "reset_evidence": bool(reset_evidence),
+        }
+
+    def _prior_expected_visible_item_ids(
+        self,
+        depth: np.ndarray,
+        sensor_position_xyz: np.ndarray,
+        sensor_rotation,
+        floor_y: float,
+        hfov_deg: float,
+        occlusion_margin_m: float = 0.25,
+        min_projected_points: int = 2,
+        min_unoccluded_fraction: float = 0.55,
+        patch_radius_px: int = 2,
+        min_patch_valid_fraction: float = 0.5,
+    ) -> set[str]:
+        depth = np.asarray(depth, dtype=np.float32)
+        if depth.ndim == 3 and depth.shape[-1] == 1:
+            depth = depth[:, :, 0]
+        if depth.ndim != 2:
+            return set()
+        height, width = depth.shape
+        fx = width / (2.0 * np.tan(np.deg2rad(hfov_deg) / 2.0))
+        fy = fx
+        cx = (width - 1) / 2.0
+        cy = (height - 1) / 2.0
+        sensor_xyz = np.asarray(sensor_position_xyz, dtype=np.float32).reshape(3)
+        axes = _camera_axes(sensor_rotation)
+        expected: set[str] = set()
+        for item in self.memory_store.items.values():
+            if not str(item.source).startswith("prior_"):
+                continue
+            center_xyz, height_range_y, size_xyz = _prior_visibility_shape(item.category, item.centroid_xz, floor_y)
+            projected = [
+                _project_world_point(point, sensor_xyz, axes, fx, fy, cx, cy, width, height)
+                for point in _object_visibility_points(center_xyz, height_range_y, size_xyz)
+            ]
+            projected = [value for value in projected if value is not None]
+            if len(projected) < max(1, int(min_projected_points)):
+                continue
+            unoccluded = 0
+            for row, col, distance in projected:
+                observed_depth = _patch_depth(depth, row, col, patch_radius_px, min_patch_valid_fraction)
+                if observed_depth is not None and observed_depth + occlusion_margin_m >= distance:
+                    unoccluded += 1
+            if unoccluded >= max(2, int(np.ceil(len(projected) * float(min_unoccluded_fraction)))):
+                expected.add(item.id)
+        return expected
 
     def load_memory(self) -> dict[str, Any]:
         with self.lock:
@@ -621,7 +995,8 @@ class HabitatControlSession:
             if not self.memory_path.exists():
                 raise FileNotFoundError(self.memory_path)
             self.memory_store = ObjectMemoryStore.load(self.memory_path)
-            return self._state_payload()
+            self.last_payload = self._state_payload()
+            return self.last_payload
 
     def _geometry_oracle_payload(self) -> dict[str, Any]:
         if self.oracle_free_mask is None:
@@ -643,6 +1018,85 @@ class HabitatControlSession:
             "y": float(position[2] if position.size > 2 else position[-1]),
             "heading_deg": _heading_deg_from_rotation(getattr(state, "rotation", None)),
         }
+
+    def _evidence_update_from_pose(self, pose: dict[str, float]) -> dict[str, float | str]:
+        if self.last_evidence_pose is None:
+            return {
+                "weight": 1.0,
+                "negative_weight": 0.0,
+                "translation_m": 0.0,
+                "rotation_deg": 0.0,
+                "novelty": 1.0,
+                "translation_gate": 0.0,
+                "reason": "initial",
+            }
+        dx = float(pose["x"]) - float(self.last_evidence_pose["x"])
+        dz = float(pose["y"]) - float(self.last_evidence_pose["y"])
+        translation = float(np.sqrt(dx * dx + dz * dz))
+        rotation = abs(_angle_delta_deg(float(pose["heading_deg"]), float(self.last_evidence_pose["heading_deg"])))
+        novelty = float(np.sqrt((translation / 0.35) ** 2 + (rotation / 30.0) ** 2))
+        rise = 1.0 - float(np.exp(-novelty))
+        fast_decay = float(np.exp(-(max(0.0, novelty - 2.0) ** 2) / 0.6))
+        weight = float(np.clip(0.05 + 0.95 * rise * fast_decay, 0.05, 1.0))
+        translation_gate = float(np.clip((translation - 0.12) / 0.38, 0.0, 1.0))
+        negative_weight = float(np.clip(weight * translation_gate * self.negative_evidence_scale, 0.0, 1.0))
+        return {
+            "weight": weight,
+            "negative_weight": negative_weight,
+            "translation_m": translation,
+            "rotation_deg": rotation,
+            "novelty": novelty,
+            "translation_gate": translation_gate,
+            "reason": "motion_weighted",
+        }
+
+
+def _observability_label(semantic_id: int, seen_ids: set[int], expected_visible_ids: set[int]) -> str:
+    if semantic_id in seen_ids:
+        return "positive"
+    if semantic_id in expected_visible_ids:
+        return "expected_visible_miss"
+    return "not_observable"
+
+
+def _transform_xz_from_loaded_bev(
+    centroid_xz: tuple[float, float],
+    transform: dict[str, Any] | None,
+) -> tuple[float, float]:
+    if not transform:
+        return (float(centroid_xz[0]), float(centroid_xz[1]))
+    source_origin = transform.get("source_origin_world_xz") or [0.0, 0.0]
+    target_origin = transform.get("target_origin_world_xz") or source_origin
+    source_resolution = float(transform.get("source_resolution", 0.05))
+    target_resolution = float(transform.get("target_resolution", source_resolution))
+    paste_offset = transform.get("paste_offset_cells") or [0, 0]
+    cell_x = (float(centroid_xz[0]) - float(source_origin[0])) / source_resolution + float(paste_offset[0])
+    cell_y = (float(centroid_xz[1]) - float(source_origin[1])) / source_resolution + float(paste_offset[1])
+    return (
+        float(target_origin[0]) + cell_x * target_resolution,
+        float(target_origin[1]) + cell_y * target_resolution,
+    )
+
+
+def _prior_visibility_shape(
+    category: str,
+    centroid_xz: tuple[float, float],
+    floor_y: float,
+) -> tuple[list[float], list[float], list[float]]:
+    category = (category or "").lower()
+    profiles = {
+        "wall": (0.15, 2.25, [0.8, 2.1, 0.25]),
+        "door": (0.10, 2.10, [0.9, 2.0, 0.18]),
+        "bed": (0.20, 0.90, [1.8, 0.7, 2.0]),
+        "chair": (0.20, 1.25, [0.7, 1.0, 0.7]),
+        "table": (0.45, 1.15, [1.2, 0.7, 1.2]),
+    }
+    low, high, size = profiles.get(category, (0.25, 1.40, [0.8, 1.0, 0.8]))
+    low_y = float(floor_y) + low
+    high_y = float(floor_y) + high
+    center_y = 0.5 * (low_y + high_y)
+    center_xyz = [float(centroid_xz[0]), center_y, float(centroid_xz[1])]
+    return center_xyz, [low_y, high_y], size
 
 
 def _sample_navigable_path(sim, min_distance_m: float, max_samples: int, attempts: int = 80) -> list[np.ndarray]:
@@ -1006,6 +1460,26 @@ def _heading_deg_from_rotation(rotation) -> float:
     if vector.size < 3 or not np.isfinite(vector).all():
         return 0.0
     return float(np.degrees(np.arctan2(vector[0], -vector[2])))
+
+
+def _pitch_deg_from_rotation(rotation) -> float:
+    if rotation is None:
+        return 0.0
+    try:
+        vector = np.asarray(rotation.transform_vector([0.0, 0.0, -1.0]), dtype=np.float32)
+    except Exception:
+        return 0.0
+    if vector.size < 3 or not np.isfinite(vector).all():
+        return 0.0
+    norm = float(np.linalg.norm(vector))
+    if norm <= 1e-6:
+        return 0.0
+    vector = vector / norm
+    return float(np.degrees(np.arcsin(float(np.clip(vector[1], -1.0, 1.0)))))
+
+
+def _angle_delta_deg(a: float, b: float) -> float:
+    return (a - b + 180.0) % 360.0 - 180.0
 
 
 if __name__ == "__main__":

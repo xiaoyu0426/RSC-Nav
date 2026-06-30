@@ -1570,7 +1570,7 @@ memory_step 保证 freshness/update 时间轴跨 reset 不倒退。
 - replay 后新出现对象被接纳为 new memory；后续 detector-driven 版本需要更严格的 association/merge/split 判据。
 - `freshness` 已有跨 reset 时间轴，但长期真实时间/多 episode 时间尺度还需要实验标定。
 
-## Phase 3.0 Live Oracle Visual Evidence
+## Phase 2.10 Live Oracle Visual Evidence
 
 时间：2026-06-22
 
@@ -1667,7 +1667,7 @@ Oracle Diff 图可以直接定位 free/occupied 与 navmesh oracle 的一致/错
 4. 对 occupied recall 做第二轮几何改进：多高度 bin、端点膨胀、墙面连续性/边界更新。
 ```
 
-## Phase 3.1 Goal Completion Audit
+## Phase 2.11 Goal Completion Audit
 
 时间：2026-06-22
 
@@ -1681,7 +1681,7 @@ Oracle Diff 图可以直接定位 free/occupied 与 navmesh oracle 的一致/错
 新增脚本：
 
 ```text
-scripts/phase31_goal_completion_audit.py
+scripts/phase211_goal_completion_audit.py
 ```
 
 本地审计输出：
@@ -1691,6 +1691,8 @@ outputs/phase31_goal_audit/goal_audit_20260622-204839/
   goal_audit.json
   summary.html
 ```
+
+说明：该目录是重命名前生成的历史产物；新审计入口默认写入 `outputs/phase211_goal_audit/`。
 
 审计范围：
 
@@ -1716,7 +1718,7 @@ log markers:
   Phase 2.7 Live Path-Step Auto Evaluation
   Phase 2.8 Live Oracle Geometry Gate
   Phase 2.9 Live Memory Reuse / Reload Evaluation
-  Phase 3.0 Live Oracle Visual Evidence
+  Phase 2.10 Live Oracle Visual Evidence
 ```
 
 自动审计结果：
@@ -1755,5 +1757,292 @@ memory reuse:
 并把 wall / door / table / chair 以类别、位置、置信度、freshness 的对象记忆形式保存、加载、重放和自动验收。
 
 验收图有保存，且已在本 log 中记录路径；goal_audit.json/summary.html 提供机器可读与可视化索引。
-之前的 IMPLEMENTATION_LOG.md 仍在维护，本节是 Phase 3.1 对当前目标的闭环确认。
+之前的 IMPLEMENTATION_LOG.md 仍在维护，本节是 Phase 2.11 对当前 live BEV / semantic object memory 目标的闭环确认。
+原实验协议中的 Phase 3 仍保留为 Landmark Retrieval，尚未由本节内容替代。
+```
+
+## Phase 2.12 View-Conditioned Negative Evidence Gate
+
+时间：2026-06-25
+
+目标：
+
+```text
+修正 live object memory 中“没看到”与“不存在”的混淆：
+只有历史对象位置在当前相机水平/垂直视锥内、对象高度范围被覆盖、depth 没有明显前景遮挡，
+且当前 semantic frame 未命中该对象时，才记为 expected-visible miss / negative evidence。
+```
+
+更新原则：
+
+```text
+positive observation:
+  confidence = min(1.0, 0.75 * confidence + 0.25 * obs_confidence + 0.05)
+  freshness = 1.0
+  missed_observation_count = 0
+  negative_evidence_count = max(0, negative_evidence_count - 1)
+  status = active
+
+not observable:
+  confidence unchanged
+  freshness *= exp(-1 / 100)
+  missed_observation_count unchanged
+  negative_evidence_count unchanged
+
+expected-visible miss:
+  missed_observation_count += 1
+  negative_evidence_count += 1
+  confidence = max(0.0, confidence - 0.12)
+  freshness *= exp(-1 / 25)
+```
+
+状态规则：
+
+```text
+missing: confidence < 0.2 or missed_observation_count >= 4
+stale:   confidence < 0.5 or missed_observation_count >= 2 or freshness < 0.35
+active:  otherwise
+```
+
+实现内容：
+
+- `src/object_memory_store.py`
+  - `ObjectMemoryItem` 增加 `missed_observation_count`、`negative_evidence_count`、`not_observable_count`。
+  - `update_from_tracks(...)` 支持 `observability` 输入。
+  - 当前帧正证据只来自当前 step 真正看见的 semantic ids，不再把历史累计 tracks 全部当作 positive update。
+- `src/semantic_bev_memory.py`
+  - semantic GT 索引补充 `gt_center_xyz` 和 `height_range_y`。
+  - 新增 `seen_ids_for_step(...)` 与 `expected_visible_ids(...)`。
+  - MVP 使用对象中心点的 bottom / center / top 三个高度样本投影到当前相机，并用 depth buffer 做遮挡判定。
+- `scripts/phase23_habitat_control_server.py`
+  - live state 中输出 `observability` 调试信息。
+  - object memory 更新改为三态输入：positive ids、expected-visible miss ids、not-observable ids。
+
+验证：
+
+```text
+py_compile passed:
+  src/object_memory_store.py
+  src/semantic_bev_memory.py
+  scripts/phase23_habitat_control_server.py
+
+unit smoke passed:
+  not_observable 不增加 missed / negative evidence
+  连续 2 次 expected-visible miss -> stale
+  positive observation -> active，missed_observation_count reset，negative_evidence_count 递减
+
+semantic observability smoke passed:
+  对象中心/高度样本在相机视锥内且未被 depth 遮挡 -> expected-visible
+  对象高度移出当前垂直视野 -> not observable
+  对象在视锥内但被更近 depth 遮挡 -> not observable
+
+existing Phase 2.11 audit still passed:
+  checks: 38 / 38 passed
+```
+
+限制：
+
+```text
+当前 expected-visible 判定仍是 MVP：
+使用对象中心 xz + 高度区间三点投影，而不是完整 3D AABB / BEV footprint 多点覆盖。
+遮挡判定使用投影点附近 depth margin，而不是完整可见表面比例。
+该版本足以避免“抬头/低头导致对象没在图像中”被误判为 negative evidence，
+但后续进入 Landmark Retrieval 前，最好增加 object footprint 多采样和按类别高度先验。
+```
+
+## Phase 2.13 Auto Episode Runner / Recorder / Summary
+
+时间：2026-06-25
+
+目标：
+
+```text
+把 live Habitat server + BEV/object memory 的实验从“人实时看 UI”改成：
+远端一条命令自动跑 episode、逐步记录 RGB-D / BEV / semantic / memory / observability，
+并生成本地可回看的 summary report。
+```
+
+新增脚本：
+
+- `scripts/phase213_auto_episode_runner.py`
+
+核心行为：
+
+```text
+直接复用 scripts/phase23_habitat_control_server.py 中的 HabitatControlSession，
+不启动 HTTP server，不依赖浏览器 UI。
+
+默认 trajectory-mode=path，执行 path_step 自动导航采样；
+也支持 --trajectory-mode actions 与 --actions 手工动作序列。
+
+每步保存 compact timeline 与图像文件：
+  images/step_XXXX_rgb.jpg
+  images/step_XXXX_depth.png
+  images/step_XXXX_bev.png
+  images/step_XXXX_semantic_bev.png
+  images/step_XXXX_oracle.png
+  images/step_XXXX_oracle_diff.png
+
+可选 --save-full-state-jsonl 保存包含 base64 图像 payload 的原始 state 流。
+```
+
+输出文件：
+
+```text
+run_config.json
+timeline_compact.json
+object_history.json
+metrics.json
+summary_report.json
+summary.html
+live_object_memory.json
+images/
+```
+
+Phase 2 主汇总页：
+
+```text
+url:
+  http://39.101.65.229:43901/negfix_ab_index.html
+
+remote file:
+  /workspace/yujiexiao/RSC_Nav/outputs/phase213_episode_runs/negfix_ab_index.html
+
+说明：
+  该页面是 Phase 2 evidence 的主入口，汇总 A / B / A->B runs、GIF、summary.html、prior/live 曲线和 v4 文档链接。
+  页面与大体积 GIF/HTML artifacts 保留在 outputs / 打包目录，不纳入 Git 提交。
+```
+
+报告内容：
+
+```text
+summary.html 可离线打开，展示 episode 配置、pass/fail、关键指标和视觉 checkpoint。
+metrics.json / summary_report.json 记录：
+  BEV geometry oracle 指标
+  semantic coverage
+  object memory item / active item / per-class coverage
+  object centroid stability
+  confidence / freshness
+  expected-visible miss / not-observable / positive observation 统计
+  max missed_observation_count / max negative_evidence_count
+```
+
+示例命令：
+
+```bash
+python scripts/phase213_auto_episode_runner.py \
+  --scene /path/to/scene.glb \
+  --scene-dataset-config /path/to/hm3d_annotated_basis.scene_dataset_config.json \
+  --episode-name phase213_smoke \
+  --path-steps 36
+```
+
+验证：
+
+```text
+py_compile passed:
+  scripts/phase213_auto_episode_runner.py
+
+CLI entrypoint passed:
+  python scripts/phase213_auto_episode_runner.py --help
+
+remote smoke passed on dev machine:
+  env: /workspace/yujiexiao/miniconda3/envs/rscnav-habitat22
+  scene: /workspace/yujiexiao/.rscnav/habitat_data/versioned_data/mp3d_example_scene_1.1/17DRP5sb8fy/17DRP5sb8fy.glb
+  dataset: /workspace/yujiexiao/.rscnav/habitat_data/versioned_data/mp3d_example_scene_1.1/mp3d.scene_dataset_config.json
+  command: path_step x 2, resolution 96, grid_size 120
+  errors: []
+  recorded_states: 4
+  remote out: /workspace/yujiexiao/RSC_Nav/outputs/phase213_episode_runs/20260625-141016_phase213_remote_smoke
+  local sync: outputs/phase213_episode_runs/20260625-141016_phase213_remote_smoke
+```
+
+限制：
+
+```text
+本地 macOS 环境没有 Habitat-Sim/GPU scene runtime，因此本地只做入口和静态校验。
+开发机已完成 2-step smoke。该 smoke 步数太短，未覆盖 chair，因此严格 coverage 指标为 false；
+这不是 runner 链路失败，而是短 smoke 不作为完整 Phase 2 coverage 验收。
+完整 episode 应使用默认 path_steps=36 或更长轨迹，在开发机 Habitat 环境执行。
+```
+
+### Coverage-loop route recording and memory-update validation
+
+时间：2026-06-25
+
+新增：
+
+```text
+scripts/phase213_auto_episode_runner.py 增加 --trajectory-mode coverage-loop。
+
+coverage-loop 策略：
+  1. 从 Habitat navmesh/pathfinder 采样可导航点。
+  2. 以样本中心为环境中心，按角度扇区选外围 waypoint。
+  3. 用 Habitat ShortestPath 连接 waypoint。
+  4. 将 route polyline 重采样为固定步数。
+  5. 保存 route_plan.json，便于回看导航策略。
+```
+
+同时修正：
+
+```text
+scripts/phase23_habitat_control_server.py
+  - state() 不再推进 BEV/object memory；只返回最近一次 reset/action 的缓存 payload。
+  - save_memory() 不再重复调用 _state_payload()，避免 final save 在同一 pose/step 重复更新记忆。
+  - observability debug report 改为互斥三态：
+      positive
+      expected_visible_miss
+      not_observable
+```
+
+开发机正式录制：
+
+```text
+episode: phase213_coverage_loop_memory_check_v3
+remote out:
+  /workspace/yujiexiao/RSC_Nav/outputs/phase213_episode_runs/20260625-145912_phase213_coverage_loop_memory_check_v3
+local sync:
+  outputs/phase213_episode_runs/20260625-145912_phase213_coverage_loop_memory_check_v3
+
+route:
+  selected_waypoints: 12
+  connected_segments: 10
+  recorded_states: 49
+  route_steps: 48
+
+coverage:
+  wall: 7
+  door: 1
+  table: 4
+  chair: 6
+  final_memory_items: 18
+```
+
+记忆更新机制验证：
+
+```text
+validation file:
+  outputs/phase213_episode_runs/20260625-145912_phase213_coverage_loop_memory_check_v3/memory_update_validation.json
+
+observability_overlap_violations: 0
+not_observable_transitions: 258
+not_observable_counter_violations: 0
+expected_visible_miss_transitions: 12
+expected_visible_miss_increment_violations: 0
+positive_existing_transitions: 63
+positive_reset_violations: 0
+
+result: passed
+```
+
+说明：
+
+```text
+本次 coverage-loop 总 metrics 的 overall passed=false，
+唯一失败项是旧 live eval 阈值 stability_ok：
+  max_tail_drift_m = 0.8284
+  threshold = 0.8
+
+这反映 coverage-loop 远距离绕行比原 live path 更激进，不代表三态 negative evidence 机制失败。
+本次 memory_update_validation.json 已按逐对象 counter transition 验证三态更新逻辑。
 ```
