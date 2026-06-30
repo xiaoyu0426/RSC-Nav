@@ -9,6 +9,23 @@ Current repository stage:
 - Phase 2: synthetic BEV memory projection smoke test.
 - Phase 2.1: unified ObservationFrame adapter smoke test.
 - Phase 2.2: Habitat RGB-D / semantic adapter contract smoke test.
+- Phase 2 close-out: live Habitat BEV / semantic BEV / object memory update evidence.
+
+## Phase 2 Evidence Page
+
+The main Phase 2 visual summary is hosted from the development machine:
+
+- [Phase 2 curated evidence](http://39.101.65.229:43901/negfix_ab_index.html)
+
+Development-machine file:
+
+```text
+/workspace/yujiexiao/RSC_Nav/outputs/phase213_episode_runs/negfix_ab_index.html
+```
+
+This page links the curated A / B / A->B runs, GIFs, `summary.html` reports,
+prior/live semantic-evidence curves, and Phase 2 documentation. Large `outputs/`
+artifacts are intentionally kept outside Git.
 
 ## PowerShell UTF-8 Setup
 

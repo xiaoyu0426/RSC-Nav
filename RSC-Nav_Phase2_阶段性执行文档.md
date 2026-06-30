@@ -153,6 +153,23 @@ A->B:
 http://39.101.65.229:43901/negfix_ab_index.html?v=phase2-context-v4-A3B6
 ```
 
+Canonical Phase 2 汇总入口：
+
+```text
+url:
+  http://39.101.65.229:43901/negfix_ab_index.html
+
+remote file:
+  /workspace/yujiexiao/RSC_Nav/outputs/phase213_episode_runs/negfix_ab_index.html
+
+content:
+  A / B / A->B runs, GIFs, summary.html reports, prior/live curves, v4 docs.
+
+note:
+  The large outputs artifacts are kept on the development machine and local package,
+  not committed to Git.
+```
+
 v4 文档：
 
 ```text
