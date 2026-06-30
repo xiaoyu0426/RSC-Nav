@@ -27,6 +27,14 @@ This page links the curated A / B / A->B runs, GIFs, `summary.html` reports,
 prior/live semantic-evidence curves, and Phase 2 documentation. Large `outputs/`
 artifacts are intentionally kept outside Git.
 
+## Phase Documents
+
+Stage-specific execution notes are collected here:
+
+- [Phase document index](docs/phase_docs/README.md)
+- [Phase 2 execution document](RSC-Nav_Phase2_阶段性执行文档.md)
+- [Phase 2 BEV and semantic memory notes](docs/phase_docs/phase2_bev_semantic_memory.md)
+
 ## PowerShell UTF-8 Setup
 
 Windows PowerShell 5.1 may decode UTF-8 Markdown without BOM as GBK/ANSI,
