@@ -34,9 +34,3 @@ outputs/**
 !outputs/phase5a_sim_demo/water_then_owner_bed_20260704/*.gif
 !outputs/phase5a_sim_demo/water_then_owner_bed_20260704/*.png
 !outputs/phase5a_sim_demo/water_then_owner_bed_20260704/*.mp4
-!outputs/phase5a_sim_demo/case2_cup_from_dining_table_20260704/
-!outputs/phase5a_sim_demo/case2_cup_from_dining_table_20260704/*.html
-!outputs/phase5a_sim_demo/case2_cup_from_dining_table_20260704/*.json
-!outputs/phase5a_sim_demo/case2_cup_from_dining_table_20260704/*.gif
-!outputs/phase5a_sim_demo/case2_cup_from_dining_table_20260704/*.png
-!outputs/phase5a_sim_demo/case2_cup_from_dining_table_20260704/*.mp4

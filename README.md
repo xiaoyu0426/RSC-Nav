@@ -6,15 +6,11 @@ RSC-Nav studies a map-then-task navigation loop: an agent first builds reusable 
 
 ## Demo
 
-### Case 1: find a water place, then return to the owner near the bed
+### Case: find a water place, then return to the owner near the bed
 
-![RSC-Nav Case 1 demo](outputs/phase5a_sim_demo/water_then_owner_bed_20260704/grounding_depth_demo.gif)
+![RSC-Nav demo](outputs/phase5a_sim_demo/water_then_owner_bed_20260704/grounding_depth_demo.gif)
 
-### Case 2: go to the dining table to find a cup, then bring it back
-
-![RSC-Nav Case 2 demo](outputs/phase5a_sim_demo/case2_cup_from_dining_table_20260704/grounding_depth_demo.gif)
-
-Each GIF shows:
+The GIF shows:
 
 - first-person RGB with grounding boxes, object labels, and API-planner subgoals;
 - depth observation;
