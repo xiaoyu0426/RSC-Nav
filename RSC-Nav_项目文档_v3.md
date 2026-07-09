@@ -1,4 +1,4 @@
-# RSC-Nav 项目文档 v3
+﻿# RSC-Nav 项目文档 v3
 *(RSC-Nav: Retrosplenial-Inspired Long-Term Semantic-Spatial Memory for Embodied Navigation)*
 
 ---

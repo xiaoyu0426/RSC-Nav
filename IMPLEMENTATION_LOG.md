@@ -1899,20 +1899,6 @@ live_object_memory.json
 images/
 ```
 
-Phase 2 主汇总页：
-
-```text
-url:
-  http://39.101.65.229:43901/negfix_ab_index.html
-
-remote file:
-  /workspace/yujiexiao/RSC_Nav/outputs/phase213_episode_runs/negfix_ab_index.html
-
-说明：
-  该页面是 Phase 2 evidence 的主入口，汇总 A / B / A->B runs、GIF、summary.html、prior/live 曲线和 v4 文档链接。
-  页面与大体积 GIF/HTML artifacts 保留在 outputs / 打包目录，不纳入 Git 提交。
-```
-
 报告内容：
 
 ```text

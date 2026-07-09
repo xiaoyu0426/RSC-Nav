@@ -265,6 +265,7 @@ class SemanticBEVAccumulator:
                     "gt_center_xz": gt_center,
                     "gt_center_xyz": gt.get("gt_center_xyz"),
                     "height_range_y": gt.get("height_range_y"),
+                    "sizes_xyz": gt.get("sizes_xyz"),
                     "centroid_error_m": error,
                     "footprint_cells": len(stats["cells"]),
                     "confidence": min(1.0, count / self.confidence_saturation),

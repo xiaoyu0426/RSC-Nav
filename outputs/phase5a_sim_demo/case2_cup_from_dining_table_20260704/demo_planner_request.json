@@ -1,0 +1,1709 @@
+{
+  "schema_version": "phase5a_sim_language_demo_request_v1",
+  "goal_query": "帮我去客厅餐桌上找个水杯拿回给我",
+  "affordance_note": "The planner must infer where water is likely to be from the semantic map. Possible real-world anchors include bathroom, kitchen, sink, faucet, fridge, water dispenser, cup, bottle, counter, and table. If explicit water-related anchors are absent from the current map, choose the best available search region and state the uncertainty.",
+  "semantic_map_summary": {
+    "available_labels": [
+      "bed",
+      "chair",
+      "door",
+      "sofa",
+      "table"
+    ],
+    "label_counts": {
+      "door": 11,
+      "sofa": 3,
+      "bed": 4,
+      "table": 4,
+      "chair": 2
+    },
+    "known_limitation": "Current MVP scene labels may not include bottle/cup/sink/fridge/bathroom/kitchen, so water-place planning may be uncertain."
+  },
+  "required_sequence": [
+    {
+      "intent": "find_water_place",
+      "preferred_anchor_label": "planner_infers_from_semantic_map"
+    },
+    {
+      "intent": "return_to_owner",
+      "preferred_anchor_label": "bed"
+    }
+  ],
+  "candidate_waypoints": [
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_075_0",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_075",
+      "anchor_label": "door",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        2.0279,
+        -0.7682
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8531
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_075_1",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_075",
+      "anchor_label": "door",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        0.2279,
+        -0.7682
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8531
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_075_2",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_075",
+      "anchor_label": "door",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        1.1279,
+        0.1318
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8531
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_075_3",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_075",
+      "anchor_label": "door",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        1.1279,
+        -1.6682
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8531
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_156_0",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_156",
+      "anchor_label": "door",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        -7.2856,
+        2.5863
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8392
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_156_1",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_156",
+      "anchor_label": "door",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        -9.0856,
+        2.5863
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8392
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_156_2",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_156",
+      "anchor_label": "door",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        -8.1856,
+        3.4863
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8392
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_156_3",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_156",
+      "anchor_label": "door",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        -8.1856,
+        1.6863
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8392
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_sofa_groundingdino_sofa_027_0",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_sofa_groundingdino_sofa_027",
+      "anchor_label": "sofa",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        -3.3863,
+        -4.3858
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8332
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_sofa_groundingdino_sofa_027_1",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_sofa_groundingdino_sofa_027",
+      "anchor_label": "sofa",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        -5.1863,
+        -4.3858
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8332
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_sofa_groundingdino_sofa_027_2",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_sofa_groundingdino_sofa_027",
+      "anchor_label": "sofa",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        -4.2863,
+        -3.4858
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8332
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_sofa_groundingdino_sofa_027_3",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_sofa_groundingdino_sofa_027",
+      "anchor_label": "sofa",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        -4.2863,
+        -5.2858
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8332
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_108_0",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_108",
+      "anchor_label": "door",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        5.4605,
+        0.6344
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8268
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_108_1",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_108",
+      "anchor_label": "door",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        3.6605,
+        0.6344
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8268
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_108_2",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_108",
+      "anchor_label": "door",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        4.5605,
+        1.5344
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8268
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_108_3",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_108",
+      "anchor_label": "door",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        4.5605,
+        -0.2656
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8268
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_051_0",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_051",
+      "anchor_label": "door",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        1.3966,
+        2.0955
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.826
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_051_1",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_051",
+      "anchor_label": "door",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        -0.4034,
+        2.0955
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.826
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_051_2",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_051",
+      "anchor_label": "door",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        0.4966,
+        2.9955
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.826
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_051_3",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_051",
+      "anchor_label": "door",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        0.4966,
+        1.1955
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.826
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_sofa_groundingdino_sofa_049_0",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_sofa_groundingdino_sofa_049",
+      "anchor_label": "sofa",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        -4.5942,
+        -2.7964
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8226
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_sofa_groundingdino_sofa_049_1",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_sofa_groundingdino_sofa_049",
+      "anchor_label": "sofa",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        -6.3942,
+        -2.7964
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8226
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_sofa_groundingdino_sofa_049_2",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_sofa_groundingdino_sofa_049",
+      "anchor_label": "sofa",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        -5.4942,
+        -1.8964
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8226
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_sofa_groundingdino_sofa_049_3",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_sofa_groundingdino_sofa_049",
+      "anchor_label": "sofa",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        -5.4942,
+        -3.6964
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8226
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_084_0",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_084",
+      "anchor_label": "door",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        2.2154,
+        -5.0162
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8141
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_084_1",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_084",
+      "anchor_label": "door",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        0.4154,
+        -5.0162
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8141
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_084_2",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_084",
+      "anchor_label": "door",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        1.3154,
+        -4.1162
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8141
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_084_3",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_084",
+      "anchor_label": "door",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        1.3154,
+        -5.9162
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8141
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_001_0",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_001",
+      "anchor_label": "door",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        -3.8731,
+        -0.6548
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8101
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_001_1",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_001",
+      "anchor_label": "door",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        -5.6731,
+        -0.6548
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8101
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_001_2",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_001",
+      "anchor_label": "door",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        -4.7731,
+        0.2452
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8101
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_001_3",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_001",
+      "anchor_label": "door",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        -4.7731,
+        -1.5548
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8101
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_bed_groundingdino_bed_015_0",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_bed_groundingdino_bed_015",
+      "anchor_label": "bed",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        -6.9065,
+        -2.0343
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8092
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_bed_groundingdino_bed_015_1",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_bed_groundingdino_bed_015",
+      "anchor_label": "bed",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        -8.7065,
+        -2.0343
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8092
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_bed_groundingdino_bed_015_2",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_bed_groundingdino_bed_015",
+      "anchor_label": "bed",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        -7.8065,
+        -1.1343
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8092
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_bed_groundingdino_bed_015_3",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_bed_groundingdino_bed_015",
+      "anchor_label": "bed",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        -7.8065,
+        -2.9343
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8092
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_038_0",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_038",
+      "anchor_label": "door",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        0.1053,
+        -5.1335
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8073
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_038_1",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_038",
+      "anchor_label": "door",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        -1.6947,
+        -5.1335
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8073
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_038_2",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_038",
+      "anchor_label": "door",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        -0.7947,
+        -4.2335
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8073
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_038_3",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_038",
+      "anchor_label": "door",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        -0.7947,
+        -6.0335
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8073
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_012_0",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_012",
+      "anchor_label": "door",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        -6.7274,
+        -0.5002
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8069
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_012_1",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_012",
+      "anchor_label": "door",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        -8.5274,
+        -0.5002
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8069
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_012_2",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_012",
+      "anchor_label": "door",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        -7.6274,
+        0.3998
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8069
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_012_3",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_012",
+      "anchor_label": "door",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        -7.6274,
+        -1.4002
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8069
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_bed_groundingdino_bed_025_0",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_bed_groundingdino_bed_025",
+      "anchor_label": "bed",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        -2.0714,
+        -2.3425
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8028
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_bed_groundingdino_bed_025_1",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_bed_groundingdino_bed_025",
+      "anchor_label": "bed",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        -3.8714,
+        -2.3425
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8028
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_bed_groundingdino_bed_025_2",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_bed_groundingdino_bed_025",
+      "anchor_label": "bed",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        -2.9714,
+        -1.4425
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8028
+    },
+    {
+      "id": "wp_lm_m25_gdino_full96_views2_conf035_bed_groundingdino_bed_025_3",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_bed_groundingdino_bed_025",
+      "anchor_label": "bed",
+      "type": "landmark_perimeter",
+      "bev_position": [
+        -2.9714,
+        -3.2425
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8028
+    },
+    {
+      "id": "wp_auto_lm_m25_gdino_full96_views2_conf035_chair_groundingdino_chair_133_0",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_chair_groundingdino_chair_133",
+      "anchor_label": "chair",
+      "type": "auto_goal_perimeter",
+      "bev_position": [
+        -9.7497,
+        -0.2134
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.892,
+      "generated_by": "phase5a_goal_waypoint_augmenter"
+    },
+    {
+      "id": "wp_auto_lm_m25_gdino_full96_views2_conf035_chair_groundingdino_chair_133_1",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_chair_groundingdino_chair_133",
+      "anchor_label": "chair",
+      "type": "auto_goal_perimeter",
+      "bev_position": [
+        -11.5497,
+        -0.2134
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.892,
+      "generated_by": "phase5a_goal_waypoint_augmenter"
+    },
+    {
+      "id": "wp_auto_lm_m25_gdino_full96_views2_conf035_chair_groundingdino_chair_133_2",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_chair_groundingdino_chair_133",
+      "anchor_label": "chair",
+      "type": "auto_goal_perimeter",
+      "bev_position": [
+        -10.6497,
+        0.6866
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.892,
+      "generated_by": "phase5a_goal_waypoint_augmenter"
+    },
+    {
+      "id": "wp_auto_lm_m25_gdino_full96_views2_conf035_chair_groundingdino_chair_133_3",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_chair_groundingdino_chair_133",
+      "anchor_label": "chair",
+      "type": "auto_goal_perimeter",
+      "bev_position": [
+        -10.6497,
+        -1.1134
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.892,
+      "generated_by": "phase5a_goal_waypoint_augmenter"
+    },
+    {
+      "id": "wp_auto_lm_m25_gdino_full96_views2_conf035_table_groundingdino_table_083_0",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_table_groundingdino_table_083",
+      "anchor_label": "table",
+      "type": "auto_goal_perimeter",
+      "bev_position": [
+        2.7229,
+        -2.3545
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8992,
+      "generated_by": "phase5a_goal_waypoint_augmenter"
+    },
+    {
+      "id": "wp_auto_lm_m25_gdino_full96_views2_conf035_table_groundingdino_table_083_1",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_table_groundingdino_table_083",
+      "anchor_label": "table",
+      "type": "auto_goal_perimeter",
+      "bev_position": [
+        0.9229,
+        -2.3545
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8992,
+      "generated_by": "phase5a_goal_waypoint_augmenter"
+    },
+    {
+      "id": "wp_auto_lm_m25_gdino_full96_views2_conf035_table_groundingdino_table_083_2",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_table_groundingdino_table_083",
+      "anchor_label": "table",
+      "type": "auto_goal_perimeter",
+      "bev_position": [
+        1.8229,
+        -1.4545
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8992,
+      "generated_by": "phase5a_goal_waypoint_augmenter"
+    },
+    {
+      "id": "wp_auto_lm_m25_gdino_full96_views2_conf035_table_groundingdino_table_083_3",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_table_groundingdino_table_083",
+      "anchor_label": "table",
+      "type": "auto_goal_perimeter",
+      "bev_position": [
+        1.8229,
+        -3.2545
+      ],
+      "radius_m": 0.9,
+      "requires_traditional_planner_validation": true,
+      "priority": 0.8992,
+      "generated_by": "phase5a_goal_waypoint_augmenter"
+    }
+  ],
+  "topk_landmarks": [
+    {
+      "query": "bed",
+      "landmark_id": "lm_m25_gdino_full96_views2_conf035_bed_groundingdino_bed_015",
+      "label": "bed",
+      "bev_position": [
+        -7.806450843811035,
+        -2.03434681892395
+      ],
+      "final_score": 0.9119,
+      "score_breakdown": {
+        "semantic_match": 1.0,
+        "confidence": 0.5597,
+        "freshness": 1.0,
+        "status_score": 1.0,
+        "context_match": 1.0,
+        "source_bonus": 0.0,
+        "final_score": 0.9119
+      },
+      "status": "active",
+      "confidence": 0.5597,
+      "freshness": 1.0,
+      "context_id": "m25_gdino_full96_views2_conf035"
+    },
+    {
+      "query": "bed",
+      "landmark_id": "lm_m25_gdino_full96_views2_conf035_bed_groundingdino_bed_025",
+      "label": "bed",
+      "bev_position": [
+        -2.971449851989746,
+        -2.3425471782684326
+      ],
+      "final_score": 0.9073,
+      "score_breakdown": {
+        "semantic_match": 1.0,
+        "confidence": 0.5366,
+        "freshness": 1.0,
+        "status_score": 1.0,
+        "context_match": 1.0,
+        "source_bonus": 0.0,
+        "final_score": 0.9073
+      },
+      "status": "active",
+      "confidence": 0.5366,
+      "freshness": 1.0,
+      "context_id": "m25_gdino_full96_views2_conf035"
+    },
+    {
+      "query": "bed",
+      "landmark_id": "lm_m25_gdino_full96_views2_conf035_bed_groundingdino_bed_002",
+      "label": "bed",
+      "bev_position": [
+        -9.30386703167885,
+        -3.152917988343378
+      ],
+      "final_score": 0.889,
+      "score_breakdown": {
+        "semantic_match": 1.0,
+        "confidence": 0.4452,
+        "freshness": 1.0,
+        "status_score": 1.0,
+        "context_match": 1.0,
+        "source_bonus": 0.0,
+        "final_score": 0.889
+      },
+      "status": "active",
+      "confidence": 0.4452,
+      "freshness": 1.0,
+      "context_id": "m25_gdino_full96_views2_conf035"
+    },
+    {
+      "query": "bed",
+      "landmark_id": "lm_m25_gdino_full96_views2_conf035_bed_groundingdino_bed_062",
+      "label": "bed",
+      "bev_position": [
+        -1.6600786447525024,
+        -0.24289609491825104
+      ],
+      "final_score": 0.8849,
+      "score_breakdown": {
+        "semantic_match": 1.0,
+        "confidence": 0.4247,
+        "freshness": 1.0,
+        "status_score": 1.0,
+        "context_match": 1.0,
+        "source_bonus": 0.0,
+        "final_score": 0.8849
+      },
+      "status": "active",
+      "confidence": 0.4247,
+      "freshness": 1.0,
+      "context_id": "m25_gdino_full96_views2_conf035"
+    },
+    {
+      "query": "bed",
+      "landmark_id": "lm_m25_gdino_full96_views2_conf035_bed_groundingdino_bed_155",
+      "label": "bed",
+      "bev_position": [
+        -8.082655906677246,
+        0.5607935786247253
+      ],
+      "final_score": 0.8791,
+      "score_breakdown": {
+        "semantic_match": 1.0,
+        "confidence": 0.3957,
+        "freshness": 1.0,
+        "status_score": 1.0,
+        "context_match": 1.0,
+        "source_bonus": 0.0,
+        "final_score": 0.8791
+      },
+      "status": "active",
+      "confidence": 0.3957,
+      "freshness": 1.0,
+      "context_id": "m25_gdino_full96_views2_conf035"
+    },
+    {
+      "query": "chair",
+      "landmark_id": "lm_m25_gdino_full96_views2_conf035_chair_groundingdino_chair_133",
+      "label": "chair",
+      "bev_position": [
+        -10.649680137634277,
+        -0.21340322494506836
+      ],
+      "final_score": 0.892,
+      "score_breakdown": {
+        "semantic_match": 1.0,
+        "confidence": 0.4599,
+        "freshness": 1.0,
+        "status_score": 1.0,
+        "context_match": 1.0,
+        "source_bonus": 0.0,
+        "final_score": 0.892
+      },
+      "status": "active",
+      "confidence": 0.4599,
+      "freshness": 1.0,
+      "context_id": "m25_gdino_full96_views2_conf035"
+    },
+    {
+      "query": "chair",
+      "landmark_id": "lm_m25_gdino_full96_views2_conf035_chair_groundingdino_chair_029",
+      "label": "chair",
+      "bev_position": [
+        -0.7689446806907654,
+        -1.8734098672866821
+      ],
+      "final_score": 0.891,
+      "score_breakdown": {
+        "semantic_match": 1.0,
+        "confidence": 0.4552,
+        "freshness": 1.0,
+        "status_score": 1.0,
+        "context_match": 1.0,
+        "source_bonus": 0.0,
+        "final_score": 0.891
+      },
+      "status": "active",
+      "confidence": 0.4552,
+      "freshness": 1.0,
+      "context_id": "m25_gdino_full96_views2_conf035"
+    },
+    {
+      "query": "chair",
+      "landmark_id": "lm_m25_gdino_full96_views2_conf035_chair_groundingdino_chair_114",
+      "label": "chair",
+      "bev_position": [
+        4.35638427734375,
+        1.6137475967407227
+      ],
+      "final_score": 0.88,
+      "score_breakdown": {
+        "semantic_match": 1.0,
+        "confidence": 0.3999,
+        "freshness": 1.0,
+        "status_score": 1.0,
+        "context_match": 1.0,
+        "source_bonus": 0.0,
+        "final_score": 0.88
+      },
+      "status": "active",
+      "confidence": 0.3999,
+      "freshness": 1.0,
+      "context_id": "m25_gdino_full96_views2_conf035"
+    },
+    {
+      "query": "chair",
+      "landmark_id": "lm_m25_gdino_full96_views2_conf035_chair_groundingdino_chair_037",
+      "label": "chair",
+      "bev_position": [
+        0.011750913225114346,
+        -2.5322139263153076
+      ],
+      "final_score": 0.8782,
+      "score_breakdown": {
+        "semantic_match": 1.0,
+        "confidence": 0.3908,
+        "freshness": 1.0,
+        "status_score": 1.0,
+        "context_match": 1.0,
+        "source_bonus": 0.0,
+        "final_score": 0.8782
+      },
+      "status": "active",
+      "confidence": 0.3908,
+      "freshness": 1.0,
+      "context_id": "m25_gdino_full96_views2_conf035"
+    },
+    {
+      "query": "chair",
+      "landmark_id": "lm_m25_gdino_full96_views2_conf035_chair_groundingdino_chair_011",
+      "label": "chair",
+      "bev_position": [
+        -7.822494983673096,
+        -2.5901379585266113
+      ],
+      "final_score": 0.8778,
+      "score_breakdown": {
+        "semantic_match": 1.0,
+        "confidence": 0.3891,
+        "freshness": 1.0,
+        "status_score": 1.0,
+        "context_match": 1.0,
+        "source_bonus": 0.0,
+        "final_score": 0.8778
+      },
+      "status": "active",
+      "confidence": 0.3891,
+      "freshness": 1.0,
+      "context_id": "m25_gdino_full96_views2_conf035"
+    },
+    {
+      "query": "door",
+      "landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_075",
+      "label": "door",
+      "bev_position": [
+        1.1278526782989502,
+        -0.7682489156723022
+      ],
+      "final_score": 0.9111,
+      "score_breakdown": {
+        "semantic_match": 1.0,
+        "confidence": 0.5556,
+        "freshness": 1.0,
+        "status_score": 1.0,
+        "context_match": 1.0,
+        "source_bonus": 0.0,
+        "final_score": 0.9111
+      },
+      "status": "active",
+      "confidence": 0.5556,
+      "freshness": 1.0,
+      "context_id": "m25_gdino_full96_views2_conf035"
+    },
+    {
+      "query": "door",
+      "landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_156",
+      "label": "door",
+      "bev_position": [
+        -8.18561840057373,
+        2.586294412612915
+      ],
+      "final_score": 0.9012,
+      "score_breakdown": {
+        "semantic_match": 1.0,
+        "confidence": 0.5059,
+        "freshness": 1.0,
+        "status_score": 1.0,
+        "context_match": 1.0,
+        "source_bonus": 0.0,
+        "final_score": 0.9012
+      },
+      "status": "active",
+      "confidence": 0.5059,
+      "freshness": 1.0,
+      "context_id": "m25_gdino_full96_views2_conf035"
+    },
+    {
+      "query": "door",
+      "landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_108",
+      "label": "door",
+      "bev_position": [
+        4.560484886169434,
+        0.6344359517097473
+      ],
+      "final_score": 0.8924,
+      "score_breakdown": {
+        "semantic_match": 1.0,
+        "confidence": 0.4618,
+        "freshness": 1.0,
+        "status_score": 1.0,
+        "context_match": 1.0,
+        "source_bonus": 0.0,
+        "final_score": 0.8924
+      },
+      "status": "active",
+      "confidence": 0.4618,
+      "freshness": 1.0,
+      "context_id": "m25_gdino_full96_views2_conf035"
+    },
+    {
+      "query": "door",
+      "landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_051",
+      "label": "door",
+      "bev_position": [
+        0.49661168456077576,
+        2.0955326557159424
+      ],
+      "final_score": 0.8918,
+      "score_breakdown": {
+        "semantic_match": 1.0,
+        "confidence": 0.4589,
+        "freshness": 1.0,
+        "status_score": 1.0,
+        "context_match": 1.0,
+        "source_bonus": 0.0,
+        "final_score": 0.8918
+      },
+      "status": "active",
+      "confidence": 0.4589,
+      "freshness": 1.0,
+      "context_id": "m25_gdino_full96_views2_conf035"
+    },
+    {
+      "query": "door",
+      "landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_084",
+      "label": "door",
+      "bev_position": [
+        1.3154127597808838,
+        -5.0161848068237305
+      ],
+      "final_score": 0.8833,
+      "score_breakdown": {
+        "semantic_match": 1.0,
+        "confidence": 0.4166,
+        "freshness": 1.0,
+        "status_score": 1.0,
+        "context_match": 1.0,
+        "source_bonus": 0.0,
+        "final_score": 0.8833
+      },
+      "status": "active",
+      "confidence": 0.4166,
+      "freshness": 1.0,
+      "context_id": "m25_gdino_full96_views2_conf035"
+    },
+    {
+      "query": "sofa",
+      "landmark_id": "lm_m25_gdino_full96_views2_conf035_sofa_groundingdino_sofa_027",
+      "label": "sofa",
+      "bev_position": [
+        -4.286346435546875,
+        -4.385843753814697
+      ],
+      "final_score": 0.9291,
+      "score_breakdown": {
+        "semantic_match": 1.0,
+        "confidence": 0.6455,
+        "freshness": 1.0,
+        "status_score": 1.0,
+        "context_match": 1.0,
+        "source_bonus": 0.0,
+        "final_score": 0.9291
+      },
+      "status": "active",
+      "confidence": 0.6455,
+      "freshness": 1.0,
+      "context_id": "m25_gdino_full96_views2_conf035"
+    },
+    {
+      "query": "sofa",
+      "landmark_id": "lm_m25_gdino_full96_views2_conf035_sofa_groundingdino_sofa_049",
+      "label": "sofa",
+      "bev_position": [
+        -5.494224548339844,
+        -2.7964470386505127
+      ],
+      "final_score": 0.9215,
+      "score_breakdown": {
+        "semantic_match": 1.0,
+        "confidence": 0.6074,
+        "freshness": 1.0,
+        "status_score": 1.0,
+        "context_match": 1.0,
+        "source_bonus": 0.0,
+        "final_score": 0.9215
+      },
+      "status": "active",
+      "confidence": 0.6074,
+      "freshness": 1.0,
+      "context_id": "m25_gdino_full96_views2_conf035"
+    },
+    {
+      "query": "sofa",
+      "landmark_id": "lm_m25_gdino_full96_views2_conf035_sofa_groundingdino_sofa_090",
+      "label": "sofa",
+      "bev_position": [
+        3.5913143157958984,
+        -3.100529193878174
+      ],
+      "final_score": 0.8854,
+      "score_breakdown": {
+        "semantic_match": 1.0,
+        "confidence": 0.4268,
+        "freshness": 1.0,
+        "status_score": 1.0,
+        "context_match": 1.0,
+        "source_bonus": 0.0,
+        "final_score": 0.8854
+      },
+      "status": "active",
+      "confidence": 0.4268,
+      "freshness": 1.0,
+      "context_id": "m25_gdino_full96_views2_conf035"
+    },
+    {
+      "query": "sofa",
+      "landmark_id": "lm_m25_gdino_full96_views2_conf035_sofa_groundingdino_sofa_054",
+      "label": "sofa",
+      "bev_position": [
+        1.6745197772979736,
+        1.1993072032928467
+      ],
+      "final_score": 0.8775,
+      "score_breakdown": {
+        "semantic_match": 1.0,
+        "confidence": 0.3876,
+        "freshness": 1.0,
+        "status_score": 1.0,
+        "context_match": 1.0,
+        "source_bonus": 0.0,
+        "final_score": 0.8775
+      },
+      "status": "active",
+      "confidence": 0.3876,
+      "freshness": 1.0,
+      "context_id": "m25_gdino_full96_views2_conf035"
+    },
+    {
+      "query": "table",
+      "landmark_id": "lm_m25_gdino_full96_views2_conf035_table_groundingdino_table_083",
+      "label": "table",
+      "bev_position": [
+        1.8228634595870972,
+        -2.3545496463775635
+      ],
+      "final_score": 0.8992,
+      "score_breakdown": {
+        "semantic_match": 1.0,
+        "confidence": 0.4962,
+        "freshness": 1.0,
+        "status_score": 1.0,
+        "context_match": 1.0,
+        "source_bonus": 0.0,
+        "final_score": 0.8992
+      },
+      "status": "active",
+      "confidence": 0.4962,
+      "freshness": 1.0,
+      "context_id": "m25_gdino_full96_views2_conf035"
+    },
+    {
+      "query": "table",
+      "landmark_id": "lm_m25_gdino_full96_views2_conf035_table_groundingdino_table_016",
+      "label": "table",
+      "bev_position": [
+        -9.567643165588379,
+        1.2496262788772583
+      ],
+      "final_score": 0.8935,
+      "score_breakdown": {
+        "semantic_match": 1.0,
+        "confidence": 0.4675,
+        "freshness": 1.0,
+        "status_score": 1.0,
+        "context_match": 1.0,
+        "source_bonus": 0.0,
+        "final_score": 0.8935
+      },
+      "status": "active",
+      "confidence": 0.4675,
+      "freshness": 1.0,
+      "context_id": "m25_gdino_full96_views2_conf035"
+    },
+    {
+      "query": "table",
+      "landmark_id": "lm_m25_gdino_full96_views2_conf035_table_groundingdino_table_146",
+      "label": "table",
+      "bev_position": [
+        -5.074644565582275,
+        0.9999268651008606
+      ],
+      "final_score": 0.8922,
+      "score_breakdown": {
+        "semantic_match": 1.0,
+        "confidence": 0.4609,
+        "freshness": 1.0,
+        "status_score": 1.0,
+        "context_match": 1.0,
+        "source_bonus": 0.0,
+        "final_score": 0.8922
+      },
+      "status": "active",
+      "confidence": 0.4609,
+      "freshness": 1.0,
+      "context_id": "m25_gdino_full96_views2_conf035"
+    },
+    {
+      "query": "table",
+      "landmark_id": "lm_m25_gdino_full96_views2_conf035_table_groundingdino_table_026",
+      "label": "table",
+      "bev_position": [
+        -4.473716735839844,
+        -2.5622432231903076
+      ],
+      "final_score": 0.8833,
+      "score_breakdown": {
+        "semantic_match": 1.0,
+        "confidence": 0.4163,
+        "freshness": 1.0,
+        "status_score": 1.0,
+        "context_match": 1.0,
+        "source_bonus": 0.0,
+        "final_score": 0.8833
+      },
+      "status": "active",
+      "confidence": 0.4163,
+      "freshness": 1.0,
+      "context_id": "m25_gdino_full96_views2_conf035"
+    },
+    {
+      "query": "table",
+      "landmark_id": "lm_m25_gdino_full96_views2_conf035_table_groundingdino_table_130",
+      "label": "table",
+      "bev_position": [
+        -9.928800582885742,
+        -3.451313018798828
+      ],
+      "final_score": 0.8826,
+      "score_breakdown": {
+        "semantic_match": 1.0,
+        "confidence": 0.4128,
+        "freshness": 1.0,
+        "status_score": 1.0,
+        "context_match": 1.0,
+        "source_bonus": 0.0,
+        "final_score": 0.8826
+      },
+      "status": "active",
+      "confidence": 0.4128,
+      "freshness": 1.0,
+      "context_id": "m25_gdino_full96_views2_conf035"
+    }
+  ],
+  "object_memory_summary": [
+    {
+      "id": "groundingdino_door_075",
+      "label": "door",
+      "bev_position": [
+        1.1278526782989502,
+        -0.7682489156723022
+      ],
+      "confidence": 0.5555808791843935,
+      "freshness": 1.0,
+      "status": "active",
+      "context_id": "m25_gdino_full96_views2_conf035",
+      "semantic_tier": "tier1_connector",
+      "planner_role": "connector / transition landmark",
+      "planner_salience": 0.8531
+    },
+    {
+      "id": "groundingdino_door_156",
+      "label": "door",
+      "bev_position": [
+        -8.18561840057373,
+        2.586294412612915
+      ],
+      "confidence": 0.5059248272880722,
+      "freshness": 1.0,
+      "status": "active",
+      "context_id": "m25_gdino_full96_views2_conf035",
+      "semantic_tier": "tier1_connector",
+      "planner_role": "connector / transition landmark",
+      "planner_salience": 0.8392
+    },
+    {
+      "id": "groundingdino_sofa_027",
+      "label": "sofa",
+      "bev_position": [
+        -4.286346435546875,
+        -4.385843753814697
+      ],
+      "confidence": 0.6454706551097039,
+      "freshness": 1.0,
+      "status": "active",
+      "context_id": "m25_gdino_full96_views2_conf035",
+      "semantic_tier": "tier2_stable_landmark",
+      "planner_role": "stable navigation landmark",
+      "planner_salience": 0.8332
+    },
+    {
+      "id": "groundingdino_door_108",
+      "label": "door",
+      "bev_position": [
+        4.560484886169434,
+        0.6344359517097473
+      ],
+      "confidence": 0.46182376964978394,
+      "freshness": 1.0,
+      "status": "active",
+      "context_id": "m25_gdino_full96_views2_conf035",
+      "semantic_tier": "tier1_connector",
+      "planner_role": "connector / transition landmark",
+      "planner_salience": 0.8268
+    },
+    {
+      "id": "groundingdino_door_051",
+      "label": "door",
+      "bev_position": [
+        0.49661168456077576,
+        2.0955326557159424
+      ],
+      "confidence": 0.4589325948781647,
+      "freshness": 1.0,
+      "status": "active",
+      "context_id": "m25_gdino_full96_views2_conf035",
+      "semantic_tier": "tier1_connector",
+      "planner_role": "connector / transition landmark",
+      "planner_salience": 0.826
+    },
+    {
+      "id": "groundingdino_sofa_049",
+      "label": "sofa",
+      "bev_position": [
+        -5.494224548339844,
+        -2.7964470386505127
+      ],
+      "confidence": 0.6074249807764431,
+      "freshness": 1.0,
+      "status": "active",
+      "context_id": "m25_gdino_full96_views2_conf035",
+      "semantic_tier": "tier2_stable_landmark",
+      "planner_role": "stable navigation landmark",
+      "planner_salience": 0.8226
+    },
+    {
+      "id": "groundingdino_door_084",
+      "label": "door",
+      "bev_position": [
+        1.3154127597808838,
+        -5.0161848068237305
+      ],
+      "confidence": 0.41655727075555743,
+      "freshness": 1.0,
+      "status": "active",
+      "context_id": "m25_gdino_full96_views2_conf035",
+      "semantic_tier": "tier1_connector",
+      "planner_role": "connector / transition landmark",
+      "planner_salience": 0.8141
+    },
+    {
+      "id": "groundingdino_door_001",
+      "label": "door",
+      "bev_position": [
+        -4.773076057434082,
+        -0.6547560095787048
+      ],
+      "confidence": 0.40219525921979293,
+      "freshness": 1.0,
+      "status": "active",
+      "context_id": "m25_gdino_full96_views2_conf035",
+      "semantic_tier": "tier1_connector",
+      "planner_role": "connector / transition landmark",
+      "planner_salience": 0.8101
+    },
+    {
+      "id": "groundingdino_bed_015",
+      "label": "bed",
+      "bev_position": [
+        -7.806450843811035,
+        -2.03434681892395
+      ],
+      "confidence": 0.5596656236549679,
+      "freshness": 1.0,
+      "status": "active",
+      "context_id": "m25_gdino_full96_views2_conf035",
+      "semantic_tier": "tier2_stable_landmark",
+      "planner_role": "stable navigation landmark",
+      "planner_salience": 0.8092
+    },
+    {
+      "id": "groundingdino_door_038",
+      "label": "door",
+      "bev_position": [
+        -0.794746994972229,
+        -5.133454322814941
+      ],
+      "confidence": 0.3921607299823908,
+      "freshness": 1.0,
+      "status": "active",
+      "context_id": "m25_gdino_full96_views2_conf035",
+      "semantic_tier": "tier1_connector",
+      "planner_role": "connector / transition landmark",
+      "planner_salience": 0.8073
+    },
+    {
+      "id": "groundingdino_door_012",
+      "label": "door",
+      "bev_position": [
+        -7.62742280960083,
+        -0.5001612305641174
+      ],
+      "confidence": 0.390665099375457,
+      "freshness": 1.0,
+      "status": "active",
+      "context_id": "m25_gdino_full96_views2_conf035",
+      "semantic_tier": "tier1_connector",
+      "planner_role": "connector / transition landmark",
+      "planner_salience": 0.8069
+    },
+    {
+      "id": "groundingdino_bed_025",
+      "label": "bed",
+      "bev_position": [
+        -2.971449851989746,
+        -2.3425471782684326
+      ],
+      "confidence": 0.5366125722263361,
+      "freshness": 1.0,
+      "status": "active",
+      "context_id": "m25_gdino_full96_views2_conf035",
+      "semantic_tier": "tier2_stable_landmark",
+      "planner_role": "stable navigation landmark",
+      "planner_salience": 0.8028
+    },
+    {
+      "id": "groundingdino_door_123",
+      "label": "door",
+      "bev_position": [
+        -3.652996301651001,
+        -0.3515651524066925
+      ],
+      "confidence": 0.37492164530950994,
+      "freshness": 1.0,
+      "status": "active",
+      "context_id": "m25_gdino_full96_views2_conf035",
+      "semantic_tier": "tier1_connector",
+      "planner_role": "connector / transition landmark",
+      "planner_salience": 0.8025
+    },
+    {
+      "id": "groundingdino_door_004",
+      "label": "door",
+      "bev_position": [
+        -6.7790422439575195,
+        -3.5349693298339844
+      ],
+      "confidence": 0.36206014733136216,
+      "freshness": 1.0,
+      "status": "active",
+      "context_id": "m25_gdino_full96_views2_conf035",
+      "semantic_tier": "tier1_connector",
+      "planner_role": "connector / transition landmark",
+      "planner_salience": 0.7989
+    },
+    {
+      "id": "groundingdino_door_008",
+      "label": "door",
+      "bev_position": [
+        -6.590130805969238,
+        -0.6319913864135742
+      ],
+      "confidence": 0.3542523492148514,
+      "freshness": 1.0,
+      "status": "active",
+      "context_id": "m25_gdino_full96_views2_conf035",
+      "semantic_tier": "tier1_connector",
+      "planner_role": "connector / transition landmark",
+      "planner_salience": 0.7967
+    },
+    {
+      "id": "groundingdino_table_083",
+      "label": "table",
+      "bev_position": [
+        1.8228634595870972,
+        -2.3545496463775635
+      ],
+      "confidence": 0.49615099332025464,
+      "freshness": 1.0,
+      "status": "active",
+      "context_id": "m25_gdino_full96_views2_conf035",
+      "semantic_tier": "tier2_stable_landmark",
+      "planner_role": "stable navigation landmark",
+      "planner_salience": 0.7914
+    },
+    {
+      "id": "groundingdino_table_016",
+      "label": "table",
+      "bev_position": [
+        -9.567643165588379,
+        1.2496262788772583
+      ],
+      "confidence": 0.4675005377115857,
+      "freshness": 1.0,
+      "status": "active",
+      "context_id": "m25_gdino_full96_views2_conf035",
+      "semantic_tier": "tier2_stable_landmark",
+      "planner_role": "stable navigation landmark",
+      "planner_salience": 0.7834
+    },
+    {
+      "id": "groundingdino_table_146",
+      "label": "table",
+      "bev_position": [
+        -5.074644565582275,
+        0.9999268651008606
+      ],
+      "confidence": 0.4609097513489855,
+      "freshness": 1.0,
+      "status": "active",
+      "context_id": "m25_gdino_full96_views2_conf035",
+      "semantic_tier": "tier2_stable_landmark",
+      "planner_role": "stable navigation landmark",
+      "planner_salience": 0.7816
+    },
+    {
+      "id": "groundingdino_chair_133",
+      "label": "chair",
+      "bev_position": [
+        -10.649680137634277,
+        -0.21340322494506836
+      ],
+      "confidence": 0.45992516721734006,
+      "freshness": 1.0,
+      "status": "active",
+      "context_id": "m25_gdino_full96_views2_conf035",
+      "semantic_tier": "tier2_stable_landmark",
+      "planner_role": "stable navigation landmark",
+      "planner_salience": 0.7813
+    },
+    {
+      "id": "groundingdino_chair_029",
+      "label": "chair",
+      "bev_position": [
+        -0.7689446806907654,
+        -1.8734098672866821
+      ],
+      "confidence": 0.45516841072734027,
+      "freshness": 1.0,
+      "status": "active",
+      "context_id": "m25_gdino_full96_views2_conf035",
+      "semantic_tier": "tier2_stable_landmark",
+      "planner_role": "stable navigation landmark",
+      "planner_salience": 0.7799
+    },
+    {
+      "id": "groundingdino_bed_002",
+      "label": "bed",
+      "bev_position": [
+        -9.5245943069458,
+        -3.4242191314697266
+      ],
+      "confidence": 0.4452101385555289,
+      "freshness": 1.0,
+      "status": "active",
+      "context_id": "m25_gdino_full96_views2_conf035",
+      "semantic_tier": "tier2_stable_landmark",
+      "planner_role": "stable navigation landmark",
+      "planner_salience": 0.7772
+    },
+    {
+      "id": "groundingdino_sofa_090",
+      "label": "sofa",
+      "bev_position": [
+        3.5913143157958984,
+        -3.100529193878174
+      ],
+      "confidence": 0.4267824934931948,
+      "freshness": 1.0,
+      "status": "active",
+      "context_id": "m25_gdino_full96_views2_conf035",
+      "semantic_tier": "tier2_stable_landmark",
+      "planner_role": "stable navigation landmark",
+      "planner_salience": 0.772
+    },
+    {
+      "id": "groundingdino_bed_062",
+      "label": "bed",
+      "bev_position": [
+        -1.6600786447525024,
+        -0.24289609491825104
+      ],
+      "confidence": 0.42466493786448783,
+      "freshness": 1.0,
+      "status": "active",
+      "context_id": "m25_gdino_full96_views2_conf035",
+      "semantic_tier": "tier2_stable_landmark",
+      "planner_role": "stable navigation landmark",
+      "planner_salience": 0.7714
+    },
+    {
+      "id": "groundingdino_table_026",
+      "label": "table",
+      "bev_position": [
+        -4.473716735839844,
+        -2.5622432231903076
+      ],
+      "confidence": 0.4163101604990312,
+      "freshness": 1.0,
+      "status": "active",
+      "context_id": "m25_gdino_full96_views2_conf035",
+      "semantic_tier": "tier2_stable_landmark",
+      "planner_role": "stable navigation landmark",
+      "planner_salience": 0.7691
+    }
+  ],
+  "required_output_schema": {
+    "task_plan": [
+      {
+        "step": 1,
+        "intent": "find_water_place",
+        "target": "landmark_id"
+      }
+    ],
+    "water_waypoint_id": "waypoint_id",
+    "owner_waypoint_id": "waypoint_id",
+    "stopover_waypoints": [
+      "water_waypoint_id",
+      "owner_waypoint_id"
+    ],
+    "water_place_reasoning": "why this semantic map element is the best available water-place candidate",
+    "reason": "short explanation"
+  },
+  "constraints": [
+    "Return JSON only.",
+    "Infer the water-place waypoint from semantic map objects and landmarks; do not assume a fixed label if better evidence exists.",
+    "Use a bed waypoint for returning to the owner.",
+    "Use only candidate_waypoints ids."
+  ]
+}

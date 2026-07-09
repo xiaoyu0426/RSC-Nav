@@ -1,0 +1,321 @@
+{
+  "phase": "phase5a_navmesh_validation",
+  "scene": "/workspace/yujiexiao/.rscnav/habitat_data/versioned_data/mp3d_example_scene_1.1/17DRP5sb8fy/17DRP5sb8fy.glb",
+  "case_count": 5,
+  "reachable_count": 5,
+  "snap_ok_count": 5,
+  "all_passed": true,
+  "snap_max_distance_m": 2.5,
+  "cases": [
+    {
+      "case": "qwen3_max_20case_noleak_find_bed_20260703",
+      "goal_query": "find bed",
+      "goal_target_label": "bed",
+      "selected_waypoint_id": "wp_lm_m25_gdino_full96_views2_conf035_bed_groundingdino_bed_015_0",
+      "anchor_label": "bed",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_bed_groundingdino_bed_015",
+      "requested_start_xz": [
+        0.0,
+        0.0
+      ],
+      "requested_target_xz": [
+        -6.9065,
+        -2.0343
+      ],
+      "snapped_start_xyz": [
+        0.0,
+        0.07244700193405151,
+        0.0
+      ],
+      "snapped_target_xyz": [
+        -6.907877445220947,
+        0.07244700193405151,
+        -2.0301668643951416
+      ],
+      "start_snap_distance_m": 0.0,
+      "target_snap_distance_m": 0.0044,
+      "snap_ok": true,
+      "reachable": true,
+      "geodesic_distance_m": 7.3808,
+      "num_path_points": 5,
+      "path_points_xyz": [
+        [
+          0.0,
+          0.07244700193405151,
+          0.0
+        ],
+        [
+          -0.7434396743774414,
+          0.07244700193405151,
+          -0.7920212745666504
+        ],
+        [
+          -1.1434402465820312,
+          0.07244700193405151,
+          -0.9420208930969238
+        ],
+        [
+          -6.793439865112305,
+          0.07244700193405151,
+          -1.992021083831787
+        ],
+        [
+          -6.907877445220947,
+          0.07244700193405151,
+          -2.0301668643951416
+        ]
+      ],
+      "phase5a_goal_label_aligned": true,
+      "phase5a_stop_success_proxy": true,
+      "failure_reason": null
+    },
+    {
+      "case": "qwen3_max_20case_noleak_find_chair_20260703",
+      "goal_query": "find chair",
+      "goal_target_label": "chair",
+      "selected_waypoint_id": "wp_auto_lm_m25_gdino_full96_views2_conf035_chair_groundingdino_chair_133_0",
+      "anchor_label": "chair",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_chair_groundingdino_chair_133",
+      "requested_start_xz": [
+        0.0,
+        0.0
+      ],
+      "requested_target_xz": [
+        -9.7497,
+        -0.2134
+      ],
+      "snapped_start_xyz": [
+        0.0,
+        0.07244700193405151,
+        0.0
+      ],
+      "snapped_target_xyz": [
+        -9.749699592590332,
+        0.07244700193405151,
+        -0.2134000062942505
+      ],
+      "start_snap_distance_m": 0.0,
+      "target_snap_distance_m": 0.0,
+      "snap_ok": true,
+      "reachable": true,
+      "geodesic_distance_m": 10.2249,
+      "num_path_points": 7,
+      "path_points_xyz": [
+        [
+          0.0,
+          0.07244700193405151,
+          0.0
+        ],
+        [
+          -0.7434396743774414,
+          0.07244700193405151,
+          -0.7920212745666504
+        ],
+        [
+          -1.1434402465820312,
+          0.07244700193405151,
+          -0.9420208930969238
+        ],
+        [
+          -2.943439483642578,
+          0.07244700193405151,
+          -0.9420208930969238
+        ],
+        [
+          -8.043439865112305,
+          0.07244700193405151,
+          -0.7920212745666504
+        ],
+        [
+          -8.393440246582031,
+          0.07244700193405151,
+          -0.7420210838317871
+        ],
+        [
+          -9.749699592590332,
+          0.07244700193405151,
+          -0.2134000062942505
+        ]
+      ],
+      "phase5a_goal_label_aligned": true,
+      "phase5a_stop_success_proxy": true,
+      "failure_reason": null
+    },
+    {
+      "case": "qwen3_max_20case_noleak_find_door_20260703",
+      "goal_query": "find door",
+      "goal_target_label": "door",
+      "selected_waypoint_id": "wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_075_0",
+      "anchor_label": "door",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_075",
+      "requested_start_xz": [
+        0.0,
+        0.0
+      ],
+      "requested_target_xz": [
+        2.0279,
+        -0.7682
+      ],
+      "snapped_start_xyz": [
+        0.0,
+        0.07244700193405151,
+        0.0
+      ],
+      "snapped_target_xyz": [
+        2.027899980545044,
+        0.07244700193405151,
+        -0.7681999802589417
+      ],
+      "start_snap_distance_m": 0.0,
+      "target_snap_distance_m": 0.0,
+      "snap_ok": true,
+      "reachable": true,
+      "geodesic_distance_m": 2.1977,
+      "num_path_points": 4,
+      "path_points_xyz": [
+        [
+          0.0,
+          0.07244700193405151,
+          0.0
+        ],
+        [
+          1.2065601348876953,
+          0.07244700193405151,
+          -0.2920212745666504
+        ],
+        [
+          1.906559944152832,
+          0.07244700193405151,
+          -0.7420210838317871
+        ],
+        [
+          2.027899980545044,
+          0.07244700193405151,
+          -0.7681999802589417
+        ]
+      ],
+      "phase5a_goal_label_aligned": true,
+      "phase5a_stop_success_proxy": true,
+      "failure_reason": null
+    },
+    {
+      "case": "qwen3_max_20case_noleak_find_sofa_20260703",
+      "goal_query": "find sofa",
+      "goal_target_label": "sofa",
+      "selected_waypoint_id": "wp_lm_m25_gdino_full96_views2_conf035_sofa_groundingdino_sofa_027_0",
+      "anchor_label": "sofa",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_sofa_groundingdino_sofa_027",
+      "requested_start_xz": [
+        0.0,
+        0.0
+      ],
+      "requested_target_xz": [
+        -3.3863,
+        -4.3858
+      ],
+      "snapped_start_xyz": [
+        0.0,
+        0.07244700193405151,
+        0.0
+      ],
+      "snapped_target_xyz": [
+        -3.3700718879699707,
+        0.07244700193405151,
+        -4.0774617195129395
+      ],
+      "start_snap_distance_m": 0.0,
+      "target_snap_distance_m": 0.3088,
+      "snap_ok": true,
+      "reachable": true,
+      "geodesic_distance_m": 6.0651,
+      "num_path_points": 5,
+      "path_points_xyz": [
+        [
+          0.0,
+          0.07244700193405151,
+          0.0
+        ],
+        [
+          -0.7434396743774414,
+          0.07244700193405151,
+          -0.7920212745666504
+        ],
+        [
+          -3.1434402465820312,
+          0.07244700193405151,
+          -1.8420212268829346
+        ],
+        [
+          -3.343440055847168,
+          0.07244700193405151,
+          -1.942021131515503
+        ],
+        [
+          -3.3700718879699707,
+          0.07244700193405151,
+          -4.0774617195129395
+        ]
+      ],
+      "phase5a_goal_label_aligned": true,
+      "phase5a_stop_success_proxy": true,
+      "failure_reason": null
+    },
+    {
+      "case": "qwen3_max_20case_noleak_find_table_20260703",
+      "goal_query": "find table",
+      "goal_target_label": "table",
+      "selected_waypoint_id": "wp_auto_lm_m25_gdino_full96_views2_conf035_table_groundingdino_table_083_0",
+      "anchor_label": "table",
+      "anchor_landmark_id": "lm_m25_gdino_full96_views2_conf035_table_groundingdino_table_083",
+      "requested_start_xz": [
+        0.0,
+        0.0
+      ],
+      "requested_target_xz": [
+        2.7229,
+        -2.3545
+      ],
+      "snapped_start_xyz": [
+        0.0,
+        0.07244700193405151,
+        0.0
+      ],
+      "snapped_target_xyz": [
+        2.722899913787842,
+        0.07244700193405151,
+        -2.3545000553131104
+      ],
+      "start_snap_distance_m": 0.0,
+      "target_snap_distance_m": 0.0,
+      "snap_ok": true,
+      "reachable": true,
+      "geodesic_distance_m": 3.8013,
+      "num_path_points": 4,
+      "path_points_xyz": [
+        [
+          0.0,
+          0.07244700193405151,
+          0.0
+        ],
+        [
+          1.2065601348876953,
+          0.07244700193405151,
+          -0.2920212745666504
+        ],
+        [
+          1.3565597534179688,
+          0.07244700193405151,
+          -0.4920210838317871
+        ],
+        [
+          2.722899913787842,
+          0.07244700193405151,
+          -2.3545000553131104
+        ]
+      ],
+      "phase5a_goal_label_aligned": true,
+      "phase5a_stop_success_proxy": true,
+      "failure_reason": null
+    }
+  ]
+}

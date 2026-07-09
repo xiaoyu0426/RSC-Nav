@@ -1,0 +1,17 @@
+{
+  "task_plan": [
+    {
+      "step": 1,
+      "intent": "find_water_place",
+      "target": "lm_m25_gdino_full96_views2_conf035_table_groundingdino_table_083"
+    }
+  ],
+  "water_waypoint_id": "wp_auto_lm_m25_gdino_full96_views2_conf035_table_groundingdino_table_083_2",
+  "owner_waypoint_id": "wp_lm_m25_gdino_full96_views2_conf035_bed_groundingdino_bed_015_2",
+  "stopover_waypoints": [
+    "wp_auto_lm_m25_gdino_full96_views2_conf035_table_groundingdino_table_083_2",
+    "wp_lm_m25_gdino_full96_views2_conf035_bed_groundingdino_bed_015_2"
+  ],
+  "water_place_reasoning": "The user requested a water cup from the dining table in the living room. The semantic map includes 'table' landmarks, and 'table_083' is the highest-scoring table landmark (confidence 0.496, salience 0.7914). Although explicit cups or water sources are not labeled, tables—especially in living/dining areas—are common places for cups. Thus, this table is the best available proxy for the requested water cup location.",
+  "reason": "Chose the highest-confidence table waypoint as the most plausible location for a water cup per the user's request; returned to the highest-confidence bed waypoint for the owner."
+}

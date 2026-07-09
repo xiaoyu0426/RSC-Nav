@@ -151,24 +151,24 @@ A->B:
 远端展示页：
 
 ```text
-http://39.101.65.229:43901/negfix_ab_index.html?v=phase2-context-v4-A3B6
+http://39.101.65.229:43003/negfix_ab_index.html?v=phase2-context-v4-A3B6
 ```
 
 v4 文档：
 
 ```text
-http://39.101.65.229:43901/docs_v4/RSC-Nav_实验协议_v4.html
-http://39.101.65.229:43901/docs_v4/RSC-Nav_项目文档_v4.html
-http://39.101.65.229:43901/docs_v4/phase_docs/phase2_bev_semantic_memory.html
+http://39.101.65.229:43003/docs_v4/RSC-Nav_实验协议_v4.html
+http://39.101.65.229:43003/docs_v4/RSC-Nav_项目文档_v4.html
+http://39.101.65.229:43003/docs_v4/phase_docs/phase2_bev_semantic_memory.html
 ```
 
 长版 A3 -> B6 stress test：
 
 ```text
-http://39.101.65.229:43901/phase2_curated_assets/phase2_A3pass_then_B6pass_dense_stitch.gif
-http://39.101.65.229:43901/phase2_curated_assets/phase2_A3pass_then_B6pass_semantic_only.gif
-http://39.101.65.229:43901/phase2_curated_assets/phase2_A3_B6_prior_live_curve.png
-http://39.101.65.229:43901/phase2_curated_assets/phase2_A3_B6_report.json
+http://39.101.65.229:43003/phase2_curated_assets/phase2_A3pass_then_B6pass_dense_stitch.gif
+http://39.101.65.229:43003/phase2_curated_assets/phase2_A3pass_then_B6pass_semantic_only.gif
+http://39.101.65.229:43003/phase2_curated_assets/phase2_A3_B6_prior_live_curve.png
+http://39.101.65.229:43003/phase2_curated_assets/phase2_A3_B6_report.json
 ```
 
 ## 关键文件

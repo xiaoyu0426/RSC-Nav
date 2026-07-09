@@ -1,4 +1,4 @@
-# RSC-Nav 实验协议
+﻿# RSC-Nav 实验协议
 *(Experimental Protocol for Adaptive Semantic-Spatial Memory Augmentation)*
 
 ![Status: Protocol](https://img.shields.io/badge/Status-Protocol-green)

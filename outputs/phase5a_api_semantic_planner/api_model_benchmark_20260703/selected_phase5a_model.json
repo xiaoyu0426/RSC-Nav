@@ -1,0 +1,12 @@
+{
+  "phase": "phase5a_api_semantic_task_planner",
+  "selected_provider": "dashscope_openai_compatible",
+  "selected_model": "qwen3-max",
+  "api_base": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+  "api_key_env": "DASHSCOPE_API_KEY or OPENAI_API_KEY",
+  "selection_date": "2026-07-03",
+  "reason": "Expanded benchmark passed 8/8 Phase5A cases: bed, door, sofa, chair, table, and query variants go to chair / approach table / navigate to door. It selected a single valid next waypoint and reached 0.9m final distance in every case.",
+  "do_not_store": "API keys are intentionally excluded from this file.",
+  "expanded_selection_date": "2026-07-03",
+  "benchmark_cases": "8 qwen3-max cases; compared against qwen3.7-max expanded cases and prior Seed2.x tests."
+}
