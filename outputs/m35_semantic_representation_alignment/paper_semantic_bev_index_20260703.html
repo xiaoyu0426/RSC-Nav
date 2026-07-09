@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>RSC-Nav Paper-Style Semantic BEV Figures</title>
+  <style>
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;margin:24px;color:#202124;line-height:1.5;background:#fff}
+    h1{font-size:28px;margin:0 0 8px}
+    .note{color:#4b5563;max-width:1100px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:18px;margin-top:18px}
+    .card{border:1px solid #d8e0ea;border-radius:8px;padding:14px;background:#f8fafc}
+    img{max-width:100%;border:1px solid #d8e0ea;border-radius:6px;background:white}
+    a{color:#0b66c3;text-decoration:none;font-weight:600}
+    code{background:#eef2f7;padding:2px 4px;border-radius:4px}
+    table{border-collapse:collapse;width:100%;margin:8px 0 12px;background:white}
+    th,td{border:1px solid #d8e0ea;padding:7px;text-align:left}
+    th{background:#eef3f8}
+  </style>
+</head>
+<body>
+  <h1>RSC-Nav Paper-Style Semantic BEV Figures</h1>
+  <p class="note">
+    这页汇总当前“论文级对齐”的 semantic BEV 表示图。图中彩色 BEV 不是唯一内部状态，
+    而是 <code>G: geometry BEV</code>、<code>S: semantic evidence</code>、
+    <code>O: object memory</code>、<code>L: landmark graph</code> 的可视化入口。
+  </p>
+
+  <div class="grid">
+    <section class="card">
+      <h2>M3.5B/C Representation Bundle: Phase5A Handoff</h2>
+      <p><a href="representation_bundle_best96_20260703/representation_bundle_report.html">Open Bundle Report</a></p>
+      <table>
+        <tr><th>Use</th><td>固定后续 API planner 的结构化输入契约，不把彩色 PNG 当作唯一输入。</td></tr>
+        <tr><th>Input</th><td><code>planner_context.json</code> = goal query + G/S/O/L + candidate waypoints + Phase4-lite context fields。</td></tr>
+        <tr><th>Status</th><td>passed: 42 objects, 41 landmarks, 227 lightweight edges, 48 candidate waypoints。</td></tr>
+      </table>
+      <img src="representation_bundle_best96_20260703/assets/rgb_to_semantic_bev_mvp_pipeline.png" alt="representation bundle pipeline">
+    </section>
+
+    <section class="card">
+      <h2>Phase5A Real API Planner Benchmark</h2>
+      <p><a href="../phase5a_api_semantic_planner/api_model_benchmark_20260703/api_model_benchmark.html">Open API Model Benchmark</a></p>
+      <p><a href="../phase5a_api_semantic_planner/qwen3_max_20case_strict_20260703/qwen3_max_20case_strict_report.html">Open qwen3-max Strict 20-case Stress Test</a></p>
+      <p><a href="../phase5a_api_semantic_planner/qwen3_max_20case_noleak_20260703/qwen3_max_20case_noleak_report.html">Open qwen3-max No-Leak 20-case Audit</a></p>
+      <table>
+        <tr><th>Pick</th><td><code>qwen3-max</code> via DashScope OpenAI-compatible API。</td></tr>
+        <tr><th>Reason</th><td>扩展初筛后进一步做 20 个严格样本复核，要求 selected waypoint 的 anchor label 与目标类别一致；qwen3-max 20/20 通过。</td></tr>
+        <tr><th>Leakage Audit</th><td>隐藏 <code>goal_matching_waypoint_ids</code> 后，no-leak 20-case 仍 20/20，通过项包括 goal-label alignment 和 BEV executor stop proxy。</td></tr>
+        <tr><th>Scope</th><td>这是结构化语义记忆输入下的 next-waypoint selection 验证，不等价于完整自然语言导航 benchmark。</td></tr>
+        <tr><th>Note</th><td>API key 仅运行时注入，未写入报告或文档。</td></tr>
+      </table>
+    </section>
+
+    <section class="card">
+      <h2>Best Quality Baseline: 96-frame Coverage</h2>
+      <p><a href="paper_semantic_bev_best96_20260703/paper_semantic_bev_overview.html">Open HTML</a></p>
+      <table>
+        <tr><th>Use</th><td>当前质量指标更高，适合作为主结果候选图。</td></tr>
+        <tr><th>Metric</th><td>P/R/F1 = 0.429 / 0.474 / 0.450, err = 0.277 m</td></tr>
+      </table>
+      <img src="paper_semantic_bev_best96_20260703/paper_semantic_bev_overview.png" alt="best96 paper semantic BEV">
+    </section>
+
+    <section class="card">
+      <h2>Multi-Pass Traversal: 2-pass / 96-frame</h2>
+      <p><a href="paper_semantic_bev_2pass96_20260703/paper_semantic_bev_overview.html">Open HTML</a></p>
+      <table>
+        <tr><th>Use</th><td>展示多圈遍历后的 G/S/O/L 表示，适合解释 repeated observation / memory accumulation。</td></tr>
+        <tr><th>Metric</th><td>P/R/F1 = 0.292 / 0.400 / 0.337, err = 0.267 m</td></tr>
+      </table>
+      <img src="paper_semantic_bev_2pass96_20260703/paper_semantic_bev_overview.png" alt="2pass paper semantic BEV">
+    </section>
+  </div>
+</body>
+</html>

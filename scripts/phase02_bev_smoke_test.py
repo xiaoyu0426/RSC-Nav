@@ -52,6 +52,13 @@ def main() -> None:
         )
 
     retrieval = long_term_memory.retrieve("sofa", current_position=(1, 1), top_k=3)
+    assert len(observations) == 4
+    assert int(bev.explored.sum()) == 33
+    assert int((bev.occupancy_logodds > 0.2).sum()) == 6
+    assert int((bev.semantic_confidence > 0).sum()) == 4
+    assert retrieval and retrieval[0].item.semantic_label == "sofa"
+    assert retrieval[0].item.bev_position == (7, 9)
+
     log = {
         "phase": "phase02_synthetic_bev_memory",
         "pipeline": "synthetic observation + pose -> BEV projection -> occupancy/explored/semantic map -> long-term memory",

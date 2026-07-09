@@ -1,0 +1,59 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Phase5A API Model Benchmark</title>
+<style>
+body { font-family: Arial, sans-serif; margin: 24px; color: #202124; background: #fafafa; line-height: 1.45; }
+.pick { background: #e6f4ea; border: 1px solid #b7dfc2; padding: 14px; border-radius: 8px; }
+table { border-collapse: collapse; width: 100%; background: white; margin: 14px 0 24px; }
+th, td { border: 1px solid #dde1e6; padding: 8px; text-align: left; vertical-align: top; }
+th { background: #f1f3f4; }
+code { background: #eef2f7; padding: 2px 4px; border-radius: 4px; }
+a { color: #174ea6; }
+</style></head>
+<body>
+<h1>Phase5A Real API Model Benchmark</h1>
+<section class="pick">
+<h2>Recommended model: <code>qwen3-max</code></h2>
+<p>qwen3-max is recommended because it passed the expanded Phase5A benchmark and was then rechecked by a stricter 20-case stress test that requires the selected waypoint anchor label to match the goal label. It is also faster and more stable than the Ark Seed tests in this benchmark.</p>
+<p>Strict follow-up: <a href="../qwen3_max_20case_strict_20260703/qwen3_max_20case_strict_report.html">qwen3-max 20-case goal-label-aligned stress test</a>.</p>
+<p>Leakage audit: <a href="../qwen3_max_20case_noleak_20260703/qwen3_max_20case_noleak_report.html">qwen3-max 20-case no-leak audit</a>.</p>
+</section>
+<h2>Model Summary</h2>
+<table><tr><th>Family</th><th>Model</th><th>Runnable</th><th>Closed-loop Success</th><th>Mean Final Dist</th><th>Mean Segments</th><th>Score</th></tr><tr><td>Qwen3</td><td>qwen3-max</td><td>8/8</td><td>8/8</td><td>0.9</td><td>1.0</td><td>113.2</td></tr>
+<tr><td>Qwen3.7</td><td>qwen3.7-max</td><td>8/8</td><td>5/8</td><td>3.3774</td><td>1.875</td><td>66.3703</td></tr>
+<tr><td>Seed2.0</td><td>doubao-seed-2-0-pro-260215</td><td>8/8</td><td>2/8</td><td>3.73</td><td>2.875</td><td>23.165</td></tr>
+<tr><td>Seed2.1</td><td>doubao-seed-2-1-pro-260628</td><td>0/1</td><td>0/1</td><td>None</td><td>None</td><td>0.0</td></tr></table>
+<h2>Cases</h2>
+<table><tr><th>Family</th><th>Model</th><th>Goal</th><th>Status</th><th>Stop Success</th><th>Segments</th><th>Final Dist</th><th>Report</th></tr><tr><td>Seed2.0</td><td>doubao-seed-2-0-pro-260215</td><td>find bed</td><td>passed</td><td>no</td><td>3</td><td>5.7433</td><td><a href="../ark_seed20_pro_20260703/phase5a_planner_report.html">report</a></td></tr>
+<tr><td>Seed2.0</td><td>doubao-seed-2-0-pro-260215</td><td>find door</td><td>passed</td><td>no</td><td>3</td><td>4.554</td><td><a href="../ark_seed20_pro_door_20260703/phase5a_planner_report.html">report</a></td></tr>
+<tr><td>Seed2.0</td><td>doubao-seed-2-0-pro-260215</td><td>find sofa</td><td>passed</td><td>no</td><td>2</td><td>1.619</td><td><a href="../ark_seed20_pro_sofa_20260703/phase5a_planner_report.html">report</a></td></tr>
+<tr><td>Seed2.1</td><td>doubao-seed-2-1-pro-260628</td><td>find bed</td><td>timeout</td><td>no</td><td>None</td><td>None</td><td></td></tr>
+<tr><td>Qwen3</td><td>qwen3-max</td><td>find bed</td><td>passed</td><td>yes</td><td>1</td><td>0.9</td><td><a href="../dash_qwen3_max_20260703/phase5a_planner_report.html">report</a></td></tr>
+<tr><td>Qwen3</td><td>qwen3-max</td><td>find door</td><td>passed</td><td>yes</td><td>1</td><td>0.9</td><td><a href="../dash_qwen3_max_door_20260703/phase5a_planner_report.html">report</a></td></tr>
+<tr><td>Qwen3</td><td>qwen3-max</td><td>find sofa</td><td>passed</td><td>yes</td><td>1</td><td>0.9</td><td><a href="../dash_qwen3_max_sofa_20260703/phase5a_planner_report.html">report</a></td></tr>
+<tr><td>Qwen3.7</td><td>qwen3.7-max</td><td>find bed</td><td>passed</td><td>no</td><td>2</td><td>5.7433</td><td><a href="../dash_qwen37_max_20260703/phase5a_planner_report.html">report</a></td></tr>
+<tr><td>Qwen3.7</td><td>qwen3.7-max</td><td>find door</td><td>passed</td><td>yes</td><td>1</td><td>0.9</td><td><a href="../dash_qwen37_max_door_20260703/phase5a_planner_report.html">report</a></td></tr>
+<tr><td>Qwen3.7</td><td>qwen3.7-max</td><td>find sofa</td><td>passed</td><td>yes</td><td>2</td><td>0.9</td><td><a href="../dash_qwen37_max_sofa_20260703/phase5a_planner_report.html">report</a></td></tr>
+<tr><td>Seed2.0</td><td>doubao-seed-2-0-pro-260215</td><td>find chair</td><td>passed</td><td>no</td><td>3</td><td>5.7848</td><td><a href="../ark_seed20_pro_chair_expanded_20260703/phase5a_planner_report.html">report</a></td></tr>
+<tr><td>Seed2.0</td><td>doubao-seed-2-0-pro-260215</td><td>find table</td><td>passed</td><td>yes</td><td>3</td><td>0.9</td><td><a href="../ark_seed20_pro_table_expanded_20260703/phase5a_planner_report.html">report</a></td></tr>
+<tr><td>Seed2.0</td><td>doubao-seed-2-0-pro-260215</td><td>go to chair</td><td>passed</td><td>no</td><td>3</td><td>5.7848</td><td><a href="../ark_seed20_pro_go_to_chair_expanded_20260703/phase5a_planner_report.html">report</a></td></tr>
+<tr><td>Seed2.0</td><td>doubao-seed-2-0-pro-260215</td><td>approach table</td><td>passed</td><td>yes</td><td>3</td><td>0.9</td><td><a href="../ark_seed20_pro_approach_table_expanded_20260703/phase5a_planner_report.html">report</a></td></tr>
+<tr><td>Seed2.0</td><td>doubao-seed-2-0-pro-260215</td><td>navigate to door</td><td>passed</td><td>no</td><td>3</td><td>4.554</td><td><a href="../ark_seed20_pro_navigate_to_door_expanded_20260703/phase5a_planner_report.html">report</a></td></tr>
+<tr><td>Qwen3</td><td>qwen3-max</td><td>find chair</td><td>passed</td><td>yes</td><td>1</td><td>0.9</td><td><a href="../dash_qwen3_max_chair_expanded_20260703/phase5a_planner_report.html">report</a></td></tr>
+<tr><td>Qwen3</td><td>qwen3-max</td><td>find table</td><td>passed</td><td>yes</td><td>1</td><td>0.9</td><td><a href="../dash_qwen3_max_table_expanded_20260703/phase5a_planner_report.html">report</a></td></tr>
+<tr><td>Qwen3</td><td>qwen3-max</td><td>go to chair</td><td>passed</td><td>yes</td><td>1</td><td>0.9</td><td><a href="../dash_qwen3_max_go_to_chair_expanded_20260703/phase5a_planner_report.html">report</a></td></tr>
+<tr><td>Qwen3</td><td>qwen3-max</td><td>approach table</td><td>passed</td><td>yes</td><td>1</td><td>0.9</td><td><a href="../dash_qwen3_max_approach_table_expanded_20260703/phase5a_planner_report.html">report</a></td></tr>
+<tr><td>Qwen3</td><td>qwen3-max</td><td>navigate to door</td><td>passed</td><td>yes</td><td>1</td><td>0.9</td><td><a href="../dash_qwen3_max_navigate_to_door_expanded_20260703/phase5a_planner_report.html">report</a></td></tr>
+<tr><td>Qwen3.7</td><td>qwen3.7-max</td><td>find chair</td><td>passed</td><td>no</td><td>2</td><td>11.7734</td><td><a href="../dash_qwen37_max_chair_expanded_20260703/phase5a_planner_report.html">report</a></td></tr>
+<tr><td>Qwen3.7</td><td>qwen3.7-max</td><td>find table</td><td>passed</td><td>no</td><td>3</td><td>5.0022</td><td><a href="../dash_qwen37_max_table_expanded_20260703/phase5a_planner_report.html">report</a></td></tr>
+<tr><td>Qwen3.7</td><td>qwen3.7-max</td><td>go to chair</td><td>passed</td><td>yes</td><td>3</td><td>0.9</td><td><a href="../dash_qwen37_max_go_to_chair_expanded_20260703/phase5a_planner_report.html">report</a></td></tr>
+<tr><td>Qwen3.7</td><td>qwen3.7-max</td><td>approach table</td><td>passed</td><td>yes</td><td>1</td><td>0.9</td><td><a href="../dash_qwen37_max_approach_table_expanded_20260703/phase5a_planner_report.html">report</a></td></tr>
+<tr><td>Qwen3.7</td><td>qwen3.7-max</td><td>navigate to door</td><td>passed</td><td>yes</td><td>1</td><td>0.9</td><td><a href="../dash_qwen37_max_navigate_to_door_expanded_20260703/phase5a_planner_report.html">report</a></td></tr></table>
+<h2>Notes</h2>
+<ul>
+<li>All API keys were provided at runtime and are not written into this report.</li>
+<li>Closed-loop success means the model chose valid waypoint ids and the BEV waypoint proxy ended within the stop radius of the selected target.</li>
+<li>The first expanded benchmark did not explicitly require waypoint anchor labels to match the queried object label; the linked strict stress test adds that check.</li>
+<li>The no-leak audit hides the precomputed goal-matching waypoint id list from the planner prompt while preserving the hidden evaluator check.</li>
+<li>Current executor is still a BEV waypoint proxy; Habitat navmesh execution remains the next refinement.</li>
+</ul>
+</body></html>

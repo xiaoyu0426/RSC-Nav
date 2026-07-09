@@ -1,4 +1,4 @@
-# RSC-Nav：压后皮层启发的语义-空间记忆增强导航方法
+﻿# RSC-Nav：压后皮层启发的语义-空间记忆增强导航方法
 *(RSC-Nav: Retrosplenial-Inspired Semantic-Spatial Memory Augmentation for Navigation)*
 
 ![Status: Project Overview](https://img.shields.io/badge/Status-Project_Overview-blue)

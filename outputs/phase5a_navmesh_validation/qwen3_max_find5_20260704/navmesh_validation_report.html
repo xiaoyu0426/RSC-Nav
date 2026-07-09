@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>Phase5A Navmesh Validation</title>
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;margin:24px;color:#202124;line-height:1.5}
+table{border-collapse:collapse;width:100%;background:white}th,td{border:1px solid #d8e0ea;padding:8px;text-align:left;vertical-align:top}th{background:#eef3f8}
+.ok{color:#147a3d;font-weight:700}.bad{color:#b42318;font-weight:700}code{background:#eef2f7;padding:2px 4px;border-radius:4px}
+</style></head><body>
+<h1>Phase5A Navmesh Validation</h1>
+<p>验证 qwen3-max selected waypoint 是否能回到 Habitat navmesh 中 snap 到可导航点，并查询 shortest path。</p>
+<p><b>Result:</b> 5/5 reachable, 5/5 snap-ok.</p>
+<table><tr><th>Goal</th><th>Anchor</th><th>Selected Waypoint</th><th>Snap OK</th><th>Reachable</th><th>Target Snap m</th><th>Geodesic m</th><th>Failure</th></tr><tr><td>find bed</td><td>bed</td><td>wp_lm_m25_gdino_full96_views2_conf035_bed_groundingdino_bed_015_0</td><td><span class="ok">yes</span></td><td><span class="ok">yes</span></td><td>0.0044</td><td>7.3808</td><td></td></tr><tr><td>find chair</td><td>chair</td><td>wp_auto_lm_m25_gdino_full96_views2_conf035_chair_groundingdino_chair_133_0</td><td><span class="ok">yes</span></td><td><span class="ok">yes</span></td><td>0.0</td><td>10.2249</td><td></td></tr><tr><td>find door</td><td>door</td><td>wp_lm_m25_gdino_full96_views2_conf035_door_groundingdino_door_075_0</td><td><span class="ok">yes</span></td><td><span class="ok">yes</span></td><td>0.0</td><td>2.1977</td><td></td></tr><tr><td>find sofa</td><td>sofa</td><td>wp_lm_m25_gdino_full96_views2_conf035_sofa_groundingdino_sofa_027_0</td><td><span class="ok">yes</span></td><td><span class="ok">yes</span></td><td>0.3088</td><td>6.0651</td><td></td></tr><tr><td>find table</td><td>table</td><td>wp_auto_lm_m25_gdino_full96_views2_conf035_table_groundingdino_table_083_0</td><td><span class="ok">yes</span></td><td><span class="ok">yes</span></td><td>0.0</td><td>3.8013</td><td></td></tr></table>
+</body></html>
