@@ -31,10 +31,10 @@
     <div class="card"><h3>Semantic BEV</h3><a href="m35_semantic_representation_alignment/representation_bundle_best96_20260703/assets/semantic_bev.png"><img src="m35_semantic_representation_alignment/representation_bundle_best96_20260703/assets/semantic_bev.png"></a></div>
   </div>
 
-  <h2>Demo 展示：RGB Grounding + Depth + Semantic Evidence</h2>
-  <p class="small">当前 demo 目标是把可视化闭环跑通：2x2 GIF 展示第一人称 RGB + grounding box/score + API planner 当前 goal、Depth、Semantic evidence / object memory，以及 API planner 当前 stopover。注意：当前 Habitat demo 仍使用仿真的精确 agent pose 做深度投影和语义证据可视化；真实世界版本还需要补 SLAM/VIO/重定位误差处理。下一轮优化聚焦：1）尝试灵波 vision/depth 模型；2）基于真实计算定位替代仿真真值位姿；3）API planner 做 demo 级交互与叙事优化。</p>
+  <h2>Demo 展示：从零建图并寻找所有水杯</h2>
+  <p class="small">该 Habitat 闭环从空地图与空对象记忆开始：523 帧 RGB-D 观测经 GroundingDINO 开放词汇检测、depth + pose 三维投影和多视角证据融合，形成动态 BEV、19 条稳定语义轨迹和 4 条确认杯具记忆。Oracle 语义只用于 episode 结束后的覆盖审计，不参与探索或对象记忆更新。当前 MVP 仍使用仿真精确位姿；真实世界版本仍需补 SLAM/VIO、重定位与位姿不确定性传播。</p>
   <div class="grid">
-    <div class="card"><span class="tag">Case</span><h3>找水处 -> 回到床边主人</h3><p><a href="phase5a_sim_demo/water_then_owner_bed_20260704/demo_report.html">Demo report</a> | <a href="phase5a_sim_demo/water_then_owner_bed_20260704/grounding_depth_demo.gif">Grounding+Depth GIF</a> | <a href="phase5a_sim_demo/water_then_owner_bed_20260704/water_then_owner_bed_first_person.mp4">First-person MP4</a></p><a href="phase5a_sim_demo/water_then_owner_bed_20260704/grounding_depth_demo.gif"><img src="phase5a_sim_demo/water_then_owner_bed_20260704/grounding_depth_demo.gif"></a></div>
+    <div class="card"><span class="tag">Case</span><h3>自行熟悉房间并找到所有水杯</h3><p><a href="phase5a_sim_demo/zero_map_find_all_cups_hm3d_20260723/final_report/zero_map_find_all_cups.html">Demo report</a> | <a href="phase5a_sim_demo/zero_map_find_all_cups_hm3d_20260723/final_report/zero_map_find_all_cups.gif">GIF</a> | <a href="phase5a_sim_demo/zero_map_find_all_cups_hm3d_20260723/final_report/zero_map_find_all_cups.mp4">MP4</a> | <a href="phase5a_sim_demo/zero_map_find_all_cups_hm3d_20260723/final_report/zero_map_find_all_cups_metrics.json">Metrics</a></p><a href="phase5a_sim_demo/zero_map_find_all_cups_hm3d_20260723/final_report/zero_map_find_all_cups.gif"><img src="phase5a_sim_demo/zero_map_find_all_cups_hm3d_20260723/final_report/zero_map_find_all_cups.gif"></a></div>
   </div>
 
   <h2>补充入口</h2>

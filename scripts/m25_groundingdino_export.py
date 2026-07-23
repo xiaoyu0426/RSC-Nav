@@ -325,7 +325,10 @@ def _detect(
         target_sizes=target_sizes,
     )[0]
     rows = []
-    for score, box, raw_label in zip(results["scores"], results["boxes"], results["labels"]):
+    result_labels = results.get("text_labels")
+    if result_labels is None:
+        result_labels = results["labels"]
+    for score, box, raw_label in zip(results["scores"], results["boxes"], result_labels):
         x1, y1, x2, y2 = [float(value) for value in box.detach().cpu().tolist()]
         x1 = max(0.0, min(float(image.width - 1), x1))
         x2 = max(0.0, min(float(image.width), x2))

@@ -6,16 +6,22 @@ RSC-Nav studies a map-then-task navigation loop: an agent first builds reusable 
 
 ## Demo
 
-### Case: find a water place, then return to the owner near the bed
+### Case: explore from an empty map and find all cups
 
-![RSC-Nav demo](outputs/phase5a_sim_demo/water_then_owner_bed_20260704/grounding_depth_demo.gif)
+![RSC-Nav zero-map cup-search demo](outputs/phase5a_sim_demo/zero_map_find_all_cups_hm3d_20260723/final_report/zero_map_find_all_cups.gif)
 
 The GIF shows:
 
-- first-person RGB with grounding boxes, object labels, and API-planner subgoals;
-- depth observation;
-- object-centric semantic evidence / memory;
-- the current API-planner stopover and reasoning.
+- first-person RGB with GroundingDINO boxes, labels, and confidence scores;
+- the live depth observation used for 3D projection;
+- a dynamic metric BEV with the explored route and stable object tracks;
+- active tabletop scans and multi-view object-memory confirmation.
+
+This run starts with empty map and object memory. Across 523 RGB-D observations,
+it projects 1,719 open-vocabulary detections into 3D, retains 19 stable semantic
+tracks, and confirms four cup tracks from multiple views. Habitat oracle labels
+are used only for post-hoc coverage auditing, not for exploration or memory
+updates.
 
 The full public result index is available at:
 
@@ -60,6 +66,10 @@ src/
 
 scripts/
   phase23_habitat_control_server.py          # live Habitat control UI
+  m25_habitat_rgbd_export.py                 # zero-map RGB-D/pose capture
+  m25_groundingdino_export.py                # open-vocabulary grounding + 3D projection
+  phase5a_active_table_search_capture.py     # close multi-view tabletop search
+  phase5a_zero_map_cup_search_report.py      # final GIF/video/metrics report
   phase5a_sim_language_demo.py               # natural-language -> API planner -> Habitat demo
   phase5a_make_grounding_depth_storyboard.py # GIF storyboard generation
   phase5a_api_semantic_planner_eval.py       # API planner evaluation
@@ -100,25 +110,38 @@ export OPENAI_MODEL=qwen3-max
 
 ## Reproduce The Demo
 
-On the development machine with `habitat-sim` installed:
+On a development machine with `habitat-sim` and GroundingDINO dependencies
+installed, the zero-map case is a four-stage pipeline:
 
 ```bash
-python scripts/phase5a_sim_language_demo.py \
+python scripts/m25_habitat_rgbd_export.py \
   --scene /path/to/17DRP5sb8fy.glb \
   --scene-dataset-config /path/to/mp3d.scene_dataset_config.json \
-  --goal "去找到有水的地方，然后回到主人（在床上）身边" \
-  --mode api \
-  --model qwen3-max \
-  --out-dir outputs/phase5a_sim_demo/water_then_owner_bed_20260704
+  --trajectory-mode coverage-loop \
+  --lightweight-capture \
+  --pitch-scan-every 4 \
+  --max-frames 360 \
+  --out-dir outputs/zero_map_run/capture
+
+python scripts/m25_groundingdino_export.py \
+  --frames-metadata outputs/zero_map_run/capture/frames_metadata.json \
+  --labels cup,bottle,table,counter,sink \
+  --max-frames 10000 \
+  --out-dir outputs/zero_map_run/exploration_grounding
 ```
 
-Then regenerate the storyboard GIF:
+Use `phase5a_active_table_search_capture.py` to revisit candidate support
+surfaces, run GroundingDINO on those additional views, then build the final
+artifact:
 
 ```bash
-python scripts/phase5a_make_grounding_depth_storyboard.py \
-  --scene /path/to/17DRP5sb8fy.glb \
-  --scene-dataset-config /path/to/mp3d.scene_dataset_config.json \
-  --out-dir outputs/phase5a_sim_demo/water_then_owner_bed_20260704
+python scripts/phase5a_zero_map_cup_search_report.py \
+  --frames-metadata outputs/zero_map_run/active_search/combined_frames_metadata.json \
+  --detections-json outputs/zero_map_run/exploration_grounding/detections.json \
+  --detections-json outputs/zero_map_run/active_grounding/detections.json \
+  --grounding-dir outputs/zero_map_run/exploration_grounding \
+  --grounding-dir outputs/zero_map_run/active_grounding \
+  --out-dir outputs/zero_map_run/final_report
 ```
 
 ## Key Reports
@@ -137,5 +160,7 @@ Validated:
 - qwen3-max semantic waypoint selection;
 - Habitat navmesh reachability for selected waypoint targets;
 - first-person execution trace with stop-and-look behavior;
-- RGB grounding + depth + semantic evidence storyboard;
+- empty-map RGB-D exploration with active tabletop scans;
+- GroundingDINO-to-depth-to-world projection and multi-view cup memory;
+- dynamic BEV + grounding + depth + confidence storyboard;
 - explicit backlog for localization, interest exploration, Lingbo model trials, and API planner demo refinement.
