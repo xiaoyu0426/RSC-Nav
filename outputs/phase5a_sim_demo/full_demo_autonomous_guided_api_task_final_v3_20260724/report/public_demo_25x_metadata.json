@@ -4,6 +4,7 @@
   "output_showcase": "cup_candidate_audit.png",
   "playback_speed": 25.0,
   "source_step_stride": 3,
+  "legacy_detector_gate_overlay": true,
   "frame_count": 257,
   "source_duration_s": 92.52,
   "planned_output_duration_s": 30.84,

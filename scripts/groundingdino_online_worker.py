@@ -44,6 +44,11 @@ def main() -> None:
             return
         request_id = request.get("request_id")
         image_path = Path(request["rgb_path"]).expanduser().resolve()
+        request_labels = [
+            str(item).strip().lower()
+            for item in request.get("labels", labels)
+            if str(item).strip()
+        ]
         started = time.perf_counter()
         try:
             image = Image.open(image_path).convert("RGB")
@@ -51,7 +56,7 @@ def main() -> None:
                 detections = _detect(
                     detector,
                     image,
-                    labels,
+                    request_labels,
                     box_threshold=float(request.get("box_threshold", args.box_threshold)),
                     text_threshold=float(request.get("text_threshold", args.text_threshold)),
                     max_detections=int(request.get("max_detections", args.max_detections)),
@@ -61,6 +66,7 @@ def main() -> None:
                     "type": "result",
                     "request_id": request_id,
                     "rgb_path": str(image_path),
+                    "labels": request_labels,
                     "detections": detections,
                     "inference_ms": (time.perf_counter() - started) * 1000.0,
                 }

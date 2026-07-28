@@ -173,6 +173,24 @@ def _compose_frame(
     planner_mode = interest.get("task_planner_mode")
     planner_model = interest.get("task_planner_model")
     evidence = record.get("evidence_events", {})
+    active_candidate_id = interest.get("task_active_candidate_id")
+    active_confirmation = (
+        (record.get("cup_confirmation") or {}).get(
+            str(active_candidate_id).removeprefix("track_")
+        )
+        if active_candidate_id
+        else None
+    )
+    confirmation_line = (
+        "Confirm: "
+        f"{active_confirmation.get('status')} | "
+        f"v{int(active_confirmation.get('task_independent_views', 0))} "
+        f"+/-{int(active_confirmation.get('visual_passes', 0))}/"
+        f"{int(active_confirmation.get('visual_negatives', 0))} "
+        f"d{int(active_confirmation.get('depth_relief_passes', 0))}"
+        if active_confirmation
+        else "Confirm: waiting for an active cup candidate"
+    )
     status_lines = [
         f"Step {step:03d}  |  {record.get('action')}  |  {phase_display}",
         f"Policy: {interest.get('mode')} | {route_status}",
@@ -186,15 +204,15 @@ def _compose_frame(
             if planner_mode
             else "Planner: waiting for MemoryReady"
         ),
-        f"Active candidate: {interest.get('task_active_candidate_id') or 'none'}",
+        f"Active candidate: {active_candidate_id or 'none'}",
+        confirmation_line,
         (
             f"Evidence +/NA/miss: "
             f"{len(evidence.get('positive_observation_ids', []))}/"
             f"{len(evidence.get('not_observable_ids', []))}/"
             f"{len(evidence.get('expected_visible_miss_ids', []))}"
         ),
-        f"Focused-confirmed cups: {len(record.get('confirmed_cup_track_ids', []))}",
-        f"Explored cells: {record.get('bev', {}).get('num_explored_cells', 0):,}",
+        f"Verified cups: {len(record.get('confirmed_cup_track_ids', []))}",
     ]
     x0, y0, x1, y1 = STATUS_BOX
     draw.rectangle(STATUS_BOX, fill="#172028")
@@ -242,16 +260,44 @@ def _html_report(
         summary.get("posthoc_coverage", {}).get("navmesh_observation_coverage", 0.0)
     )
     confirmed = summary.get("confirmed_cups", [])
+    detector_reobserved = summary.get(
+        "detector_reobserved_cups",
+        confirmed,
+    )
+    confirmation_bundle = summary.get("cup_confirmation") or {}
+    confirmation_results = confirmation_bundle.get("results") or {}
     confirmed_rows = "".join(
         "<tr>"
         f"<td>{int(item.get('track_id', -1))}</td>"
         f"<td>{html.escape(str(item.get('label', 'cup')))}</td>"
         f"<td>{float(item.get('confidence', 0.0)):.3f}</td>"
         f"<td>{int(item.get('views', 0))}</td>"
+        f"<td>{int(item.get('confirmation', {}).get('task_independent_views', 0))}</td>"
+        f"<td>{int(item.get('confirmation', {}).get('visual_passes', 0))}</td>"
         f"<td>{', '.join(f'{float(v):.2f}' for v in item.get('position_3d', []))}</td>"
         "</tr>"
         for item in confirmed
-    ) or '<tr><td colspan="5">本次运行没有达到检测器再观测门槛的 cup-labeled track。</td></tr>'
+    ) or '<tr><td colspan="7">No cup candidate passed the strict task-stage confirmation gate.</td></tr>'
+    confirmation_rows = "".join(
+        "<tr>"
+        f"<td>{html.escape(str(track_id))}</td>"
+        f"<td>{html.escape(str(result.get('status', 'unknown')))}</td>"
+        f"<td>{int(result.get('attempts', 0))}</td>"
+        f"<td>{int(result.get('task_independent_views', 0))}</td>"
+        f"<td>{int(result.get('visual_passes', 0))}</td>"
+        f"<td>{int(result.get('visual_negatives', 0))}</td>"
+        f"<td>{int(result.get('verifier_errors', 0))}</td>"
+        f"<td>{int(result.get('depth_relief_passes', 0))}</td>"
+        f"<td>{float(result.get('mean_depth_surface_relief_m', 0.0)):.3f} m</td>"
+        f"<td>{float(result.get('position_spread_m', 0.0)):.3f} m</td>"
+        f"<td>{float(result.get('mean_crop_positive_score', 0.0)):.3f}</td>"
+        f"<td>{float(result.get('mean_crop_negative_score', 0.0)):.3f}</td>"
+        "</tr>"
+        for track_id, result in sorted(
+            confirmation_results.items(),
+            key=lambda item: int(item[0]),
+        )
+    ) or '<tr><td colspan="12">No task-stage confirmation attempt was recorded.</td></tr>'
     mp4 = (
         f'<video controls loop muted playsinline src="{html.escape(mp4_name)}"></video>'
         if mp4_name
@@ -315,7 +361,7 @@ pre{{white-space:pre-wrap;overflow-wrap:anywhere;background:#0b1014;padding:14px
 	  <p>这不是先录制再批处理：每一步均按 observe → GroundingDINO → 3D/BEV → object memory → interest policy → Habitat action 顺序执行。</p>
 		  <p>任务在 step <code>{html.escape(str(task_injection_step))}</code> 才注入；此前只做与任务无关的环境熟悉。Qwen3-Max 只排序语义候选，底层路径仍由传统 BEV/navmesh 执行。</p>
 		  <p>本运行若出现 <code>GUIDE</code>，表示一次经用户授权、公开记录的人工航点纠偏；机器人仍通过离散动作抵达，没有瞬移。</p>
-	  <p>candidate cups 是熟悉阶段形成的稳定候选；confirmed cups 还要求在搜索阶段再次观测到。两者均不等于 Habitat 实例真值，本页不宣称实例级完整召回。</p>
+	  <p>candidate cups 是熟悉阶段形成的稳定候选；verified cups 还要求任务阶段新增独立视角、三维位置一致，并通过目标 crop 二次视觉门槛。语义 oracle 不参与在线确认。</p>
 </header>
 <main>
   <section class="metrics">
@@ -327,7 +373,8 @@ pre{{white-space:pre-wrap;overflow-wrap:anywhere;background:#0b1014;padding:14px
     <div class="metric"><b>{int(summary.get("num_detected_collisions", 0))}</b><span>检测到的碰撞</span></div>
     <div class="metric"><b>{int(summary.get("num_scanned_surface_regions", 0))}</b><span>独立台面巡视区域</span></div>
     <div class="metric"><b>{int(summary.get("num_candidate_cups", 0))}</b><span>稳定 cup 候选</span></div>
-	    <div class="metric"><b>{int(summary.get("num_confirmed_cups", 0))}</b><span>检测器再观测 cup track</span></div>
+	    <div class="metric"><b>{len(detector_reobserved)}</b><span>检测器再观测 cup track</span></div>
+	    <div class="metric"><b>{int(summary.get("num_confirmed_cups", 0))}</b><span>严格确认 cup</span></div>
 	    <div class="metric"><b>{html.escape(str(familiarization_step if familiarization_step is not None else "N/A"))}</b><span>熟悉完成 step</span></div>
 		    <div class="metric"><b>{int(summary.get("cup_search_steps", 0))}</b><span>水杯搜索步</span></div>
 		    <div class="metric"><b>{int(guided.get("explored_cell_gain") or 0):,}</b><span>单次纠偏新增探索格</span></div>
@@ -392,9 +439,14 @@ pre{{white-space:pre-wrap;overflow-wrap:anywhere;background:#0b1014;padding:14px
 	    </div>
 	  </section>
   <section class="panel">
-    <h2>任务阶段再次检测到的 cup-labeled tracks</h2>
-    <table><thead><tr><th>Track</th><th>类别</th><th>置信度</th><th>独立视角</th><th>世界坐标 XYZ</th></tr></thead>
+    <h2>Strictly verified task results</h2>
+    <table><thead><tr><th>Track</th><th>类别</th><th>置信度</th><th>全程视角</th><th>任务视角</th><th>视觉通过</th><th>世界坐标 XYZ</th></tr></thead>
     <tbody>{confirmed_rows}</tbody></table>
+  </section>
+  <section class="panel">
+    <h2>Cup confirmation audit</h2>
+    <table><thead><tr><th>Track</th><th>Status</th><th>Attempts</th><th>Task views</th><th>Visual passes</th><th>Visual negatives</th><th>Errors</th><th>Relief passes</th><th>Mean relief</th><th>3D spread</th><th>Positive</th><th>Negative</th></tr></thead>
+    <tbody>{confirmation_rows}</tbody></table>
   </section>
 </main>
 </body>

@@ -169,6 +169,7 @@ python scripts/phase5a_make_public_25x_demo.py \
   --output-showcase outputs/online_interest_run/report/cup_candidate_audit.png \
   --playback-speed 25 \
   --source-step-stride 3 \
+  --legacy-detector-gate-overlay \
   --target-audit "52:FALSE POSITIVE:printed object on wall poster" \
   --target-audit "89:NOT VERIFIED:specific track box is not identifiable" \
   --target-audit "179:FALSE POSITIVE:wall artifact or electrical outlet" \

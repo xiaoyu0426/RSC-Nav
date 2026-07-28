@@ -23,6 +23,11 @@ def main() -> None:
     parser.add_argument("--source-step-stride", type=int, default=3)
     parser.add_argument("--palette-colors", type=int, default=192)
     parser.add_argument(
+        "--legacy-detector-gate-overlay",
+        action="store_true",
+        help="Replace the old Focused-confirmed cups label in legacy GIFs.",
+    )
+    parser.add_argument(
         "--target-step",
         action="append",
         default=[],
@@ -72,6 +77,9 @@ def main() -> None:
         _render_speed_overlay(
             size=source_size,
             playback_speed=playback_speed,
+            replace_legacy_cup_label=bool(
+                args.legacy_detector_gate_overlay
+            ),
             output_path=speed_overlay,
         )
         filter_graph = (
@@ -123,6 +131,9 @@ def main() -> None:
                 "output_showcase": output_showcase.name,
                 "playback_speed": playback_speed,
                 "source_step_stride": step_stride,
+                "legacy_detector_gate_overlay": bool(
+                    args.legacy_detector_gate_overlay
+                ),
                 "frame_count": frame_count,
                 "source_duration_s": source_duration_ms / 1000.0,
                 "planned_output_duration_s": desired_duration_ms / 1000.0,
@@ -148,6 +159,7 @@ def _frame_duration_ms(image: Image.Image, frame_index: int) -> int:
 def _render_speed_overlay(
     size: tuple[int, int],
     playback_speed: float,
+    replace_legacy_cup_label: bool,
     output_path: Path,
 ) -> None:
     width, height = size
@@ -172,21 +184,22 @@ def _render_speed_overlay(
         fill="#e5b74e",
         font=_font(max(10, round(15 * scale))),
     )
-    draw.rectangle(
-        (
-            round(496 * scale),
-            round(408 * scale),
-            round(716 * scale),
-            round(434 * scale),
-        ),
-        fill="#172028",
-    )
-    draw.text(
-        (round(500 * scale), round(410 * scale)),
-        "Detector-only cup gate",
-        fill="#eef3f5",
-        font=_font(max(10, round(15 * scale))),
-    )
+    if replace_legacy_cup_label:
+        draw.rectangle(
+            (
+                round(496 * scale),
+                round(408 * scale),
+                round(716 * scale),
+                round(434 * scale),
+            ),
+            fill="#172028",
+        )
+        draw.text(
+            (round(500 * scale), round(410 * scale)),
+            "Detector-only cup gate",
+            fill="#eef3f5",
+            font=_font(max(10, round(15 * scale))),
+        )
     overlay.save(output_path)
 
 

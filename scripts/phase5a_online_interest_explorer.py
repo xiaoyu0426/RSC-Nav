@@ -19,6 +19,13 @@ sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "src"))
 
 from dense_bev_mapper import DenseBEVConfig, DenseBEVMapper  # noqa: E402
+from cup_confirmation import (  # noqa: E402
+    CupConfirmationConfig,
+    append_independent_observation,
+    estimate_depth_surface_relief,
+    evaluate_cup_confirmation,
+    score_crop_verifier,
+)
 from interest_exploration import (  # noqa: E402
     InterestConfig,
     approach_cell_for_target,
@@ -194,8 +201,30 @@ class GroundingWorker:
             raise RuntimeError(f"Grounding worker failed to become ready: {ready}")
         self.ready = ready
 
-    def infer(self, request_id: int, rgb_path: Path) -> dict[str, Any]:
-        self._write({"type": "infer", "request_id": request_id, "rgb_path": str(rgb_path)})
+    def infer(
+        self,
+        request_id: Any,
+        rgb_path: Path,
+        *,
+        labels: list[str] | None = None,
+        box_threshold: float | None = None,
+        text_threshold: float | None = None,
+        max_detections: int | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "type": "infer",
+            "request_id": request_id,
+            "rgb_path": str(rgb_path),
+        }
+        if labels is not None:
+            payload["labels"] = list(labels)
+        if box_threshold is not None:
+            payload["box_threshold"] = float(box_threshold)
+        if text_threshold is not None:
+            payload["text_threshold"] = float(text_threshold)
+        if max_detections is not None:
+            payload["max_detections"] = int(max_detections)
+        self._write(payload)
         response = self._read()
         if response.get("type") == "error":
             raise RuntimeError(response.get("error", "Grounding worker error"))
@@ -375,6 +404,40 @@ def main() -> None:
     parser.add_argument("--detector-cuda-visible-devices", default="0")
     parser.add_argument("--cup-min-views", type=int, default=5)
     parser.add_argument("--cup-min-confidence", type=float, default=0.28)
+    parser.add_argument(
+        "--cup-confirmation-mode",
+        choices=("grounding_crop", "off"),
+        default="grounding_crop",
+    )
+    parser.add_argument("--cup-confirmation-min-task-views", type=int, default=2)
+    parser.add_argument("--cup-confirmation-min-visual-passes", type=int, default=2)
+    parser.add_argument("--cup-confirmation-max-attempts", type=int, default=3)
+    parser.add_argument(
+        "--cup-confirmation-min-depth-relief-m",
+        type=float,
+        default=0.025,
+    )
+    parser.add_argument(
+        "--cup-confirmation-max-position-spread-m",
+        type=float,
+        default=0.30,
+    )
+    parser.add_argument(
+        "--cup-verifier-labels",
+        default=(
+            "real drinking cup,cup,mug,drinking glass,printed picture,poster,"
+            "wall outlet,light switch,wall decoration,cabinet handle,bottle"
+        ),
+    )
+    parser.add_argument(
+        "--cup-verifier-positive-labels",
+        default="real drinking cup,cup,mug,drinking glass",
+    )
+    parser.add_argument("--cup-verifier-box-threshold", type=float, default=0.16)
+    parser.add_argument("--cup-verifier-text-threshold", type=float, default=0.16)
+    parser.add_argument("--cup-verifier-min-positive-score", type=float, default=0.30)
+    parser.add_argument("--cup-verifier-min-score-margin", type=float, default=0.05)
+    parser.add_argument("--cup-verifier-crop-padding-ratio", type=float, default=0.45)
     parser.add_argument("--surface-min-views", type=int, default=3)
     parser.add_argument("--surface-min-confidence", type=float, default=0.24)
     parser.add_argument("--surface-arrival-radius-m", type=float, default=1.15)
@@ -479,11 +542,13 @@ def main() -> None:
     bev_frames_dir = out_dir / "bev_frames"
     checkpoints_dir = out_dir / "checkpoints"
     planner_dir = out_dir / "task_planner"
+    confirmation_crops_dir = out_dir / "confirmation_crops"
     frames_dir.mkdir(parents=True, exist_ok=True)
     overlays_dir.mkdir(parents=True, exist_ok=True)
     bev_frames_dir.mkdir(parents=True, exist_ok=True)
     checkpoints_dir.mkdir(parents=True, exist_ok=True)
     planner_dir.mkdir(parents=True, exist_ok=True)
+    confirmation_crops_dir.mkdir(parents=True, exist_ok=True)
     trace_path = out_dir / "online_trace.jsonl"
     trace_file = trace_path.open("w", encoding="utf-8")
 
@@ -556,6 +621,39 @@ def main() -> None:
     failed_surface_ids: set[int] = set()
     focused_cup_track_ids: set[int] = set()
     inspected_cup_track_ids: set[int] = set()
+    cup_confirmation_observations: dict[int, list[dict[str, Any]]] = {}
+    cup_confirmation_attempts: dict[int, int] = {}
+    cup_confirmation_terminal_statuses: dict[int, str] = {}
+    cup_scan_in_progress_id: int | None = None
+    cup_confirmation_config = CupConfirmationConfig(
+        min_task_views=max(1, int(args.cup_confirmation_min_task_views)),
+        min_visual_passes=(
+            0
+            if str(args.cup_confirmation_mode) == "off"
+            else max(1, int(args.cup_confirmation_min_visual_passes))
+        ),
+        min_visual_negatives=(
+            0
+            if str(args.cup_confirmation_mode) == "off"
+            else max(1, int(args.cup_confirmation_min_visual_passes))
+        ),
+        min_depth_relief_passes=max(
+            1,
+            int(args.cup_confirmation_min_task_views),
+        ),
+        min_depth_relief_m=max(
+            0.0,
+            float(args.cup_confirmation_min_depth_relief_m),
+        ),
+        max_position_spread_m=max(
+            0.01,
+            float(args.cup_confirmation_max_position_spread_m),
+        ),
+    )
+    cup_verifier_labels = _comma_separated_labels(args.cup_verifier_labels)
+    cup_verifier_positive_labels = set(
+        _comma_separated_labels(args.cup_verifier_positive_labels)
+    )
     scan_queue: list[str] = []
     active_surface_id: int | None = None
     frontier_target_cell: tuple[int, int] | None = None
@@ -747,6 +845,7 @@ def main() -> None:
                 merge_radius_m=float(args.track_merge_radius_m),
             )
             all_detections.extend(projected)
+            confirmation_verification_ms = 0.0
 
             current_position = np.asarray(frame["agent_position_xyz"], dtype=np.float32)
             current_yaw = _yaw_from_matrix(frame["agent_rotation_matrix"])
@@ -1111,6 +1210,14 @@ def main() -> None:
                     "frontier_target_cell": None,
                     "remaining_scan_steps": int(args.initial_yaw_steps) - step - 1,
                 }
+            elif cup_scan_in_progress_id is not None and not scan_queue:
+                action = "wait"
+                decision = {
+                    "mode": "cup_confirmation_finalize",
+                    "active_surface_id": int(cup_scan_in_progress_id),
+                    "frontier_target_cell": frontier_target_cell,
+                    "target_kind": "cup",
+                }
             elif recovery_queue:
                 action = recovery_queue.pop(0)
                 decision = {
@@ -1272,6 +1379,9 @@ def main() -> None:
                 if active_surface_id is not None:
                     if decision.get("target_kind") == "cup":
                         inspected_cup_track_ids.add(int(active_surface_id))
+                        cup_confirmation_terminal_statuses[
+                            int(active_surface_id)
+                        ] = "inconclusive_unreachable"
                     elif decision.get("target_kind") == "semantic":
                         failed_surface_ids.add(int(active_surface_id))
                     if exploration_phase == "task_execution":
@@ -1300,29 +1410,171 @@ def main() -> None:
                     )
             if decision.get("cup_scan_started") is not None:
                 scanned_cup_id = int(decision["cup_scan_started"])
-                inspected_cup_track_ids.add(scanned_cup_id)
+                cup_scan_in_progress_id = scanned_cup_id
+                cup_confirmation_attempts[scanned_cup_id] = (
+                    cup_confirmation_attempts.get(scanned_cup_id, 0) + 1
+                )
                 if exploration_phase == "task_execution":
                     task_plan_events.append(
                         {
                             "step": step,
                             "event": "cup_candidate_reobservation_started",
                             "candidate_id": f"track_{scanned_cup_id}",
+                            "attempt": cup_confirmation_attempts[scanned_cup_id],
                         }
                     )
-            if decision.get("mode") in {
-                "cup_candidate_scan",
-                "semantic_target_scan",
-                "semantic_surface_scan",
-            }:
-                focused_cup_track_ids.update(
-                    track_id
-                    for track_id in positive_track_ids
-                    if next(
-                        (track.label for track in tracks if track.track_id == track_id),
-                        None,
-                    )
-                    == "cup"
+            if (
+                active_surface_id is not None
+                and decision.get("mode")
+                in {
+                    "cup_candidate_scan",
+                    "semantic_target_scan",
+                    "cup_confirmation_finalize",
+                }
+                and int(active_surface_id) in positive_track_ids
+                and next(
+                    (
+                        track.label
+                        for track in tracks
+                        if track.track_id == int(active_surface_id)
+                    ),
+                    None,
                 )
+                == "cup"
+            ):
+                focused_cup_track_ids.add(int(active_surface_id))
+            confirmation_track_id = (
+                int(active_surface_id)
+                if active_surface_id is not None
+                and decision.get("mode")
+                in {
+                    "cup_candidate_scan",
+                    "semantic_target_scan",
+                    "cup_confirmation_finalize",
+                }
+                and next(
+                    (
+                        track.label
+                        for track in tracks
+                        if track.track_id == int(active_surface_id)
+                    ),
+                    None,
+                )
+                == "cup"
+                else None
+            )
+            if confirmation_track_id is not None:
+                verification_started = time.perf_counter()
+                confirmation_observation = _record_cup_confirmation_observation(
+                    track_id=confirmation_track_id,
+                    step=step,
+                    rgb=rgb,
+                    depth=depth,
+                    projected_detections=projected,
+                    camera_signature=camera_signature,
+                    observations=cup_confirmation_observations,
+                    config=cup_confirmation_config,
+                    worker=worker,
+                    crops_dir=confirmation_crops_dir,
+                    mode=str(args.cup_confirmation_mode),
+                    verifier_labels=cup_verifier_labels,
+                    verifier_positive_labels=cup_verifier_positive_labels,
+                    verifier_box_threshold=float(args.cup_verifier_box_threshold),
+                    verifier_text_threshold=float(args.cup_verifier_text_threshold),
+                    verifier_min_positive_score=float(
+                        args.cup_verifier_min_positive_score
+                    ),
+                    verifier_min_score_margin=float(
+                        args.cup_verifier_min_score_margin
+                    ),
+                    crop_padding_ratio=float(
+                        args.cup_verifier_crop_padding_ratio
+                    ),
+                )
+                confirmation_verification_ms = (
+                    time.perf_counter() - verification_started
+                ) * 1000.0
+                if confirmation_observation is not None:
+                    confirmation_result = evaluate_cup_confirmation(
+                        cup_confirmation_observations[confirmation_track_id],
+                        cup_confirmation_config,
+                    )
+                    task_plan_events.append(
+                        {
+                            "step": step,
+                            "event": "cup_confirmation_observation",
+                            "candidate_id": f"track_{confirmation_track_id}",
+                            "status": confirmation_result["status"],
+                            "task_independent_views": confirmation_result[
+                                "task_independent_views"
+                            ],
+                            "visual_passes": confirmation_result[
+                                "visual_passes"
+                            ],
+                            "crop_path": confirmation_observation.get(
+                                "crop_path"
+                            ),
+                        }
+                    )
+            if decision.get("mode") == "cup_confirmation_finalize":
+                finalized_track_id = int(active_surface_id)
+                confirmation_result = evaluate_cup_confirmation(
+                    cup_confirmation_observations.get(finalized_track_id, []),
+                    cup_confirmation_config,
+                )
+                confirmation_status = str(confirmation_result["status"])
+                terminal = confirmation_status in {
+                    "verified",
+                    "rejected_planar_surface",
+                    "rejected_visual_verifier",
+                }
+                attempts = cup_confirmation_attempts.get(finalized_track_id, 0)
+                if terminal:
+                    inspected_cup_track_ids.add(finalized_track_id)
+                    cup_confirmation_terminal_statuses[
+                        finalized_track_id
+                    ] = confirmation_status
+                    event_name = "cup_confirmation_completed"
+                elif attempts >= max(1, int(args.cup_confirmation_max_attempts)):
+                    inspected_cup_track_ids.add(finalized_track_id)
+                    cup_confirmation_terminal_statuses[
+                        finalized_track_id
+                    ] = (
+                        "rejected_geometry_inconsistent"
+                        if confirmation_status
+                        == "rejected_geometry_inconsistent"
+                        else "inconclusive_max_attempts"
+                    )
+                    event_name = "cup_confirmation_deferred"
+                else:
+                    event_name = "cup_confirmation_retry_scheduled"
+                task_plan_events.append(
+                    {
+                        "step": step,
+                        "event": event_name,
+                        "candidate_id": f"track_{finalized_track_id}",
+                        "status": cup_confirmation_terminal_statuses.get(
+                            finalized_track_id,
+                            confirmation_status,
+                        ),
+                        "attempt": attempts,
+                        "task_independent_views": confirmation_result[
+                            "task_independent_views"
+                        ],
+                        "visual_passes": confirmation_result["visual_passes"],
+                        "visual_negatives": confirmation_result[
+                            "visual_negatives"
+                        ],
+                    }
+                )
+                decision["cup_confirmation_status"] = (
+                    cup_confirmation_terminal_statuses.get(
+                        finalized_track_id,
+                        confirmation_status,
+                    )
+                )
+                cup_scan_in_progress_id = None
+                active_surface_id = None
             if ranked_frontiers:
                 no_frontier_steps = 0
             else:
@@ -1382,7 +1634,11 @@ def main() -> None:
                 navigation_pose_history.append(after_action.copy())
                 navigation_pose_history = navigation_pose_history[-18:]
             if action == "move_forward":
-                if collision or waypoint_progress_m < 0.025:
+                if collision:
+                    no_progress_forward_attempts += 1
+                elif waypoint is None:
+                    no_progress_forward_attempts = 0
+                elif waypoint_progress_m < 0.025:
                     no_progress_forward_attempts += 1
                 else:
                     no_progress_forward_attempts = 0
@@ -1400,9 +1656,21 @@ def main() -> None:
                 frontier_target_view_yaw_deg = None
                 if decision.get("target_kind") == "frontier" and decision.get("navigation_goal_cell"):
                     blacklisted_frontiers.append(tuple(int(value) for value in decision["navigation_goal_cell"]))
-                if active_surface_id is not None:
+                if cup_scan_in_progress_id is not None:
+                    scan_queue.clear()
+                    task_plan_events.append(
+                        {
+                            "step": step,
+                            "event": "cup_confirmation_baseline_motion_failed",
+                            "candidate_id": f"track_{int(cup_scan_in_progress_id)}",
+                        }
+                    )
+                elif active_surface_id is not None:
                     if decision.get("target_kind") == "cup":
                         inspected_cup_track_ids.add(active_surface_id)
+                        cup_confirmation_terminal_statuses[
+                            int(active_surface_id)
+                        ] = "inconclusive_navigation_failed"
                     else:
                         failed_surface_ids.add(active_surface_id)
                     if exploration_phase == "task_execution":
@@ -1421,12 +1689,26 @@ def main() -> None:
                 no_progress_forward_attempts = 0
             action_ready = time.perf_counter()
 
-            confirmed_cups = _confirmed_cups(
+            detector_reobserved_cups = _confirmed_cups(
                 tracks,
                 min_views=int(args.cup_min_views),
                 min_confidence=float(args.cup_min_confidence),
                 required_track_ids=focused_cup_track_ids,
             )
+            confirmation_evaluations = _cup_confirmation_evaluations(
+                cup_confirmation_observations,
+                cup_confirmation_config,
+                terminal_statuses=cup_confirmation_terminal_statuses,
+                attempts=cup_confirmation_attempts,
+            )
+            verified_track_ids = {
+                track_id
+                for track_id, status in cup_confirmation_terminal_statuses.items()
+                if status == "verified"
+            }
+            confirmed_cups = [
+                track for track in tracks if track.track_id in verified_track_ids
+            ]
             track_by_id = {track.track_id: track for track in tracks}
             positive_memory_ids = [
                 f"{track_by_id[track_id].label}_{track_id}"
@@ -1473,6 +1755,13 @@ def main() -> None:
                 "evidence_events": evidence_events,
                 "memory_summary": memory.summary(),
                 "confirmed_cup_track_ids": [track.track_id for track in confirmed_cups],
+                "detector_reobserved_cup_track_ids": [
+                    track.track_id for track in detector_reobserved_cups
+                ],
+                "cup_confirmation": {
+                    str(track_id): result
+                    for track_id, result in confirmation_evaluations.items()
+                },
                 "focused_cup_track_ids": sorted(focused_cup_track_ids),
                 "interest": {
                     "semantic_target": semantic_target,
@@ -1484,6 +1773,7 @@ def main() -> None:
                     "capture": (observation_ready - loop_started) * 1000.0,
                     "mapping": (mapping_ready - observation_ready) * 1000.0,
                     "grounding": (grounding_ready - mapping_ready) * 1000.0,
+                    "confirmation_verification": confirmation_verification_ms,
                     "memory": (memory_ready - grounding_ready) * 1000.0,
                     "policy": (policy_ready - memory_ready) * 1000.0,
                     "visualization": (visualization_ready - policy_ready) * 1000.0,
@@ -1505,6 +1795,10 @@ def main() -> None:
                 and not scan_queue
                 and not coverage_scan_queue
                 and not recovery_queue
+                and frontier_target_cell is None
+                and not ranked_frontiers
+                and no_frontier_steps >= max(2, int(args.frontier_patience))
+                and cup_scan_in_progress_id is None
                 and step >= int(args.initial_yaw_steps)
             ):
                 stop_reason = "task_execution_exhausted"
@@ -1516,12 +1810,26 @@ def main() -> None:
             lingbot_worker.close()
         session.close()
 
-    confirmed_cups = _confirmed_cups(
+    detector_reobserved_cups = _confirmed_cups(
         tracks,
         min_views=int(args.cup_min_views),
         min_confidence=float(args.cup_min_confidence),
         required_track_ids=focused_cup_track_ids,
     )
+    confirmation_evaluations = _cup_confirmation_evaluations(
+        cup_confirmation_observations,
+        cup_confirmation_config,
+        terminal_statuses=cup_confirmation_terminal_statuses,
+        attempts=cup_confirmation_attempts,
+    )
+    verified_track_ids = {
+        track_id
+        for track_id, result in confirmation_evaluations.items()
+        if bool(result.get("verified"))
+    }
+    confirmed_cups = [
+        track for track in tracks if track.track_id in verified_track_ids
+    ]
     candidate_cups = _confirmed_cups(
         tracks,
         min_views=int(args.cup_min_views),
@@ -1589,6 +1897,14 @@ def main() -> None:
                 "planning_complete_step": task_planning_complete_step,
                 "planner_role": "semantic candidate ordering only; no low-level actions",
             },
+            "cup_confirmation": {
+                "mode": str(args.cup_confirmation_mode),
+                "requires_task_stage_independent_views": True,
+                "requires_3d_position_consistency": True,
+                "requires_crop_visual_verification": (
+                    args.cup_confirmation_mode == "grounding_crop"
+                ),
+            },
             "manual_guided_correction": {
                 "enabled": guided_correction_target is not None,
                 "target_position_xyz": (
@@ -1618,7 +1934,55 @@ def main() -> None:
         "num_projected_detections": len(all_detections),
         "num_tracks": len(tracks),
         "num_confirmed_cups": len(confirmed_cups),
-        "confirmed_cups": [track.to_dict() for track in confirmed_cups],
+        "confirmed_cups": [
+            {
+                **track.to_dict(),
+                "confirmation": confirmation_evaluations[track.track_id],
+            }
+            for track in confirmed_cups
+        ],
+        "num_detector_reobserved_cups": len(detector_reobserved_cups),
+        "detector_reobserved_cups": [
+            track.to_dict() for track in detector_reobserved_cups
+        ],
+        "cup_confirmation": {
+            "config": {
+                "mode": str(args.cup_confirmation_mode),
+                "min_task_views": cup_confirmation_config.min_task_views,
+                "min_visual_passes": cup_confirmation_config.min_visual_passes,
+                "min_visual_negatives": (
+                    cup_confirmation_config.min_visual_negatives
+                ),
+                "max_attempts": max(1, int(args.cup_confirmation_max_attempts)),
+                "min_depth_relief_passes": (
+                    cup_confirmation_config.min_depth_relief_passes
+                ),
+                "min_depth_relief_m": (
+                    cup_confirmation_config.min_depth_relief_m
+                ),
+                "max_position_spread_m": (
+                    cup_confirmation_config.max_position_spread_m
+                ),
+                "verifier_labels": cup_verifier_labels,
+                "verifier_positive_labels": sorted(
+                    cup_verifier_positive_labels
+                ),
+                "verifier_min_positive_score": float(
+                    args.cup_verifier_min_positive_score
+                ),
+                "verifier_min_score_margin": float(
+                    args.cup_verifier_min_score_margin
+                ),
+            },
+            "results": {
+                str(track_id): result
+                for track_id, result in confirmation_evaluations.items()
+            },
+            "observations": {
+                str(track_id): items
+                for track_id, items in cup_confirmation_observations.items()
+            },
+        },
         "num_candidate_cups": len(candidate_cups),
         "candidate_cups": [track.to_dict() for track in candidate_cups],
         "focused_cup_track_ids": sorted(focused_cup_track_ids),
@@ -1718,6 +2082,7 @@ def main() -> None:
             "bev_frames": str(bev_frames_dir),
             "task_planner": str(planner_dir),
             "checkpoints": str(checkpoints_dir),
+            "confirmation_crops": str(confirmation_crops_dir),
         },
     }
     (out_dir / "online_summary.json").write_text(
@@ -2170,6 +2535,15 @@ def _semantic_observation_actions(
     actions.extend(["turn_right"] * (2 * half_turns))
     actions.extend(["turn_left"] * half_turns)
     actions.extend(["look_up"])
+    baseline_turns = max(1, int(round(45.0 / turn_amount)))
+    actions.extend(["turn_left"] * baseline_turns)
+    actions.extend(["move_forward"] * 2)
+    actions.extend(["turn_right"] * baseline_turns)
+    actions.extend(["look_down"])
+    actions.extend(["turn_left"] * half_turns)
+    actions.extend(["turn_right"] * (2 * half_turns))
+    actions.extend(["turn_left"] * half_turns)
+    actions.extend(["look_up"])
     return actions
 
 
@@ -2384,6 +2758,218 @@ def _confirmed_cups(
         and track.confidence >= float(min_confidence)
         and (required_track_ids is None or track.track_id in required_track_ids)
     ]
+
+
+def _record_cup_confirmation_observation(
+    *,
+    track_id: int,
+    step: int,
+    rgb: Image.Image,
+    depth: np.ndarray,
+    projected_detections: list[dict[str, Any]],
+    camera_signature: tuple[float, float, float],
+    observations: dict[int, list[dict[str, Any]]],
+    config: CupConfirmationConfig,
+    worker: GroundingWorker,
+    crops_dir: Path,
+    mode: str,
+    verifier_labels: list[str],
+    verifier_positive_labels: set[str],
+    verifier_box_threshold: float,
+    verifier_text_threshold: float,
+    verifier_min_positive_score: float,
+    verifier_min_score_margin: float,
+    crop_padding_ratio: float,
+) -> dict[str, Any] | None:
+    track_observations = observations.setdefault(int(track_id), [])
+    cup_detections = [
+        detection
+        for detection in projected_detections
+        if str(detection.get("canonical_label", "")).lower() == "cup"
+    ]
+    candidates = [
+        detection
+        for detection in cup_detections
+        if int(detection.get("online_track_id", -1)) == int(track_id)
+    ]
+    track_reassociated = False
+    if not candidates:
+        reference_positions = [
+            np.asarray(item.get("position_3d", ()), dtype=np.float32)
+            for item in track_observations
+            if len(item.get("position_3d", ())) == 3
+            and str(item.get("crop_verifier_status", "")) != "error"
+        ]
+        if reference_positions:
+            reference = np.median(
+                np.stack(reference_positions, axis=0),
+                axis=0,
+            )
+            nearby = [
+                (
+                    float(
+                        np.linalg.norm(
+                            np.asarray(
+                                detection.get("position_3d", ()),
+                                dtype=np.float32,
+                            )
+                            - reference
+                        )
+                    ),
+                    detection,
+                )
+                for detection in cup_detections
+                if len(detection.get("position_3d", ())) == 3
+            ]
+            nearby = [
+                item
+                for item in nearby
+                if item[0] <= float(config.max_position_spread_m)
+            ]
+            if nearby:
+                candidates = [min(nearby, key=lambda item: item[0])[1]]
+                track_reassociated = True
+    if not candidates:
+        return None
+    detection = max(candidates, key=lambda item: float(item.get("score", 0.0)))
+    observation: dict[str, Any] = {
+        "step": int(step),
+        "camera_xzyaw": [float(value) for value in camera_signature],
+        "position_3d": [
+            float(value) for value in detection.get("position_3d", [])
+        ],
+        "primary_label": str(detection.get("label", "")),
+        "primary_score": float(detection.get("score", 0.0)),
+        "source_online_track_id": int(
+            detection.get("online_track_id", -1)
+        ),
+        "track_reassociated": track_reassociated,
+        "primary_box": [
+            float(value) for value in detection.get("box", [])
+        ],
+        "depth_median": float(detection.get("depth_median", 0.0)),
+        "depth_valid_ratio": float(detection.get("depth_valid_ratio", 0.0)),
+        "crop_verifier_mode": str(mode),
+        "crop_verifier_status": "pending",
+        "crop_verifier_pass": False,
+        "crop_positive_score": 0.0,
+        "crop_negative_score": 0.0,
+    }
+    depth_relief = estimate_depth_surface_relief(
+        depth,
+        observation["primary_box"],
+    )
+    observation["depth_surface_relief_m"] = depth_relief.get("relief_m")
+    observation["depth_surface_relief"] = depth_relief
+    if not append_independent_observation(
+        track_observations,
+        observation,
+        config,
+    ):
+        return None
+
+    if str(mode) != "grounding_crop":
+        observation["crop_verifier_status"] = "skipped"
+        return observation
+
+    try:
+        crop_path = (
+            crops_dir
+            / f"track_{int(track_id):04d}_step_{int(step):04d}.jpg"
+        )
+        crop_bounds = _save_confirmation_crop(
+            image=rgb,
+            box=observation["primary_box"],
+            output_path=crop_path,
+            padding_ratio=crop_padding_ratio,
+        )
+        observation["crop_path"] = str(crop_path)
+        observation["crop_bounds"] = crop_bounds
+        target_box = [
+            float(observation["primary_box"][0]) - float(crop_bounds[0]),
+            float(observation["primary_box"][1]) - float(crop_bounds[1]),
+            float(observation["primary_box"][2]) - float(crop_bounds[0]),
+            float(observation["primary_box"][3]) - float(crop_bounds[1]),
+        ]
+        observation["crop_target_box"] = target_box
+        response = worker.infer(
+            f"cup-confirm-{int(step)}-{int(track_id)}",
+            crop_path,
+            labels=verifier_labels,
+            box_threshold=verifier_box_threshold,
+            text_threshold=verifier_text_threshold,
+            max_detections=max(8, len(verifier_labels) * 2),
+        )
+        verifier_result = score_crop_verifier(
+            detections=list(response.get("detections", [])),
+            positive_labels=verifier_positive_labels,
+            target_box=target_box,
+            min_positive_score=verifier_min_positive_score,
+            min_score_margin=verifier_min_score_margin,
+        )
+        observation.update(verifier_result)
+        observation["crop_verifier_inference_ms"] = float(
+            response.get("inference_ms", 0.0)
+        )
+    except Exception as exc:
+        observation["crop_verifier_status"] = "error"
+        observation["crop_verifier_error"] = f"{type(exc).__name__}: {exc}"
+    return observation
+
+
+def _save_confirmation_crop(
+    *,
+    image: Image.Image,
+    box: list[float],
+    output_path: Path,
+    padding_ratio: float,
+) -> list[int]:
+    if len(box) != 4:
+        raise ValueError("confirmation crop requires a four-value box")
+    x1, y1, x2, y2 = [float(value) for value in box]
+    width = max(1.0, x2 - x1)
+    height = max(1.0, y2 - y1)
+    pad_x = max(0.0, float(padding_ratio)) * width
+    pad_y = max(0.0, float(padding_ratio)) * height
+    center_x = 0.5 * (x1 + x2)
+    center_y = 0.5 * (y1 + y2)
+    crop_width = max(width + 2.0 * pad_x, 96.0)
+    crop_height = max(height + 2.0 * pad_y, 96.0)
+    bounds = [
+        max(0, int(math.floor(center_x - 0.5 * crop_width))),
+        max(0, int(math.floor(center_y - 0.5 * crop_height))),
+        min(image.width, int(math.ceil(center_x + 0.5 * crop_width))),
+        min(image.height, int(math.ceil(center_y + 0.5 * crop_height))),
+    ]
+    if bounds[2] <= bounds[0] or bounds[3] <= bounds[1]:
+        raise ValueError("confirmation crop is empty")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    image.crop(tuple(bounds)).save(output_path, quality=95)
+    return bounds
+
+
+def _cup_confirmation_evaluations(
+    observations: dict[int, list[dict[str, Any]]],
+    config: CupConfirmationConfig,
+    terminal_statuses: dict[int, str] | None = None,
+    attempts: dict[int, int] | None = None,
+) -> dict[int, dict[str, Any]]:
+    track_ids = set(int(track_id) for track_id in observations)
+    track_ids.update((terminal_statuses or {}).keys())
+    results: dict[int, dict[str, Any]] = {}
+    for track_id in sorted(track_ids):
+        result = evaluate_cup_confirmation(
+            observations.get(track_id, []),
+            config,
+        )
+        terminal_status = (terminal_statuses or {}).get(track_id)
+        if terminal_status is not None:
+            result["terminal_status"] = terminal_status
+            result["status"] = terminal_status
+            result["verified"] = terminal_status == "verified"
+        result["attempts"] = int((attempts or {}).get(track_id, 0))
+        results[track_id] = result
+    return results
 
 
 def _stable_task_tracks(
@@ -2623,7 +3209,17 @@ def _write_json(path: Path, payload: Any) -> None:
 
 
 def _timing_summary(records: list[dict[str, Any]]) -> dict[str, Any]:
-    keys = ["capture", "mapping", "grounding", "memory", "policy", "visualization", "action", "total"]
+    keys = [
+        "capture",
+        "mapping",
+        "grounding",
+        "confirmation_verification",
+        "memory",
+        "policy",
+        "visualization",
+        "action",
+        "total",
+    ]
     summary = {}
     for key in keys:
         values = np.asarray([record["timing_ms"][key] for record in records], dtype=np.float64)
@@ -2652,6 +3248,17 @@ def _is_independent_view(
 def _canonical_label(label: str) -> str:
     normalized = str(label).strip().lower()
     return "cup" if normalized in CUP_LABELS else normalized
+
+
+def _comma_separated_labels(value: str) -> list[str]:
+    labels = [
+        item.strip().lower()
+        for item in str(value).split(",")
+        if item.strip()
+    ]
+    if not labels:
+        raise ValueError("at least one verifier label is required")
+    return labels
 
 
 def _calibrated_grounding_confidence(score: float) -> float:
