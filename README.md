@@ -8,31 +8,39 @@ RSC-Nav studies a map-then-task navigation loop: an agent first builds reusable 
 
 ### Case: Real-time environment familiarization followed by a "find and report all cups" task
 
-![RSC-Nav real-time familiarization and cup-reporting task](outputs/phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/report/online_interest_exploration_25x.gif)
+![RSC-Nav strict online cup-confirmation task](outputs/phase5a_sim_demo/cup_confirmation_api_task_20260728/report/online_interest_exploration_25x_curated_30s.gif)
 
 The GIF shows:
 
 - online RGB + GroundingDINO observations and current depth;
 - online BEV, route history, object memory, and policy state;
 - real-time task-independent environment familiarization;
-- Qwen3-Max task injection at step 360 and semantic candidate execution.
+- a real Qwen3-Max API task injection at step 418;
+- task-stage candidate re-observation with translated RGB-D viewpoints;
+- fail-closed cup verification using 3D consistency, depth relief, and
+  target-aligned positive/negative crop evidence.
 
-The public replay preserves all 257 sampled frames and lasts about 30.7 seconds
-at 25x normal action speed. The underlying 771-step run averages 800 ms per
-online loop and reaches 94.6% post-hoc navmesh observation coverage. During
-task execution, the detector re-observes four tracks labeled as `cup`; this is
-not instance-level confirmation. Manual review finds two clear false positives
-and two visually unresolved candidates, so this run demonstrates the live
-closed loop but does **not** establish successful cup-task completion. One
-recorded guided correction occurs during familiarization; it is disclosed in
-the report and does not teleport the agent. Semantic oracle data is unavailable
-to the online policy. Exact Habitat pose and complete-scene navmesh shortest
-paths remain privileged geometric inputs and are reported as current
-limitations.
+The underlying run executes 901 live Habitat steps. Qwen3-Max plans 10 initial
+semantic candidates in 5.95 seconds, two more are appended from subsequent
+online observations, and the final memory contains five stable cup candidates.
+The detector re-observes two cup tracks, but the strict gate verifies zero.
+Track 90 is rejected as a planar surface from two translated views; three other
+attempted tracks remain inconclusive after bounded retries, and one candidate
+is not reached before the step budget. This run therefore demonstrates that the
+new confirmation loop suppresses unsupported success claims and continues
+searching, but it does **not** establish successful cup-task completion.
+
+The public GIF contains 250 retained sampled frames and lasts 29.89 seconds.
+Each retained frame is timed at 25x normal action speed; repetitive navigation
+segments are explicitly omitted in the accompanying metadata. One recorded
+guided correction occurs during familiarization and does not teleport the
+agent. Semantic oracle data is unavailable to the online policy. Exact Habitat
+pose and complete-scene navmesh shortest paths remain privileged geometric
+inputs and are reported as current limitations.
 
 #### Task-result visual audit
 
-![Cup-candidate visual audit](outputs/phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/report/cup_candidate_audit.png)
+![Strict cup-confirmation audit](outputs/phase5a_sim_demo/cup_confirmation_api_task_20260728/report/cup_confirmation_audit.png)
 
 The full public result index is available at:
 
@@ -145,10 +153,14 @@ python scripts/phase5a_online_interest_explorer.py \
   --scene /path/to/GLAQ4DNUx5U.basis.glb \
   --scene-dataset-config /path/to/hm3d_annotated_basis.scene_dataset_config.json \
   --out-dir outputs/online_interest_run \
-  --max-steps 780 \
+  --max-steps 900 \
   --frontier-strategy hierarchical \
   --execution-planner hybrid_navmesh \
   --task-planner-mode api \
+  --cup-confirmation-mode grounding_crop \
+  --cup-confirmation-min-task-views 2 \
+  --cup-confirmation-min-visual-passes 2 \
+  --cup-confirmation-max-attempts 3 \
   --task-text "Find all cups in the room and report their locations"
 ```
 
@@ -159,22 +171,31 @@ exploration. Configure separate detector and LingBot runtimes with
 `RSCNAV_DETECTOR_PYTHON`, `RSCNAV_LINGBOT_PYTHON`,
 `RSCNAV_LINGBOT_REPO`, and `RSCNAV_LINGBOT_MODEL`.
 
-Create the compact public replay and target evidence sheet with:
+Create the synchronized report, strict confirmation audit, and full 25x replay
+with:
 
 ```bash
+python scripts/phase5a_online_interest_report.py \
+  --run-dir outputs/online_interest_run \
+  --gif-duration-ms 120 \
+  --gif-frame-stride 3 \
+  --gif-width 960
+
+python scripts/phase5a_cup_confirmation_audit.py \
+  --run-dir outputs/online_interest_run
+
 python scripts/phase5a_make_public_25x_demo.py \
   --input-gif outputs/online_interest_run/report/online_interest_exploration.gif \
   --summary-json outputs/online_interest_run/online_summary.json \
-  --output-gif outputs/online_interest_run/report/online_interest_exploration_25x.gif \
-  --output-showcase outputs/online_interest_run/report/cup_candidate_audit.png \
+  --output-gif outputs/online_interest_run/report/online_interest_exploration_25x_full.gif \
+  --output-showcase outputs/online_interest_run/report/strict_verified_targets.png \
   --playback-speed 25 \
-  --source-step-stride 3 \
-  --legacy-detector-gate-overlay \
-  --target-audit "52:FALSE POSITIVE:printed object on wall poster" \
-  --target-audit "89:NOT VERIFIED:specific track box is not identifiable" \
-  --target-audit "179:FALSE POSITIVE:wall artifact or electrical outlet" \
-  --target-audit "206:NOT VERIFIED:shelf object remains visually ambiguous"
+  --source-step-stride 3
 ```
+
+The published 29.89-second replay is a transparent curation of that full 25x
+output. Its exact omitted source-frame ranges are recorded in
+`public_demo_25x_curated_metadata.json`.
 
 ## Key Reports
 

@@ -12,7 +12,7 @@ CANVAS_WIDTH = 1440
 HEADER_HEIGHT = 128
 ROW_HEIGHT = 260
 TEXT_WIDTH = 480
-THUMB_SIZE = (286, 190)
+THUMB_SIZE = (286, 175)
 
 
 def main() -> None:
@@ -180,13 +180,21 @@ def _draw_track_row(
         thumb = _annotated_crop(run_dir, observation)
         _paste_fit(image, thumb, (left, top + 28, *THUMB_SIZE))
         draw.text(
-            (left, top + 224),
+            (left, top + 211),
             (
                 f"step {int(observation.get('step', -1))} | "
-                f"{observation.get('crop_verifier_status', 'unknown')} | "
-                f"relief {float(observation.get('depth_surface_relief_m') or 0.0):.3f} m"
+                f"{observation.get('crop_verifier_status', 'unknown')}"
             ),
             fill="#aebbc5",
+            font=small_font,
+        )
+        draw.text(
+            (left, top + 232),
+            (
+                "depth relief "
+                f"{float(observation.get('depth_surface_relief_m') or 0.0):.3f} m"
+            ),
+            fill="#8698a5",
             font=small_font,
         )
 

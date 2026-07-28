@@ -1,0 +1,37 @@
+{
+  "run_commit": "38726cf11401e5f7b8a329f64dc57474abf42bbd",
+  "task": "Find and report all cups in the room.",
+  "underlying_steps": 901,
+  "stop_reason": "step_budget_completed_current_scan",
+  "task_injection_step": 418,
+  "task_planner": {
+    "mode_requested": "api",
+    "mode_used": "api",
+    "model": "qwen3-max",
+    "latency_ms": 5949
+  },
+  "result": {
+    "stable_cup_candidates": 5,
+    "detector_reobserved_cups": 2,
+    "strictly_verified_cups": 0,
+    "attempted_confirmation_tracks": 4
+  },
+  "playback_speed": 25,
+  "source_step_stride": 3,
+  "frame_count": 250,
+  "encoded_duration_s": 29.89,
+  "curated": true,
+  "curation": {
+    "source_frame_ranges_omitted_inclusive": [
+      [10, 29],
+      [50, 70],
+      [100, 109]
+    ],
+    "reason": "Remove repetitive familiarization and guided-navigation frames while retaining the online pipeline, task injection, confirmation attempts, and final state."
+  },
+  "artifacts": {
+    "gif": "online_interest_exploration_25x_curated_30s.gif",
+    "confirmation_audit": "cup_confirmation_audit.png",
+    "summary": "online_summary.json"
+  }
+}
