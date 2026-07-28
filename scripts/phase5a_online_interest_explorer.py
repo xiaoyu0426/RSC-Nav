@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -43,6 +43,14 @@ from object_memory_store import ObjectMemoryStore  # noqa: E402
 from online_semantic_task_planner import (  # noqa: E402
     build_online_planner_request,
     plan_online_task,
+)
+from scene_semantic_search import (  # noqa: E402
+    apply_search_evidence,
+    enrich_planner_request,
+    initialize_search_beliefs,
+    rank_search_candidates,
+    select_scene_keyframes,
+    understand_scene_with_vlm,
 )
 from phase23_habitat_control_server import (  # noqa: E402
     HabitatControlSession,
@@ -503,6 +511,25 @@ def main() -> None:
     parser.add_argument("--task-planner-max-support-candidates", type=int, default=6)
     parser.add_argument("--task-planner-support-merge-radius-m", type=float, default=1.25)
     parser.add_argument("--task-dynamic-cup-merge-radius-m", type=float, default=0.75)
+    parser.add_argument(
+        "--scene-vlm-mode",
+        choices=("auto", "api", "deterministic"),
+        default="auto",
+    )
+    parser.add_argument(
+        "--scene-vlm-api-base",
+        default=os.getenv(
+            "DASHSCOPE_BASE_URL",
+            "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        ),
+    )
+    parser.add_argument("--scene-vlm-api-key-env", default="DASHSCOPE_API_KEY")
+    parser.add_argument(
+        "--scene-vlm-model",
+        default=os.getenv("DASHSCOPE_VLM_MODEL", "qwen3-vl-plus"),
+    )
+    parser.add_argument("--scene-vlm-timeout-s", type=float, default=120.0)
+    parser.add_argument("--scene-vlm-max-images", type=int, default=8)
     parser.add_argument("--start-position-xyz", nargs=3, type=float)
     parser.add_argument("--start-yaw-deg", type=float, default=0.0)
     parser.add_argument(
@@ -542,15 +569,19 @@ def main() -> None:
     bev_frames_dir = out_dir / "bev_frames"
     checkpoints_dir = out_dir / "checkpoints"
     planner_dir = out_dir / "task_planner"
+    scene_vlm_dir = planner_dir / "scene_vlm"
     confirmation_crops_dir = out_dir / "confirmation_crops"
     frames_dir.mkdir(parents=True, exist_ok=True)
     overlays_dir.mkdir(parents=True, exist_ok=True)
     bev_frames_dir.mkdir(parents=True, exist_ok=True)
     checkpoints_dir.mkdir(parents=True, exist_ok=True)
     planner_dir.mkdir(parents=True, exist_ok=True)
+    scene_vlm_dir.mkdir(parents=True, exist_ok=True)
     confirmation_crops_dir.mkdir(parents=True, exist_ok=True)
     trace_path = out_dir / "online_trace.jsonl"
     trace_file = trace_path.open("w", encoding="utf-8")
+    search_belief_path = planner_dir / "search_belief.jsonl"
+    search_belief_file = search_belief_path.open("w", encoding="utf-8")
 
     session = HabitatControlSession(
         scene=Path(args.scene).expanduser().resolve(),
@@ -677,7 +708,15 @@ def main() -> None:
     task_planner_output: dict[str, Any] | None = None
     task_planner_metadata: dict[str, Any] | None = None
     task_candidate_order: list[str] = []
+    task_planner_seed_order: list[str] = []
+    task_search_ranking: list[dict[str, Any]] = []
+    task_search_beliefs: dict[str, dict[str, Any]] = {}
+    search_belief_revision = 0
+    scene_understanding: dict[str, Any] | None = None
+    scene_vlm_metadata: dict[str, Any] | None = None
     task_plan_events: list[dict[str, Any]] = []
+    search_evidence_updates: list[dict[str, Any]] = []
+    surface_scan_in_progress: dict[str, Any] | None = None
     checkpoint_artifacts: dict[str, dict[str, Any]] = {}
     guided_correction_status = (
         "pending" if args.guided_correction_position_xyz is not None else "disabled"
@@ -882,6 +921,102 @@ def main() -> None:
                 negative_evidence_weight=evidence_weight,
             )
             memory_ready = time.perf_counter()
+            if (
+                surface_scan_in_progress is not None
+                and scan_queue
+                and geometry_ready
+                and int(np.isfinite(depth).sum()) >= int(depth.size * 0.25)
+            ):
+                surface_scan_in_progress["observable_frames"] = (
+                    int(
+                        surface_scan_in_progress.get(
+                            "observable_frames",
+                            0,
+                        )
+                    )
+                    + 1
+                )
+            if (
+                surface_scan_in_progress is not None
+                and not scan_queue
+            ):
+                support_position_xz = np.asarray(
+                    surface_scan_in_progress["position_xz"],
+                    dtype=np.float32,
+                )
+                scan_start_step = int(surface_scan_in_progress["start_step"])
+                observed_target_ids = sorted(
+                    {
+                        track.track_id
+                        for track in tracks
+                        if track.label == "cup"
+                        and any(
+                            int(visible_step) >= scan_start_step
+                            for visible_step in track.visible_steps
+                        )
+                        and float(
+                            np.linalg.norm(
+                                track.position[[0, 2]]
+                                - support_position_xz
+                            )
+                        )
+                        <= 2.0
+                    }
+                )
+                evidence_update = {
+                    "step": step,
+                    "event": "support_surface_inspection_completed",
+                    "candidate_id": surface_scan_in_progress[
+                        "candidate_id"
+                    ],
+                    "start_step": scan_start_step,
+                    "observed_target_candidate_ids": [
+                        f"track_{track_id}"
+                        for track_id in observed_target_ids
+                    ],
+                    "outcome": (
+                        "target_evidence_observed"
+                        if observed_target_ids
+                        else "no_target_evidence_observed"
+                    ),
+                }
+                observable_scan = (
+                    int(
+                        surface_scan_in_progress.get(
+                            "observable_frames",
+                            0,
+                        )
+                    )
+                    >= 4
+                )
+                evidence_update["observable_scan"] = observable_scan
+                belief_update = apply_search_evidence(
+                    task_search_beliefs,
+                    candidate_id=str(evidence_update["candidate_id"]),
+                    event_id=(
+                        f"surface_scan:{evidence_update['candidate_id']}:"
+                        f"{scan_start_step}"
+                    ),
+                    outcome=str(evidence_update["outcome"]),
+                    step=step,
+                    observable=observable_scan,
+                )
+                evidence_update["belief_update"] = belief_update
+                scanned_id = int(surface_scan_in_progress["track_id"])
+                scanned_surface_ids.add(scanned_id)
+                scanned_surface_positions.append(support_position_xz.copy())
+                search_evidence_updates.append(evidence_update)
+                task_plan_events.append(evidence_update)
+                search_belief_revision += 1
+                _write_jsonl_event(
+                    search_belief_file,
+                    {
+                        "revision": search_belief_revision,
+                        **evidence_update,
+                        "beliefs": task_search_beliefs,
+                    },
+                )
+                surface_scan_in_progress = None
 
             current_cell = mapper.world_to_grid((float(current_position[0]), float(current_position[2])))
             safe_free = planning_free_mask(
@@ -1030,6 +1165,72 @@ def main() -> None:
                         args.task_planner_support_merge_radius_m
                     ),
                 )
+                scene_keyframes = _prepare_scene_vlm_keyframes(
+                    frames=frames,
+                    detections=all_detections,
+                    candidate_landmarks=task_planner_request[
+                        "candidate_landmarks"
+                    ],
+                    out_dir=scene_vlm_dir / "keyframes",
+                    max_images=int(args.scene_vlm_max_images),
+                )
+                scene_understanding, scene_vlm_metadata = (
+                    understand_scene_with_vlm(
+                        task_text=task_text,
+                        candidates=task_planner_request[
+                            "candidate_landmarks"
+                        ],
+                        keyframes=scene_keyframes,
+                        mode=str(args.scene_vlm_mode),
+                        api_base=str(args.scene_vlm_api_base),
+                        api_key=os.getenv(
+                            str(args.scene_vlm_api_key_env),
+                            "",
+                        ),
+                        model=str(args.scene_vlm_model),
+                        timeout_s=float(args.scene_vlm_timeout_s),
+                    )
+                )
+                _write_json(
+                    scene_vlm_dir / "scene_understanding.json",
+                    scene_understanding,
+                )
+                (scene_vlm_dir / "scene_vlm_prompt.txt").write_text(
+                    str(scene_vlm_metadata.get("prompt", "")),
+                    encoding="utf-8",
+                )
+                if scene_vlm_metadata.get("raw_response") is not None:
+                    _write_json(
+                        scene_vlm_dir / "scene_vlm_raw_response.json",
+                        scene_vlm_metadata["raw_response"],
+                    )
+                _write_json(
+                    scene_vlm_dir / "scene_vlm_metadata.json",
+                    {
+                        key: value
+                        for key, value in scene_vlm_metadata.items()
+                        if key not in {"prompt", "raw_response"}
+                    },
+                )
+                task_planner_request = enrich_planner_request(
+                    task_planner_request,
+                    scene_understanding,
+                )
+                task_search_beliefs = initialize_search_beliefs(
+                    task_planner_request["candidate_landmarks"],
+                    scene_understanding=scene_understanding,
+                    step=step,
+                )
+                search_belief_revision += 1
+                _write_jsonl_event(
+                    search_belief_file,
+                    {
+                        "revision": search_belief_revision,
+                        "step": step,
+                        "event": "search_beliefs_initialized",
+                        "beliefs": task_search_beliefs,
+                    },
+                )
                 _write_json(planner_dir / "planner_request.json", task_planner_request)
                 task_planner_output, task_planner_metadata = plan_online_task(
                     request_payload=task_planner_request,
@@ -1042,6 +1243,7 @@ def main() -> None:
                 task_candidate_order = list(
                     task_planner_output.get("ordered_candidate_ids", [])
                 )
+                task_planner_seed_order = list(task_candidate_order)
                 _write_json(planner_dir / "planner_output.json", task_planner_output)
                 (planner_dir / "planner_prompt.txt").write_text(
                     str(task_planner_metadata.get("prompt", "")),
@@ -1067,6 +1269,13 @@ def main() -> None:
                         "task_text": task_text,
                         "mode_used": task_planner_metadata.get("mode_used"),
                         "model": task_planner_metadata.get("model"),
+                        "scene_vlm_mode_used": scene_vlm_metadata.get(
+                            "mode_used"
+                        ),
+                        "scene_vlm_model": scene_vlm_metadata.get("model"),
+                        "scene_summary": scene_understanding.get(
+                            "scene_summary"
+                        ),
                         "candidate_ids": list(task_candidate_order),
                     }
                 )
@@ -1099,6 +1308,7 @@ def main() -> None:
 
             semantic_target = None
             if exploration_phase == "task_execution":
+                order_before_update = list(task_candidate_order)
                 new_candidate_ids = _append_new_task_candidates(
                     tracks,
                     task_candidate_order,
@@ -1121,6 +1331,111 @@ def main() -> None:
                             "candidate_ids": new_candidate_ids,
                         }
                     )
+                live_task_candidates = _live_task_candidates(
+                    seed_candidates=(
+                        task_planner_request.get(
+                            "candidate_landmarks",
+                            [],
+                        )
+                        if task_planner_request
+                        else []
+                    ),
+                    tracks=tracks,
+                    memory_items=memory.to_dict().get("items", []),
+                    candidate_ids=task_candidate_order,
+                    current_xz=(
+                        float(current_position[0]),
+                        float(current_position[2]),
+                    ),
+                )
+                missing_belief_candidates = [
+                    candidate
+                    for candidate in live_task_candidates
+                    if candidate["id"] not in task_search_beliefs
+                ]
+                if missing_belief_candidates:
+                    task_search_beliefs.update(
+                        initialize_search_beliefs(
+                            missing_belief_candidates,
+                            scene_understanding=scene_understanding,
+                            step=step,
+                        )
+                    )
+                    search_belief_revision += 1
+                    _write_jsonl_event(
+                        search_belief_file,
+                        {
+                            "revision": search_belief_revision,
+                            "step": step,
+                            "event": "online_candidates_initialized",
+                            "candidate_ids": [
+                                candidate["id"]
+                                for candidate in missing_belief_candidates
+                            ],
+                            "beliefs": task_search_beliefs,
+                        },
+                    )
+                task_search_ranking = rank_search_candidates(
+                    candidates=live_task_candidates,
+                    current_xz=(
+                        float(current_position[0]),
+                        float(current_position[2]),
+                    ),
+                    scene_understanding=scene_understanding,
+                    planner_order=task_planner_seed_order,
+                    completed_ids=(
+                        {
+                            f"track_{track_id}"
+                            for track_id in inspected_cup_track_ids
+                        }
+                        | {
+                            f"track_{track_id}"
+                            for track_id in scanned_surface_ids
+                        }
+                    ),
+                    failed_ids={
+                        f"track_{track_id}"
+                        for track_id in failed_surface_ids
+                    },
+                    attempts={
+                        f"track_{track_id}": attempt_count
+                        for track_id, attempt_count
+                        in cup_confirmation_attempts.items()
+                    },
+                    active_candidate_id=(
+                        f"track_{int(active_surface_id)}"
+                        if active_surface_id is not None
+                        else None
+                    ),
+                    beliefs=task_search_beliefs,
+                )
+                task_candidate_order = [
+                    item["candidate_id"]
+                    for item in task_search_ranking
+                ]
+                if task_candidate_order != order_before_update:
+                    replan_event = {
+                        "step": step,
+                        "event": "search_priority_replanned",
+                        "previous_candidate_ids": order_before_update,
+                        "candidate_ids": list(task_candidate_order),
+                        "top_candidates": task_search_ranking[:5],
+                        "trigger": (
+                            "new_online_target_evidence"
+                            if new_candidate_ids
+                            else "pose_or_evidence_update"
+                        ),
+                    }
+                    task_plan_events.append(replan_event)
+                    search_belief_revision += 1
+                    _write_jsonl_event(
+                        search_belief_file,
+                        {
+                            "revision": search_belief_revision,
+                            **replan_event,
+                            "beliefs": task_search_beliefs,
+                        },
+                    )
                 semantic_target = _choose_planned_task_target(
                     tracks=tracks,
                     ordered_candidate_ids=task_candidate_order,
@@ -1132,6 +1447,28 @@ def main() -> None:
                     surface_min_views=int(args.surface_min_views),
                     surface_min_confidence=float(args.surface_min_confidence),
                 )
+                if semantic_target is None:
+                    ranked_frontiers = _rerank_frontiers_for_task(
+                        ranked_frontiers=ranked_frontiers,
+                        mapper=mapper,
+                        candidate_landmarks=(
+                            task_planner_request.get(
+                                "candidate_landmarks",
+                                [],
+                            )
+                            if task_planner_request
+                            else []
+                        ),
+                        scene_understanding=scene_understanding,
+                        excluded_candidate_ids={
+                            f"track_{track_id}"
+                            for track_id in scanned_surface_ids
+                        }
+                        | {
+                            f"track_{track_id}"
+                            for track_id in failed_surface_ids
+                        },
+                    )
 
             if guided_correction_status == "scanning" and not guided_correction_scan_queue:
                 guided_correction_status = "completed"
@@ -1360,6 +1697,22 @@ def main() -> None:
                 if task_planner_output
                 else None
             )
+            decision["scene_vlm_mode"] = (
+                scene_vlm_metadata.get("mode_used")
+                if scene_vlm_metadata
+                else None
+            )
+            decision["scene_vlm_model"] = (
+                scene_vlm_metadata.get("model")
+                if scene_vlm_metadata
+                else None
+            )
+            decision["scene_summary"] = (
+                scene_understanding.get("scene_summary")
+                if scene_understanding
+                else None
+            )
+            decision["task_search_ranking"] = task_search_ranking[:5]
             frame["action"] = action
             frame["decision_mode"] = decision.get("mode")
             active_surface_id = decision.get("active_surface_id")
@@ -1396,16 +1749,39 @@ def main() -> None:
                     active_surface_id = None
             if decision.get("surface_scan_started") is not None:
                 scanned_id = int(decision["surface_scan_started"])
-                scanned_surface_ids.add(scanned_id)
                 scanned_track = next((track for track in tracks if track.track_id == scanned_id), None)
-                if scanned_track is not None:
-                    scanned_surface_positions.append(scanned_track.position[[0, 2]].copy())
                 if exploration_phase == "task_execution":
+                    surface_scan_in_progress = {
+                        "candidate_id": f"track_{scanned_id}",
+                        "track_id": scanned_id,
+                        "start_step": step,
+                        "observable_frames": 0,
+                        "position_xz": [
+                            float(scanned_track.position[0]),
+                            float(scanned_track.position[2]),
+                        ]
+                        if scanned_track is not None
+                        else list(
+                            decision.get(
+                                "target_world_xz",
+                                [0.0, 0.0],
+                            )
+                        ),
+                    }
                     task_plan_events.append(
                         {
                             "step": step,
                             "event": "support_surface_inspection_started",
                             "candidate_id": f"track_{scanned_id}",
+                            "search_hypothesis": next(
+                                (
+                                    item
+                                    for item in task_search_ranking
+                                    if item["candidate_id"]
+                                    == f"track_{scanned_id}"
+                                ),
+                                None,
+                            ),
                         }
                     )
             if decision.get("cup_scan_started") is not None:
@@ -1548,30 +1924,58 @@ def main() -> None:
                     event_name = "cup_confirmation_deferred"
                 else:
                     event_name = "cup_confirmation_retry_scheduled"
-                task_plan_events.append(
+                final_status = cup_confirmation_terminal_statuses.get(
+                    finalized_track_id,
+                    confirmation_status,
+                )
+                belief_outcome = (
+                    final_status
+                    if (
+                        final_status == "verified"
+                        or str(final_status).startswith("rejected_")
+                        or str(final_status).startswith("inconclusive")
+                    )
+                    else "inconclusive_confirmation"
+                )
+                belief_update = apply_search_evidence(
+                    task_search_beliefs,
+                    candidate_id=f"track_{finalized_track_id}",
+                    event_id=(
+                        f"cup_confirmation:track_{finalized_track_id}:"
+                        f"{attempts}:{step}"
+                    ),
+                    outcome=belief_outcome,
+                    step=step,
+                    observable=True,
+                )
+                confirmation_event = {
+                    "step": step,
+                    "event": event_name,
+                    "candidate_id": f"track_{finalized_track_id}",
+                    "status": final_status,
+                    "attempt": attempts,
+                    "task_independent_views": confirmation_result[
+                        "task_independent_views"
+                    ],
+                    "visual_passes": confirmation_result["visual_passes"],
+                    "visual_negatives": confirmation_result[
+                        "visual_negatives"
+                    ],
+                    "belief_update": belief_update,
+                }
+                task_plan_events.append(confirmation_event)
+                search_evidence_updates.append(confirmation_event)
+                search_belief_revision += 1
+                _write_jsonl_event(
+                    search_belief_file,
                     {
-                        "step": step,
-                        "event": event_name,
-                        "candidate_id": f"track_{finalized_track_id}",
-                        "status": cup_confirmation_terminal_statuses.get(
-                            finalized_track_id,
-                            confirmation_status,
-                        ),
-                        "attempt": attempts,
-                        "task_independent_views": confirmation_result[
-                            "task_independent_views"
-                        ],
-                        "visual_passes": confirmation_result["visual_passes"],
-                        "visual_negatives": confirmation_result[
-                            "visual_negatives"
-                        ],
-                    }
+                        "revision": search_belief_revision,
+                        **confirmation_event,
+                        "beliefs": task_search_beliefs,
+                    },
                 )
                 decision["cup_confirmation_status"] = (
-                    cup_confirmation_terminal_statuses.get(
-                        finalized_track_id,
-                        confirmation_status,
-                    )
+                    final_status
                 )
                 cup_scan_in_progress_id = None
                 active_surface_id = None
@@ -1805,6 +2209,7 @@ def main() -> None:
                 break
     finally:
         trace_file.close()
+        search_belief_file.close()
         worker.close()
         if lingbot_worker is not None:
             lingbot_worker.close()
@@ -1896,6 +2301,23 @@ def main() -> None:
                 "injection_step": task_injection_step,
                 "planning_complete_step": task_planning_complete_step,
                 "planner_role": "semantic candidate ordering only; no low-level actions",
+                "scene_vlm": {
+                    "mode": (
+                        scene_vlm_metadata.get("mode_used")
+                        if scene_vlm_metadata
+                        else None
+                    ),
+                    "model": (
+                        scene_vlm_metadata.get("model")
+                        if scene_vlm_metadata
+                        else None
+                    ),
+                    "role": (
+                        "grounded room/support interpretation and search priors; "
+                        "never final object confirmation"
+                    ),
+                    "uses_only_familiarization_keyframes": True,
+                },
             },
             "cup_confirmation": {
                 "mode": str(args.cup_confirmation_mode),
@@ -2007,6 +2429,22 @@ def main() -> None:
         ),
         "task_planner_output": task_planner_output,
         "task_candidate_order": task_candidate_order,
+        "task_planner_seed_order": task_planner_seed_order,
+        "scene_understanding": scene_understanding,
+        "scene_vlm": (
+            {
+                key: value
+                for key, value in scene_vlm_metadata.items()
+                if key not in {"prompt", "raw_response"}
+            }
+            if scene_vlm_metadata is not None
+            else None
+        ),
+        "search_beliefs": task_search_beliefs,
+        "search_belief_revisions": search_belief_revision,
+        "search_belief_trace": str(search_belief_path),
+        "final_task_search_ranking": task_search_ranking,
+        "search_evidence_updates": search_evidence_updates,
         "task_plan_events": task_plan_events,
         "cup_search_steps": (
             max(0, len(step_records) - int(familiarization_complete_step) - 1)
@@ -2330,7 +2768,6 @@ def _choose_action(
                     )
                 )
             else:
-                scanned_surface_ids.add(active_surface_id)
                 surface_scan_started = active_surface_id
                 scan_queue.extend(
                     ["look_down"]
@@ -2972,6 +3409,234 @@ def _cup_confirmation_evaluations(
     return results
 
 
+def _prepare_scene_vlm_keyframes(
+    frames: list[dict[str, Any]],
+    detections: list[dict[str, Any]],
+    candidate_landmarks: list[dict[str, Any]],
+    out_dir: Path,
+    max_images: int,
+) -> list[dict[str, Any]]:
+    candidate_ids = {
+        str(candidate["id"])
+        for candidate in candidate_landmarks
+    }
+    selected = select_scene_keyframes(
+        frames=frames,
+        detections=detections,
+        candidate_ids=candidate_ids,
+        max_images=max_images,
+    )
+    out_dir.mkdir(parents=True, exist_ok=True)
+    result = []
+    for keyframe in selected:
+        frame_index = int(keyframe["frame_index"])
+        source_path = Path(keyframe["rgb_path"]).expanduser().resolve()
+        image = Image.open(source_path).convert("RGB")
+        draw = ImageDraw.Draw(image)
+        font = ImageFont.load_default()
+        frame_detections = [
+            detection
+            for detection in detections
+            if int(detection.get("frame_index", -1)) == frame_index
+            and detection.get("online_track_id") is not None
+            and f"track_{int(detection['online_track_id'])}"
+            in candidate_ids
+        ]
+        for detection in frame_detections:
+            box = detection.get("box") or []
+            if len(box) < 4:
+                continue
+            candidate_id = f"track_{int(detection['online_track_id'])}"
+            label = str(
+                detection.get("canonical_label")
+                or detection.get("label")
+                or "candidate"
+            )
+            score = float(detection.get("score", 0.0))
+            x1, y1, x2, y2 = [float(value) for value in box[:4]]
+            color = "#00a6d6" if label == "cup" else "#f28e2b"
+            draw.rectangle((x1, y1, x2, y2), outline=color, width=4)
+            text = f"{candidate_id} {label} {score:.2f}"
+            text_box = draw.textbbox((x1, max(0.0, y1 - 18.0)), text, font=font)
+            draw.rectangle(text_box, fill=color)
+            draw.text(
+                (x1, max(0.0, y1 - 18.0)),
+                text,
+                fill="white",
+                font=font,
+            )
+        header = (
+            f"{keyframe['frame_id']} | "
+            f"{', '.join(keyframe.get('visible_candidate_ids', [])) or 'scene context'}"
+        )
+        header_box = draw.textbbox((4, 4), header, font=font)
+        draw.rectangle(
+            (0, 0, header_box[2] + 8, header_box[3] + 8),
+            fill="#111820",
+        )
+        draw.text((4, 4), header, fill="white", font=font)
+        annotated_path = out_dir / f"{keyframe['frame_id']}_annotated.jpg"
+        image.save(annotated_path, quality=90)
+        result.append(
+            {
+                **keyframe,
+                "source_rgb_path": str(source_path),
+                "rgb_path": str(annotated_path),
+            }
+        )
+    return result
+
+
+def _live_task_candidates(
+    seed_candidates: list[dict[str, Any]],
+    tracks: list[OnlineTrack],
+    memory_items: list[dict[str, Any]],
+    candidate_ids: list[str],
+    current_xz: tuple[float, float],
+) -> list[dict[str, Any]]:
+    seed_by_id = {
+        str(candidate["id"]): dict(candidate)
+        for candidate in seed_candidates
+        if candidate.get("id") is not None
+    }
+    track_by_id = {
+        f"track_{track.track_id}": track
+        for track in tracks
+    }
+    memory_by_id = {
+        f"track_{int(item['semantic_id'])}": item
+        for item in memory_items
+        if item.get("semantic_id") is not None
+    }
+    candidates = []
+    for candidate_id in candidate_ids:
+        track = track_by_id.get(str(candidate_id))
+        if track is None:
+            continue
+        candidate = dict(seed_by_id.get(str(candidate_id), {}))
+        memory_item = memory_by_id.get(str(candidate_id), {})
+        world_xz = [
+            float(track.position[0]),
+            float(track.position[2]),
+        ]
+        candidate.update(
+            {
+                "id": str(candidate_id),
+                "track_id": track.track_id,
+                "kind": (
+                    "target_object"
+                    if track.label == "cup"
+                    else "support_surface"
+                ),
+                "label": track.label,
+                "world_xz": world_xz,
+                "confidence": float(
+                    memory_item.get("confidence", track.confidence)
+                ),
+                "freshness": float(memory_item.get("freshness", 1.0)),
+                "status": str(memory_item.get("status", "active")),
+                "independent_views": len(track.independent_views),
+                "negative_evidence_count": int(
+                    memory_item.get("negative_evidence_count", 0)
+                ),
+                "distance_m": math.hypot(
+                    world_xz[0] - float(current_xz[0]),
+                    world_xz[1] - float(current_xz[1]),
+                ),
+            }
+        )
+        candidates.append(candidate)
+    return candidates
+
+
+def _rerank_frontiers_for_task(
+    ranked_frontiers: list[dict[str, Any]],
+    mapper: DenseBEVMapper,
+    candidate_landmarks: list[dict[str, Any]],
+    scene_understanding: dict[str, Any] | None,
+    excluded_candidate_ids: set[str] | None = None,
+) -> list[dict[str, Any]]:
+    assessments = {
+        str(item.get("candidate_id")): item
+        for item in (scene_understanding or {}).get(
+            "candidate_assessments",
+            [],
+        )
+    }
+    semantic_anchors = []
+    excluded = {
+        str(value)
+        for value in (excluded_candidate_ids or set())
+    }
+    for candidate in candidate_landmarks:
+        if candidate.get("kind") != "support_surface":
+            continue
+        if str(candidate.get("id")) in excluded:
+            continue
+        world_xz = candidate.get("world_xz") or []
+        if len(world_xz) < 2:
+            continue
+        assessment = assessments.get(str(candidate.get("id")), {})
+        likelihood = float(
+            assessment.get("target_likelihood", 0.45)
+        )
+        visual_confidence = float(
+            assessment.get("visual_confidence", 0.0)
+        )
+        anchor_weight = max(
+            0.0,
+            min(1.0, likelihood),
+        ) * (0.65 + 0.35 * max(0.0, min(1.0, visual_confidence)))
+        semantic_anchors.append(
+            (
+                np.asarray(world_xz[:2], dtype=np.float32),
+                anchor_weight,
+                str(candidate.get("id")),
+            )
+        )
+    if not semantic_anchors:
+        return ranked_frontiers
+
+    enriched = []
+    for frontier in ranked_frontiers:
+        item = dict(frontier)
+        frontier_world = np.asarray(
+            mapper.grid_to_world(
+                tuple(int(value) for value in frontier["cell"])
+            ),
+            dtype=np.float32,
+        )
+        best_anchor = max(
+            (
+                (
+                    weight
+                    * math.exp(
+                        -float(np.linalg.norm(frontier_world - position))
+                        / 3.0
+                    ),
+                    candidate_id,
+                )
+                for position, weight, candidate_id in semantic_anchors
+            ),
+            default=(0.0, None),
+        )
+        item["geometric_frontier_score"] = float(frontier.get("score", 0.0))
+        item["semantic_search_bias"] = round(float(best_anchor[0]), 4)
+        item["semantic_anchor_candidate_id"] = best_anchor[1]
+        item["score"] = (
+            float(frontier.get("score", 0.0))
+            + 0.55 * float(best_anchor[0])
+        )
+        enriched.append(item)
+    enriched.sort(
+        key=lambda item: (
+            -float(item["score"]),
+            float(item.get("distance_m", 0.0)),
+        )
+    )
+    return enriched
+
+
 def _stable_task_tracks(
     tracks: list[OnlineTrack],
     cup_min_views: int,
@@ -3206,6 +3871,11 @@ def _write_json(path: Path, payload: Any) -> None:
         json.dumps(payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+
+
+def _write_jsonl_event(file_handle: Any, payload: dict[str, Any]) -> None:
+    file_handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    file_handle.flush()
 
 
 def _timing_summary(records: list[dict[str, Any]]) -> dict[str, Any]:

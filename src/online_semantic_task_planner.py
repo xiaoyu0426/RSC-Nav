@@ -180,9 +180,14 @@ def build_online_planner_prompt(payload: dict[str, Any]) -> str:
     return (
         "You are the semantic task planner for an indoor robot. "
         "Order the supplied semantic-memory candidates for the user's task. "
-        "Target objects should be inspected before likely support surfaces. "
+        "Use scene_semantics when present to distinguish room types and support "
+        "roles, such as a bathroom sink or dining table, and to prioritize likely "
+        "search locations by grounded visual confidence. "
+        "Direct target-object evidence normally precedes support-surface hypotheses. "
         "The robot will navigate, face, observe, update memory, and skip failed "
         "candidates using a separate traditional navigation executor. "
+        "A semantic likelihood is a search prior and never proof that an object "
+        "exists; final success requires independent re-observation. "
         "Return compact JSON only and never invent candidate ids.\n\n"
         f"INPUT_JSON:\n{compact}"
     )
@@ -195,7 +200,23 @@ def deterministic_online_plan(
     candidates.sort(
         key=lambda item: (
             str(item.get("kind")) == "target_object",
-            float(item.get("local_priority", 0.0)),
+            (
+                0.65 * float(item.get("local_priority", 0.0))
+                + 1.35
+                * float(
+                    item.get("scene_semantics", {}).get(
+                        "target_likelihood",
+                        0.0,
+                    )
+                )
+                + 0.45
+                * float(
+                    item.get("scene_semantics", {}).get(
+                        "visual_confidence",
+                        0.0,
+                    )
+                )
+            ),
         ),
         reverse=True,
     )
@@ -220,7 +241,8 @@ def deterministic_online_plan(
         ),
         "reason": (
             "Targets are ranked by confidence, freshness, independent views, "
-            "distance, and memory status; support surfaces are fallback regions."
+            "distance, memory status, and grounded scene-location priors; support "
+            "surfaces remain unverified search hypotheses."
         ),
     }
 
