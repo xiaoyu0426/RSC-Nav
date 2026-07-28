@@ -1,0 +1,94 @@
+{
+  "phase": "m3_lingbot_foundation_benchmark",
+  "benchmark": "lingbot_depth_sensor_recovery",
+  "protocol": {
+    "degradation": "Gaussian noise plus random dropout and rectangular missing regions.",
+    "seed": 20260723,
+    "num_frames": 16,
+    "resolution_level": 6
+  },
+  "baselines": {
+    "degraded_observed_only": {
+      "coverage": 0.7438241454661265,
+      "mae_m": 0.023941298946738243,
+      "rmse_m": 0.030010735616087914,
+      "abs_rel": 0.021515844389796257,
+      "delta1": 0.9962998607080474
+    },
+    "nearest_fill": {
+      "coverage": 1.0,
+      "mae_m": 0.04665929824113846,
+      "rmse_m": 0.17919088900089264,
+      "abs_rel": 0.03242144733667374,
+      "delta1": 0.9852972426953593,
+      "bev_comparison": {
+        "explored_iou": 0.9356290794508215,
+        "free_iou": 0.8758052970651395,
+        "occupied_iou": 0.7603284129618307,
+        "vggt_explored_cells": 26446,
+        "oracle_explored_cells": 25154,
+        "vggt_occupied_cells": 10726,
+        "oracle_occupied_cells": 9428
+      }
+    },
+    "degraded_bev_comparison": {
+      "explored_iou": 0.944738775668046,
+      "free_iou": 0.8846409775573165,
+      "occupied_iou": 0.7742952522255193,
+      "vggt_explored_cells": 25135,
+      "oracle_explored_cells": 25154,
+      "vggt_occupied_cells": 9706,
+      "oracle_occupied_cells": 9428
+    }
+  },
+  "results": [
+    {
+      "coverage": 1.0,
+      "mae_m": 0.034840136766433716,
+      "rmse_m": 0.1548750102519989,
+      "abs_rel": 0.018370384350419044,
+      "delta1": 0.9909177203465294,
+      "model": "general_v05",
+      "checkpoint": "/workspace/yujiexiao/models/lingbot_bench/depth_v05/model.pt",
+      "num_frames": 16,
+      "load_seconds": 7.5502993279951625,
+      "inference_seconds": 1.8642644810315687,
+      "fps": 8.582473228877154,
+      "peak_vram_gb": 2.767362048,
+      "bev_comparison": {
+        "explored_iou": 0.9386463544035167,
+        "free_iou": 0.8629908103592314,
+        "occupied_iou": 0.7005288297509382,
+        "vggt_explored_cells": 26003,
+        "oracle_explored_cells": 25154,
+        "vggt_occupied_cells": 10509,
+        "oracle_occupied_cells": 9428
+      },
+      "bev_image": "bev_general_v05.png"
+    },
+    {
+      "coverage": 1.0,
+      "mae_m": 0.07621888816356659,
+      "rmse_m": 0.21888741850852966,
+      "abs_rel": 0.08073171973228455,
+      "delta1": 0.9310407678395229,
+      "model": "depth_dc",
+      "checkpoint": "/workspace/yujiexiao/models/lingbot_bench/depth_dc/model.pt",
+      "num_frames": 16,
+      "load_seconds": 7.171746745996643,
+      "inference_seconds": 1.2949253219994716,
+      "fps": 12.355924877038222,
+      "peak_vram_gb": 2.765529088,
+      "bev_comparison": {
+        "explored_iou": 0.9059474919331182,
+        "free_iou": 0.8223185891876265,
+        "occupied_iou": 0.6042336338690709,
+        "vggt_explored_cells": 26825,
+        "oracle_explored_cells": 25154,
+        "vggt_occupied_cells": 11034,
+        "oracle_occupied_cells": 9428
+      },
+      "bev_image": "bev_depth_dc.png"
+    }
+  ]
+}

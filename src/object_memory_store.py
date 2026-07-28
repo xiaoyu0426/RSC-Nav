@@ -282,6 +282,7 @@ class ObjectMemoryStore:
             visible_steps=[int(step) for step in track.get("visible_steps", [])],
             footprint_cells=int(track.get("footprint_cells", 0)),
             fragmentation_count=int(track.get("fragmentation_count", 0)),
+            source=str(track.get("source", "semantic_gt")),
         )
 
     def _freshness(self, last_seen_step: int, current_step: int) -> float:

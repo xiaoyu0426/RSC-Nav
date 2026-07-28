@@ -1,0 +1,194 @@
+{
+  "schema_version": "phase5a_online_task_request_v1",
+  "task_text": "请找到房间里的所有水杯，并按位置汇报",
+  "current_xz": [
+    -1.4035,
+    5.0837
+  ],
+  "target_labels": [
+    "cup",
+    "drinking glass",
+    "glass",
+    "mug",
+    "wine glass"
+  ],
+  "candidate_landmarks": [
+    {
+      "id": "track_89",
+      "track_id": 89,
+      "kind": "target_object",
+      "label": "cup",
+      "world_xz": [
+        -7.2308,
+        -1.0178
+      ],
+      "confidence": 0.7707,
+      "freshness": 0.2455,
+      "status": "stale",
+      "independent_views": 6,
+      "negative_evidence_count": 0,
+      "distance_m": 8.4372,
+      "local_priority": 2.2556
+    },
+    {
+      "id": "track_52",
+      "track_id": 52,
+      "kind": "target_object",
+      "label": "cup",
+      "world_xz": [
+        -5.3942,
+        -1.0616
+      ],
+      "confidence": 0.4121,
+      "freshness": 0.2604,
+      "status": "stale",
+      "independent_views": 6,
+      "negative_evidence_count": 8,
+      "distance_m": 7.3274,
+      "local_priority": 1.5989
+    },
+    {
+      "id": "track_46",
+      "track_id": 46,
+      "kind": "target_object",
+      "label": "cup",
+      "world_xz": [
+        -6.4867,
+        0.4099
+      ],
+      "confidence": 0.03,
+      "freshness": 0.2359,
+      "status": "missing",
+      "independent_views": 7,
+      "negative_evidence_count": 23,
+      "distance_m": 6.9053,
+      "local_priority": -0.0026
+    },
+    {
+      "id": "track_232",
+      "track_id": 232,
+      "kind": "support_surface",
+      "label": "counter",
+      "world_xz": [
+        -3.3472,
+        6.5893
+      ],
+      "confidence": 0.9976,
+      "freshness": 0.5865,
+      "status": "active",
+      "independent_views": 5,
+      "negative_evidence_count": 0,
+      "distance_m": 2.4586,
+      "local_priority": 2.5776
+    },
+    {
+      "id": "track_254",
+      "track_id": 254,
+      "kind": "support_surface",
+      "label": "table",
+      "world_xz": [
+        -0.5679,
+        6.1539
+      ],
+      "confidence": 0.8943,
+      "freshness": 0.5929,
+      "status": "active",
+      "independent_views": 3,
+      "negative_evidence_count": 0,
+      "distance_m": 1.3578,
+      "local_priority": 2.2283
+    },
+    {
+      "id": "track_250",
+      "track_id": 250,
+      "kind": "support_surface",
+      "label": "table",
+      "world_xz": [
+        0.2869,
+        7.7034
+      ],
+      "confidence": 0.9332,
+      "freshness": 0.479,
+      "status": "active",
+      "independent_views": 3,
+      "negative_evidence_count": 1,
+      "distance_m": 3.1178,
+      "local_priority": 2.1782
+    },
+    {
+      "id": "track_260",
+      "track_id": 260,
+      "kind": "support_surface",
+      "label": "sink",
+      "world_xz": [
+        -0.6978,
+        3.5498
+      ],
+      "confidence": 0.6678,
+      "freshness": 0.8412,
+      "status": "active",
+      "independent_views": 3,
+      "negative_evidence_count": 0,
+      "distance_m": 1.6885,
+      "local_priority": 1.8457
+    },
+    {
+      "id": "track_269",
+      "track_id": 269,
+      "kind": "support_surface",
+      "label": "sink",
+      "world_xz": [
+        0.7731,
+        3.77
+      ],
+      "confidence": 0.6732,
+      "freshness": 0.9141,
+      "status": "active",
+      "independent_views": 3,
+      "negative_evidence_count": 1,
+      "distance_m": 2.5424,
+      "local_priority": 1.8392
+    },
+    {
+      "id": "track_98",
+      "track_id": 98,
+      "kind": "support_surface",
+      "label": "table",
+      "world_xz": [
+        -6.7627,
+        1.0701
+      ],
+      "confidence": 0.9999,
+      "freshness": 0.2605,
+      "status": "stale",
+      "independent_views": 6,
+      "negative_evidence_count": 0,
+      "distance_m": 6.6955,
+      "local_priority": 1.8063
+    }
+  ],
+  "required_output_schema": {
+    "task_plan": [
+      {
+        "step": 1,
+        "intent": "inspect_candidate",
+        "target_id": "track_id"
+      }
+    ],
+    "ordered_candidate_ids": [
+      "track_id"
+    ],
+    "stop_probability": 0.0,
+    "stop_condition": "short condition",
+    "reason": "short audit explanation"
+  },
+  "constraints": [
+    "Return JSON only.",
+    "Use only candidate_landmarks ids.",
+    "Do not output low-level movement actions.",
+    "Inspect target_object candidates before support_surface fallbacks.",
+    "Do not treat a stale or missing memory as a confirmed object.",
+    "The traditional BEV/navmesh executor validates and executes each target.",
+    "The robot must re-observe candidates before reporting success."
+  ]
+}

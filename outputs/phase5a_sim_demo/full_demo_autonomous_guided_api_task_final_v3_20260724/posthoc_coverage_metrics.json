@@ -1,0 +1,15 @@
+{
+  "evaluation_role": "posthoc_only_not_available_to_online_policy",
+  "scene": "/mnt/cpfs/zbl-cpfs-new/USERS/yujiexiao/.rscnav/habitat_data/versioned_data/hm3d-0.2/hm3d/example/00861-GLAQ4DNUx5U/GLAQ4DNUx5U.basis.glb",
+  "floor_y": -1.5928866863250732,
+  "grid_size": [
+    480,
+    480
+  ],
+  "resolution": 0.05000000074505806,
+  "navmesh_cells_in_grid": 23971,
+  "explored_navmesh_cells": 22677,
+  "navmesh_observation_coverage": 0.9460181052104626,
+  "online_policy_semantic_oracle_access": false,
+  "online_policy_navmesh_role": "complete-scene navmesh global shortest-path query for the current online target; privileged geometric execution"
+}

@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RSC-Nav Explore, Correct, Plan and Execute</title>
+<style>
+:root{--bg:#0d1217;--panel:#151d24;--line:#2a3741;--text:#eef3f5;--muted:#9aabb7;--accent:#65d2ad;--gold:#e5b74e}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 ui-sans-serif,system-ui,sans-serif}
+header,main{width:min(1240px,calc(100% - 32px));margin:auto} header{padding:34px 0 20px;border-bottom:1px solid var(--line)}
+h1{margin:0 0 8px;font-size:32px;letter-spacing:0} h2{font-size:19px;margin:0 0 14px} p{color:var(--muted);margin:6px 0}
+main{padding:24px 0 50px} .metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px}
+.metric,.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px} .metric{padding:14px} .metric b{display:block;font-size:23px;color:var(--accent)} .metric span{color:var(--muted)}
+.panel{padding:18px;margin:14px 0} video,img{display:block;width:100%;background:#070a0c;border:1px solid var(--line)} .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+code{color:var(--gold)} table{width:100%;border-collapse:collapse} th,td{text-align:left;padding:9px;border-bottom:1px solid var(--line)} th{color:var(--muted)}
+.ok{color:var(--accent)} @media(max-width:850px){.metrics{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}}
+.checkpoints{display:grid;grid-template-columns:repeat(4,1fr);gap:10px} .checkpoint h3{font-size:15px;margin:0 0 8px} .checkpoint img{aspect-ratio:1;object-fit:contain}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#0b1014;padding:14px;border:1px solid var(--line);color:#cfe0e9}
+@media(max-width:850px){.checkpoints{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<header>
+		  <h1>自主探索 → 一次纠偏 → API 任务执行</h1>
+	  <p>运行时任务：请找到房间里的所有水杯，并按位置汇报</p>
+	  <p>这不是先录制再批处理：每一步均按 observe → GroundingDINO → 3D/BEV → object memory → interest policy → Habitat action 顺序执行。</p>
+		  <p>任务在 step <code>360</code> 才注入；此前只做与任务无关的环境熟悉。Qwen3-Max 只排序语义候选，底层路径仍由传统 BEV/navmesh 执行。</p>
+		  <p>本运行若出现 <code>GUIDE</code>，表示一次经用户授权、公开记录的人工航点纠偏；机器人仍通过离散动作抵达，没有瞬移。</p>
+	  <p>candidate cups 是熟悉阶段形成的稳定候选；confirmed cups 还要求在搜索阶段再次观测到。两者均不等于 Habitat 实例真值，本页不宣称实例级完整召回。</p>
+</header>
+<main>
+  <section class="metrics">
+    <div class="metric"><b>771</b><span>在线动作步</span></div>
+    <div class="metric"><b>800 ms</b><span>平均闭环延迟</span></div>
+    <div class="metric"><b>616.9 s</b><span>闭环累计时间</span></div>
+    <div class="metric"><b>49.4 s</b><span>模型冷启动</span></div>
+    <div class="metric"><b>94.6%</b><span>跑后 navmesh 观察覆盖</span></div>
+    <div class="metric"><b>0</b><span>检测到的碰撞</span></div>
+    <div class="metric"><b>4</b><span>独立台面巡视区域</span></div>
+    <div class="metric"><b>5</b><span>稳定 cup 候选</span></div>
+	    <div class="metric"><b>4</b><span>兴趣巡视确认 cup</span></div>
+	    <div class="metric"><b>360</b><span>熟悉完成 step</span></div>
+		    <div class="metric"><b>410</b><span>水杯搜索步</span></div>
+		    <div class="metric"><b>13,286</b><span>单次纠偏新增探索格</span></div>
+	    <div class="metric"><b>api</b><span>任务 planner 模式</span></div>
+	    <div class="metric"><b>9517 ms</b><span>API 规划耗时</span></div>
+	    <div class="metric"><b>4009</b><span>应见未见事件</span></div>
+	    <div class="metric"><b>401</b><span>任务执行步</span></div>
+	  </section>
+  <section class="panel">
+    <h2>同步执行回放</h2>
+
+	    <p>回放速度：<code>8.3× normal</code>；
+	    “正常速度”按每个离散动作 1.0 秒定义。
+	    这只是回放倍率，真实模型耗时见上方闭环延迟。</p>
+	    <p>GIF 版本：</p>
+    <img src="online_interest_exploration.gif" alt="Online interest exploration GIF">
+	  </section>
+	  <section class="panel">
+	    <h2>四阶段可复用记忆检查点</h2>
+	    <div class="checkpoints"><div class="checkpoint"><h3>纠偏前自主记忆</h3><img src="../checkpoints/autonomous_before_guidance/bev_memory.png" alt="纠偏前自主记忆"><p><code>autonomous_before_guidance</code></p></div><div class="checkpoint"><h3>一次纠偏后</h3><img src="../checkpoints/after_guidance/bev_memory.png" alt="一次纠偏后"><p><code>after_guidance</code></p></div><div class="checkpoint"><h3>任务注入时</h3><img src="../checkpoints/task_start/bev_memory.png" alt="任务注入时"><p><code>task_start</code></p></div><div class="checkpoint"><h3>任务执行结束</h3><img src="../checkpoints/final/bev_memory.png" alt="任务执行结束"><p><code>final</code></p></div></div>
+	    <p>四张图分别来自同一 episode 的在线状态，不是用最终地图倒推生成。</p>
+	  </section>
+	  <section class="grid">
+    <div class="panel">
+      <h2>因果与泄漏审计</h2>
+      <p class="ok">✓ 当前/历史帧才可参与当前决策：true</p>
+      <p class="ok">✓ semantic sensor：False</p>
+      <p class="ok">✓ semantic scene read：False</p>
+	      <p class="ok">✓ 预制路线：False</p>
+	      <p class="ok">✓ 任务在 MemoryReady 后才可见：true</p>
+      <p>导航目标来源：<code>online observed BEV frontier or online grounded semantic memory</code></p>
+      <p>navmesh 用途：<code>complete-scene navmesh global shortest-path query for the current online target; privileged geometric execution</code></p>
+	      <p>几何输入：<code>Habitat depth + exact pose</code>。</p>
+    </div>
+    <div class="panel">
+      <h2>策略分布</h2>
+      <p>动作：<code>{&quot;turn_left&quot;: 266, &quot;turn_right&quot;: 235, &quot;move_forward&quot;: 238, &quot;look_down&quot;: 11, &quot;look_up&quot;: 11, &quot;wait&quot;: 10}</code></p>
+      <p>兴趣模式：<code>{&quot;initial_panorama_scan&quot;: 24, &quot;frontier_exploration&quot;: 115, &quot;coverage_viewpoint_scan&quot;: 89, &quot;stuck_recovery&quot;: 6, &quot;guided_correction_navigation&quot;: 78, &quot;guided_correction_scan&quot;: 50, &quot;coverage_completion_scan&quot;: 1, &quot;task_injection_and_api_planning&quot;: 10, &quot;cup_candidate_approach&quot;: 93, &quot;cup_candidate_scan&quot;: 5, &quot;semantic_target_scan&quot;: 131, &quot;semantic_interest&quot;: 164, &quot;semantic_surface_scan&quot;: 4, &quot;unreachable_target_recovery&quot;: 1}</code></p>
+	      <p>停止原因：<code>task_execution_exhausted</code></p>
+	      <p>人工纠偏：<code>{&quot;status&quot;: &quot;completed&quot;, &quot;target_position_xyz&quot;: [0.05900000035762787, -1.5928866863250732, 8.88599967956543], &quot;start_step&quot;: 120, &quot;complete_step&quot;: 248, &quot;explored_cells_before&quot;: 30210, &quot;explored_cells_after&quot;: 43496, &quot;explored_cell_gain&quot;: 13286}</code></p>
+      <p>已探索栅格：<code>46,697</code></p>
+      <p>覆盖确认：<code>0</code>；最终阶段：<code>task_execution</code></p>
+    </div>
+	  </section>
+	  <section class="grid">
+	    <div class="panel">
+	      <h2>运行时 API 任务规划</h2>
+	      <p>模型：<code>qwen3-max</code>；
+	      模式：<code>api</code>；
+	      注入 step：<code>360</code>。</p>
+	      <pre>{
+  &quot;task_plan&quot;: [
+    {
+      &quot;step&quot;: 1,
+      &quot;intent&quot;: &quot;inspect_candidate&quot;,
+      &quot;target_id&quot;: &quot;track_89&quot;
+    },
+    {
+      &quot;step&quot;: 2,
+      &quot;intent&quot;: &quot;inspect_candidate&quot;,
+      &quot;target_id&quot;: &quot;track_52&quot;
+    },
+    {
+      &quot;step&quot;: 3,
+      &quot;intent&quot;: &quot;inspect_candidate&quot;,
+      &quot;target_id&quot;: &quot;track_46&quot;
+    },
+    {
+      &quot;step&quot;: 4,
+      &quot;intent&quot;: &quot;inspect_candidate&quot;,
+      &quot;target_id&quot;: &quot;track_232&quot;
+    },
+    {
+      &quot;step&quot;: 5,
+      &quot;intent&quot;: &quot;inspect_candidate&quot;,
+      &quot;target_id&quot;: &quot;track_254&quot;
+    },
+    {
+      &quot;step&quot;: 6,
+      &quot;intent&quot;: &quot;inspect_candidate&quot;,
+      &quot;target_id&quot;: &quot;track_250&quot;
+    },
+    {
+      &quot;step&quot;: 7,
+      &quot;intent&quot;: &quot;inspect_candidate&quot;,
+      &quot;target_id&quot;: &quot;track_260&quot;
+    },
+    {
+      &quot;step&quot;: 8,
+      &quot;intent&quot;: &quot;inspect_candidate&quot;,
+      &quot;target_id&quot;: &quot;track_269&quot;
+    },
+    {
+      &quot;step&quot;: 9,
+      &quot;intent&quot;: &quot;inspect_candidate&quot;,
+      &quot;target_id&quot;: &quot;track_98&quot;
+    }
+  ],
+  &quot;ordered_candidate_ids&quot;: [
+    &quot;track_89&quot;,
+    &quot;track_52&quot;,
+    &quot;track_46&quot;,
+    &quot;track_232&quot;,
+    &quot;track_254&quot;,
+    &quot;track_250&quot;,
+    &quot;track_260&quot;,
+    &quot;track_269&quot;,
+    &quot;track_98&quot;
+  ],
+  &quot;stop_probability&quot;: 0.0,
+  &quot;stop_condition&quot;: &quot;all candidates inspected&quot;,
+  &quot;reason&quot;: &quot;target objects prioritized before support surfaces per constraints&quot;
+}</pre>
+	    </div>
+	    <div class="panel">
+	      <h2>三态证据累计</h2>
+	      <p>positive observation：
+	      <code>2644</code></p>
+	      <p>not observable：
+	      <code>211453</code></p>
+	      <p>expected-visible miss：
+	      <code>4009</code></p>
+	      <p>Planner 只决定候选顺序；每次到达后的新观测仍会更新 confidence、freshness 和 negative evidence。</p>
+	    </div>
+	  </section>
+  <section class="panel">
+    <h2>兴趣巡视再次确认的水杯记忆</h2>
+    <table><thead><tr><th>Track</th><th>类别</th><th>置信度</th><th>独立视角</th><th>世界坐标 XYZ</th></tr></thead>
+    <tbody><tr><td>52</td><td>cup</td><td>0.290</td><td>9</td><td>-5.42, -0.81, -1.06</td></tr><tr><td>89</td><td>cup</td><td>0.287</td><td>12</td><td>-7.26, -0.84, -1.02</td></tr><tr><td>179</td><td>cup</td><td>0.283</td><td>8</td><td>-2.76, -1.43, 2.30</td></tr><tr><td>206</td><td>cup</td><td>0.293</td><td>5</td><td>-0.63, 0.23, 5.21</td></tr></tbody></table>
+  </section>
+</main>
+</body>
+</html>

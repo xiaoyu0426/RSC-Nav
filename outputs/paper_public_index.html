@@ -20,6 +20,7 @@
   <h2>核心汇总报告</h2>
   <div class="grid">
     <div class="card"><span class="tag">M3.5</span><h3>Semantic Representation Alignment Index</h3><p>论文风格 semantic BEV / object projection / pipeline 图汇总。</p><a href="m35_semantic_representation_alignment/paper_semantic_bev_index_20260703.html">打开 M3.5 paper index</a></div>
+    <div class="card"><span class="tag">M3</span><h3>LingBot Foundation Benchmark</h3><p>LingBot-Map、Depth 与 Vision 在固定 Habitat 输入上的几何、深度修复和边界代理任务对比。</p><a href="m3_lingbot_foundation_benchmark/lingbot_benchmark_summary.html">打开 LingBot benchmark</a></div>
     <div class="card"><span class="tag">Phase5A</span><h3>Qwen3-Max 20-case No-leak Report</h3><p>20 个语义导航 query，隐藏 goal-matching waypoint id 后的 API planner 汇总。</p><a href="phase5a_api_semantic_planner/qwen3_max_20case_noleak_20260703/qwen3_max_20case_noleak_report.html">打开 20-case report</a></div>
     <div class="card"><span class="tag">Habitat</span><h3>Navmesh Validation</h3><p>bed/chair/door/sofa/table 五类目标 waypoint 的 Habitat navmesh snap/reachability 验证。</p><a href="phase5a_navmesh_validation/qwen3_max_find5_20260704/navmesh_validation_report.html">打开 navmesh report</a></div>
   </div>
@@ -31,10 +32,10 @@
     <div class="card"><h3>Semantic BEV</h3><a href="m35_semantic_representation_alignment/representation_bundle_best96_20260703/assets/semantic_bev.png"><img src="m35_semantic_representation_alignment/representation_bundle_best96_20260703/assets/semantic_bev.png"></a></div>
   </div>
 
-  <h2>Demo 展示：从零建图并寻找所有水杯</h2>
-  <p class="small">该 Habitat 闭环从空地图与空对象记忆开始：523 帧 RGB-D 观测经 GroundingDINO 开放词汇检测、depth + pose 三维投影和多视角证据融合，形成动态 BEV、19 条稳定语义轨迹和 4 条确认杯具记忆。Oracle 语义只用于 episode 结束后的覆盖审计，不参与探索或对象记忆更新。当前 MVP 仍使用仿真精确位姿；真实世界版本仍需补 SLAM/VIO、重定位与位姿不确定性传播。</p>
+  <h2>Demo 展示：在线熟悉、一次纠偏与 API 任务执行</h2>
+  <p class="small">该 771 步 Habitat episode 逐步执行 observe → GroundingDINO → 3D/BEV → object memory → interest policy → action。任务在 step 360 才注入，Qwen3-Max 对在线语义候选排序；平均闭环延迟约 800 ms，事后 navmesh 观察覆盖率 94.6%，任务阶段再次确认 4 条 cup 轨迹。人工航点纠偏公开记录且没有瞬移。当前仍使用仿真精确位姿与完整场景 navmesh 最短路，真实世界版本还需 SLAM/VIO、重定位和 observed-BEV-only 执行。</p>
   <div class="grid">
-    <div class="card"><span class="tag">Case</span><h3>自行熟悉房间并找到所有水杯</h3><p><a href="phase5a_sim_demo/zero_map_find_all_cups_hm3d_20260723/final_report/zero_map_find_all_cups.html">Demo report</a> | <a href="phase5a_sim_demo/zero_map_find_all_cups_hm3d_20260723/final_report/zero_map_find_all_cups.gif">GIF</a> | <a href="phase5a_sim_demo/zero_map_find_all_cups_hm3d_20260723/final_report/zero_map_find_all_cups.mp4">MP4</a> | <a href="phase5a_sim_demo/zero_map_find_all_cups_hm3d_20260723/final_report/zero_map_find_all_cups_metrics.json">Metrics</a></p><a href="phase5a_sim_demo/zero_map_find_all_cups_hm3d_20260723/final_report/zero_map_find_all_cups.gif"><img src="phase5a_sim_demo/zero_map_find_all_cups_hm3d_20260723/final_report/zero_map_find_all_cups.gif"></a></div>
+    <div class="card"><span class="tag">Case</span><h3>自主探索 → 一次纠偏 → API 寻杯任务</h3><p><a href="phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/report/online_interest_exploration.html">Demo report</a> | <a href="phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/report/online_interest_exploration.gif">GIF</a> | <a href="phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/online_summary.json">Summary</a> | <a href="phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/posthoc_coverage_metrics.json">Coverage audit</a></p><a href="phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/report/online_interest_exploration.gif"><img src="phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/report/online_interest_exploration.gif"></a></div>
   </div>
 
   <h2>补充入口</h2>

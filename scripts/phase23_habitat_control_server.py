@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import base64
 import json
-import mimetypes
 import os
 import sys
 import threading
@@ -11,7 +10,6 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from io import BytesIO
 from pathlib import Path
 from typing import Any
-from urllib.parse import unquote, urlparse
 
 import matplotlib
 
@@ -77,7 +75,6 @@ HTML = r"""<!doctype html>
     main {
       display: grid;
       grid-template-columns: minmax(280px, 1fr) minmax(280px, 1fr) 300px;
-      align-items: start;
       gap: 12px;
       padding: 12px;
     }
@@ -106,23 +103,6 @@ HTML = r"""<!doctype html>
       display: block;
       background: #050607;
     }
-    .media-wrap {
-      position: relative;
-      width: 100%;
-      background: #050607;
-    }
-    .media-wrap .media {
-      height: auto;
-      aspect-ratio: auto;
-    }
-    #box-layer {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-    }
-    #bev-panel { grid-column: 1 / span 2; }
     #bev { image-rendering: auto; }
     aside {
       display: flex;
@@ -180,7 +160,6 @@ HTML = r"""<!doctype html>
     .error { color: var(--bad); }
     @media (max-width: 980px) {
       main { grid-template-columns: 1fr; }
-      #bev-panel { grid-column: auto; }
       aside { display: grid; grid-template-columns: 1fr; }
     }
   </style>
@@ -192,17 +171,18 @@ HTML = r"""<!doctype html>
   </header>
   <main>
     <section>
-      <h2>RGB + Grounding</h2>
-      <div class="media-wrap">
-        <img id="rgb" class="media" alt="RGB view" />
-        <canvas id="box-layer"></canvas>
-      </div>
+      <h2>RGB</h2>
+      <img id="rgb" class="media" alt="RGB view" />
     </section>
     <section>
-      <h2>Depth</h2>
-      <img id="depth" class="media" alt="Depth view" />
+      <h2>BEV Memory</h2>
+      <img id="bev" class="media" alt="BEV map" />
     </section>
     <aside>
+      <section>
+        <h2>Depth</h2>
+        <img id="depth" class="media" alt="Depth view" />
+      </section>
       <section id="semantic-panel" style="display:none">
         <h2>Semantic BEV</h2>
         <img id="semantic" class="media" alt="Semantic BEV map" />
@@ -227,8 +207,6 @@ HTML = r"""<!doctype html>
           <button onclick="sendAction('move_back')">S</button>
           <button onclick="sendAction('look_down')">Look Down</button>
           <button class="wide" onclick="resetSim()">Reset</button>
-          <button id="auto-btn" class="wide" onclick="toggleAuto()">Auto</button>
-          <button onclick="sendAction('path_step')">Step</button>
           <button onclick="saveMemory()">Save</button>
           <button onclick="loadMemory()">Load</button>
           <button onclick="getState()">Refresh</button>
@@ -236,58 +214,18 @@ HTML = r"""<!doctype html>
         <div class="hint" id="memory">Keyboard: W forward, A/D turn, S back, Q/E look, R reset.</div>
       </section>
     </aside>
-    <section id="bev-panel">
-      <h2>BEV Memory</h2>
-      <img id="bev" class="media" alt="BEV map" />
-    </section>
   </main>
   <script>
     let busy = false;
-    let autoTimer = null;
-    let lastBoxes = [];
     const statusEl = document.getElementById("status");
-    const rgbEl = document.getElementById("rgb");
-    const boxLayer = document.getElementById("box-layer");
 
     function setStatus(text, bad=false) {
       statusEl.textContent = text;
       statusEl.className = bad ? "error" : "";
     }
 
-    function drawBoxes() {
-      const boxes = lastBoxes || [];
-      if (!rgbEl.complete || !rgbEl.naturalWidth || !rgbEl.naturalHeight) return;
-      boxLayer.width = rgbEl.naturalWidth;
-      boxLayer.height = rgbEl.naturalHeight;
-      const ctx = boxLayer.getContext("2d");
-      ctx.clearRect(0, 0, boxLayer.width, boxLayer.height);
-      ctx.lineWidth = Math.max(2, Math.round(boxLayer.width / 180));
-      ctx.font = `${Math.max(11, Math.round(boxLayer.width / 18))}px ui-sans-serif, system-ui`;
-      for (const box of boxes) {
-        const x = Math.max(0, box.x);
-        const y = Math.max(0, box.y);
-        const w = Math.min(boxLayer.width - x, box.w);
-        const h = Math.min(boxLayer.height - y, box.h);
-        if (w <= 2 || h <= 2) continue;
-        const color = box.color || "#61c6a7";
-        const label = `${box.category} ${(box.score || 0).toFixed(2)}`;
-        ctx.strokeStyle = color;
-        ctx.fillStyle = color;
-        ctx.strokeRect(x, y, w, h);
-        const metrics = ctx.measureText(label);
-        const labelW = Math.ceil(metrics.width) + 8;
-        const labelH = Math.max(16, Math.round(boxLayer.width / 14));
-        const labelY = Math.max(0, y - labelH);
-        ctx.fillRect(x, labelY, labelW, labelH);
-        ctx.fillStyle = "#07100d";
-        ctx.fillText(label, x + 4, labelY + labelH - 5);
-      }
-    }
-
     function applyState(data) {
-      lastBoxes = data.grounding_boxes || [];
-      rgbEl.onload = drawBoxes;
-      rgbEl.src = "data:image/jpeg;base64," + data.rgb_jpeg;
+      document.getElementById("rgb").src = "data:image/jpeg;base64," + data.rgb_jpeg;
       document.getElementById("depth").src = "data:image/png;base64," + data.depth_png;
       document.getElementById("bev").src = "data:image/png;base64," + data.bev_png;
       const semanticPanel = document.getElementById("semantic-panel");
@@ -307,9 +245,8 @@ HTML = r"""<!doctype html>
       document.getElementById("objects").textContent = `${memory.num_items || 0} (${memory.active_items || 0} active)`;
       document.getElementById("freshness").textContent = (memory.mean_freshness || 0).toFixed(3);
       const classes = memory.per_class ? Object.entries(memory.per_class).map(([k, v]) => `${k}:${v}`).join(", ") : "-";
-      document.getElementById("memory").textContent = `Grounding: ${lastBoxes.length}. Memory: ${classes}. Keyboard: W forward, A/D turn, S back, Q/E look, R reset.`;
-      setStatus(`ready: ${data.scene_name} / boxes ${lastBoxes.length}`);
-      drawBoxes();
+      document.getElementById("memory").textContent = `Memory: ${classes}. Keyboard: W forward, A/D turn, S back, Q/E look, R reset.`;
+      setStatus(`ready: ${data.scene_name}`);
     }
 
     async function getState() {
@@ -335,22 +272,6 @@ HTML = r"""<!doctype html>
       } finally {
         busy = false;
       }
-    }
-
-    function toggleAuto() {
-      const btn = document.getElementById("auto-btn");
-      if (autoTimer) {
-        clearInterval(autoTimer);
-        autoTimer = null;
-        btn.textContent = "Auto";
-        setStatus("auto stopped");
-        return;
-      }
-      btn.textContent = "Stop";
-      autoTimer = setInterval(() => {
-        if (!busy) sendAction("path_step");
-      }, 550);
-      sendAction("path_step");
     }
 
     async function resetSim() {
@@ -390,13 +311,7 @@ HTML = r"""<!doctype html>
       if (key === "q") sendAction("look_up");
       if (key === "e") sendAction("look_down");
       if (key === "r") resetSim();
-      if (key === " ") {
-        event.preventDefault();
-        toggleAuto();
-      }
     });
-
-    window.addEventListener("resize", drawBoxes);
 
     getState().catch(err => setStatus(String(err), true));
   </script>
@@ -430,6 +345,8 @@ class HabitatControlSession:
         start_path_min_distance: float = 3.0,
         start_path_samples: int = 48,
         enable_oracle_metrics: bool = True,
+        enable_semantic_sensor: bool = True,
+        enable_autopilot_start_path: bool = True,
     ) -> None:
         self.scene = scene
         self.resolution = resolution
@@ -453,6 +370,8 @@ class HabitatControlSession:
         self.start_path_min_distance = start_path_min_distance
         self.start_path_samples = start_path_samples
         self.enable_oracle_metrics = enable_oracle_metrics
+        self.enable_semantic_sensor = bool(enable_semantic_sensor)
+        self.enable_autopilot_start_path = bool(enable_autopilot_start_path)
         self.lock = threading.Lock()
         self.step_count = 0
         self.memory_step_count = 0
@@ -505,17 +424,18 @@ class HabitatControlSession:
             self._camera_spec(habitat_sim, SensorSubType, SensorType.COLOR, "rgb"),
             self._camera_spec(habitat_sim, SensorSubType, SensorType.DEPTH, "depth"),
         ]
-        try:
-            sensor_specs.append(
-                self._camera_spec(habitat_sim, SensorSubType, SensorType.SEMANTIC, "semantic")
-            )
-        except Exception:
-            pass
+        if self.enable_semantic_sensor:
+            try:
+                sensor_specs.append(
+                    self._camera_spec(habitat_sim, SensorSubType, SensorType.SEMANTIC, "semantic")
+                )
+            except Exception:
+                pass
 
         sim_cfg = habitat_sim.SimulatorConfiguration()
         sim_cfg.scene_id = str(self.scene)
         sim_cfg.enable_physics = False
-        if self.scene_dataset_config is not None:
+        if self.scene_dataset_config is not None and self.enable_semantic_sensor:
             sim_cfg.scene_dataset_config_file = str(self.scene_dataset_config)
 
         agent_cfg = habitat_sim.agent.AgentConfiguration()
@@ -576,7 +496,7 @@ class HabitatControlSession:
             )
         self.semantic_bev = None
         self.last_evidence_pose = None
-        if self.scene_dataset_config is not None:
+        if self.scene_dataset_config is not None and self.enable_semantic_sensor:
             self.semantic_bev = SemanticBEVAccumulator(
                 mapper=self.bev,
                 semantic_scene=self.sim.semantic_scene,
@@ -595,10 +515,14 @@ class HabitatControlSession:
     def _reset_agent(self) -> None:
         agent = self.sim.get_agent(0)
         state = agent.get_state()
-        self.autopilot_path = _sample_navigable_path(
-            self.sim,
-            min_distance_m=self.start_path_min_distance,
-            max_samples=self.start_path_samples,
+        self.autopilot_path = (
+            _sample_navigable_path(
+                self.sim,
+                min_distance_m=self.start_path_min_distance,
+                max_samples=self.start_path_samples,
+            )
+            if self.enable_autopilot_start_path
+            else []
         )
         self.autopilot_index = 0
         if self.autopilot_path:
@@ -676,7 +600,6 @@ class HabitatControlSession:
         )
         semantic_report = None
         observability_report = None
-        current_tracks: list[dict] = []
         if self.semantic_bev is not None and semantic is not None:
             semantic_update = self.semantic_bev.update_from_observation(
                 depth=depth,
@@ -749,14 +672,6 @@ class HabitatControlSession:
         else:
             self.memory_store.decay(current_step=self.memory_step_count)
         self.last_evidence_pose = pose
-        grounding_boxes = _grounding_boxes_from_tracks(
-            tracks=current_tracks,
-            memory_items=self.memory_store.to_dict()["items"],
-            depth=depth,
-            sensor_position_xyz=np.asarray(sensor_state.position, dtype=np.float32),
-            sensor_rotation=sensor_state.rotation,
-            hfov_deg=90.0,
-        )
 
         return {
             "step": self.step_count,
@@ -772,7 +687,6 @@ class HabitatControlSession:
             "observability": observability_report or {},
             "memory": self.memory_store.summary(),
             "memory_items": self.memory_store.to_dict()["items"],
-            "grounding_boxes": grounding_boxes,
             "rgb_jpeg": _image_to_base64(_rgb_image(rgb), "JPEG", quality=95),
             "depth_png": _image_to_base64(_depth_image(depth), "PNG"),
             "bev_png": _image_to_base64(_bev_image(self.bev), "PNG"),
@@ -830,8 +744,24 @@ class HabitatControlSession:
             "origin_world_xz": list(self.bev.origin_world_xz),
             "semantic_categories": list(self.semantic_categories),
             "semantic_evidence_shape": list(semantic_evidence.shape),
+            "has_oracle_free_mask": self.oracle_free_mask is not None,
         }
         trajectory = np.asarray(self.bev.trajectory, dtype=np.int32) if self.bev.trajectory else np.empty((0, 2), dtype=np.int32)
+        oracle_free_mask = (
+            self.oracle_free_mask.astype(np.uint8)
+            if self.oracle_free_mask is not None
+            else np.zeros(self.bev.config.grid_size, dtype=np.uint8)
+        )
+        semantic_state = (
+            self.semantic_bev.semantic_state().astype(np.int16)
+            if self.semantic_bev is not None
+            else np.full(self.bev.config.grid_size, -1, dtype=np.int16)
+        )
+        semantic_confidence = (
+            self.semantic_bev.confidence().astype(np.float32)
+            if self.semantic_bev is not None
+            else np.zeros(self.bev.config.grid_size, dtype=np.float32)
+        )
         np.savez_compressed(
             path,
             metadata=json.dumps(metadata),
@@ -839,6 +769,9 @@ class HabitatControlSession:
             explored=self.bev.explored.astype(np.uint8),
             observation_count=self.bev.observation_count.astype(np.int32),
             trajectory=trajectory,
+            oracle_free_mask=oracle_free_mask,
+            semantic_state=semantic_state,
+            semantic_confidence=semantic_confidence,
             semantic_evidence=semantic_evidence,
             live_semantic_evidence=live_semantic_evidence,
             prior_semantic_evidence=prior_semantic_evidence,
@@ -1273,7 +1206,6 @@ def _rotation_toward(position: np.ndarray, look_at):
 
 class Handler(BaseHTTPRequestHandler):
     session: HabitatControlSession
-    outputs_root: Path = ROOT / "outputs"
 
     def do_GET(self) -> None:
         if self.path == "/" or self.path.startswith("/?"):
@@ -1281,8 +1213,6 @@ class Handler(BaseHTTPRequestHandler):
             return
         if self.path == "/api/state":
             self._send_json(self.session.state())
-            return
-        if self._send_output_asset():
             return
         self._send(404, b"not found", "text/plain")
 
@@ -1320,22 +1250,6 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
-
-    def _send_output_asset(self) -> bool:
-        parsed = urlparse(self.path)
-        rel = unquote(parsed.path).lstrip("/")
-        if not rel or rel.startswith("api/") or rel == "favicon.ico":
-            return False
-        candidate = (self.outputs_root / rel).resolve()
-        try:
-            candidate.relative_to(self.outputs_root.resolve())
-        except ValueError:
-            return False
-        if not candidate.is_file():
-            return False
-        content_type = mimetypes.guess_type(str(candidate))[0] or "application/octet-stream"
-        self._send(200, candidate.read_bytes(), content_type)
-        return True
 
 
 def main() -> None:
@@ -1534,106 +1448,6 @@ def _oracle_diff_image(bev: DenseBEVMapper, oracle_free: np.ndarray) -> Image.Im
     plt.close(fig)
     buffer.seek(0)
     return Image.open(buffer).copy()
-
-
-def _grounding_boxes_from_tracks(
-    tracks: list[dict],
-    memory_items: list[dict],
-    depth: np.ndarray,
-    sensor_position_xyz: np.ndarray,
-    sensor_rotation,
-    hfov_deg: float,
-    occlusion_margin_m: float = 0.35,
-    min_unoccluded_fraction: float = 0.35,
-) -> list[dict]:
-    depth = np.asarray(depth, dtype=np.float32)
-    if depth.ndim == 3 and depth.shape[-1] == 1:
-        depth = depth[:, :, 0]
-    if depth.ndim != 2:
-        return []
-    height, width = depth.shape
-    if height <= 0 or width <= 0:
-        return []
-
-    memory_by_semantic_id = {
-        int(item.get("semantic_id")): item
-        for item in memory_items
-        if item.get("semantic_id") is not None
-    }
-    fx = width / (2.0 * np.tan(np.deg2rad(hfov_deg) / 2.0))
-    fy = fx
-    cx = (width - 1) / 2.0
-    cy = (height - 1) / 2.0
-    sensor_xyz = np.asarray(sensor_position_xyz, dtype=np.float32).reshape(3)
-    axes = _camera_axes(sensor_rotation)
-    boxes = []
-
-    for track in tracks:
-        center_xyz = track.get("gt_center_xyz")
-        height_range = track.get("height_range_y")
-        if center_xyz is None or height_range is None:
-            centroid_xz = track.get("centroid_xz")
-            if not centroid_xz:
-                continue
-            center_xyz, height_range, size_xyz = _prior_visibility_shape(
-                str(track.get("category", "")),
-                (float(centroid_xz[0]), float(centroid_xz[1])),
-                float(sensor_xyz[1] - 1.5),
-            )
-        else:
-            size_xyz = track.get("sizes_xyz")
-
-        projected = [
-            _project_world_point(point, sensor_xyz, axes, fx, fy, cx, cy, width, height)
-            for point in _object_visibility_points(center_xyz, height_range, size_xyz)
-        ]
-        projected = [item for item in projected if item is not None]
-        if len(projected) < 2:
-            continue
-
-        visible = []
-        for row, col, distance in projected:
-            observed_depth = _patch_depth(depth, row, col, radius=2, min_valid_fraction=0.4)
-            if observed_depth is None or observed_depth + occlusion_margin_m >= distance:
-                visible.append((row, col, distance))
-        if len(visible) < max(1, int(np.ceil(len(projected) * float(min_unoccluded_fraction)))):
-            continue
-
-        rows = [row for row, _, _ in projected]
-        cols = [col for _, col, _ in projected]
-        pad = max(3, int(round(min(width, height) * 0.02)))
-        x0 = int(np.clip(min(cols) - pad, 0, width - 1))
-        y0 = int(np.clip(min(rows) - pad, 0, height - 1))
-        x1 = int(np.clip(max(cols) + pad, 0, width - 1))
-        y1 = int(np.clip(max(rows) + pad, 0, height - 1))
-        if x1 <= x0 + 2 or y1 <= y0 + 2:
-            continue
-
-        semantic_id = int(track.get("semantic_id", -1))
-        memory_item = memory_by_semantic_id.get(semantic_id, {})
-        confidence = float(memory_item.get("confidence", track.get("confidence", 0.0)))
-        freshness = float(memory_item.get("freshness", track.get("freshness", 1.0)))
-        score = float(np.clip(0.7 * confidence + 0.3 * freshness, 0.0, 1.0))
-        category = str(track.get("category", "object"))
-        boxes.append(
-            {
-                "semantic_id": semantic_id,
-                "object_id": track.get("object_id"),
-                "category": category,
-                "confidence": round(confidence, 4),
-                "freshness": round(freshness, 4),
-                "score": round(score, 4),
-                "status": memory_item.get("status", "active"),
-                "x": x0,
-                "y": y0,
-                "w": x1 - x0,
-                "h": y1 - y0,
-                "color": SEMANTIC_COLORS.get(category, "#61c6a7"),
-            }
-        )
-
-    boxes.sort(key=lambda item: item["score"], reverse=True)
-    return boxes[:12]
 
 
 def _semantic_payload(report: dict | None) -> dict:

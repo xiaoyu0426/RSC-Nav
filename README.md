@@ -6,22 +6,22 @@ RSC-Nav studies a map-then-task navigation loop: an agent first builds reusable 
 
 ## Demo
 
-### Case: explore from an empty map and find all cups
+### Case: online familiarization, one guided correction, then API task
 
-![RSC-Nav zero-map cup-search demo](outputs/phase5a_sim_demo/zero_map_find_all_cups_hm3d_20260723/final_report/zero_map_find_all_cups.gif)
+![RSC-Nav online exploration and API task demo](outputs/phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/report/online_interest_exploration.gif)
 
 The GIF shows:
 
-- first-person RGB with GroundingDINO boxes, labels, and confidence scores;
-- the live depth observation used for 3D projection;
-- a dynamic metric BEV with the explored route and stable object tracks;
-- active tabletop scans and multi-view object-memory confirmation.
+- online RGB + GroundingDINO observations and current depth;
+- online BEV, route history, object memory, and policy state;
+- task-independent familiarization followed by one recorded guided correction;
+- Qwen3-Max task injection at step 360 and semantic candidate execution.
 
-This run starts with empty map and object memory. Across 523 RGB-D observations,
-it projects 1,719 open-vocabulary detections into 3D, retains 19 stable semantic
-tracks, and confirms four cup tracks from multiple views. Habitat oracle labels
-are used only for post-hoc coverage auditing, not for exploration or memory
-updates.
+The 771-step run averages 800 ms per online loop, reaches 94.6% post-hoc
+navmesh observation coverage, and re-confirms four cup tracks during task
+execution. Semantic oracle data is unavailable to the online policy. Exact
+Habitat pose and complete-scene navmesh shortest paths remain privileged
+geometric inputs and are reported as current limitations.
 
 The full public result index is available at:
 
@@ -31,14 +31,23 @@ outputs/paper_public_index.html
 
 ## Current Position
 
-Current Habitat demos use simulator exact pose for depth projection and semantic evidence accumulation. This validates the semantic-memory-to-planner-to-execution loop, not a full real-world localization system.
+The current Habitat demo now runs online interest exploration, memory updates,
+API task planning, and execution in one episode. It still uses simulator exact
+pose for projection and complete-scene navmesh queries for low-level execution,
+so it validates the semantic loop rather than a full real-world localization
+stack.
 
 The real-world roadmap explicitly includes:
 
-- interest-driven exploration instead of scripted coverage loops;
-- Lingbo vision/depth model trials;
 - real computed localization with SLAM/VIO/wheel odometry/relocalization uncertainty;
-- API planner demo refinement with target verification, negative evidence, memory update, and replanning.
+- observed-BEV-only execution without privileged global navmesh paths;
+- API completion criteria, failure recovery, and replanning;
+- real RGB-D validation of LingBot-Depth as an optional repair branch.
+
+Completed research branches now include interest-driven exploration and
+LingBot-Map/Vision/Depth benchmarking. LingBot-Map-long is the strongest current
+RGB-only geometry candidate; LingBot-Vision does not yet replace GroundingDINO,
+and LingBot-Depth did not improve the current clean Habitat-depth BEV baseline.
 
 ## Core Idea
 
@@ -61,11 +70,17 @@ src/
   dense_bev_mapper.py              # metric BEV occupancy / depth projection
   semantic_bev_memory.py           # semantic evidence accumulation
   object_memory_store.py           # reusable object memory and confidence update
+  interest_exploration.py          # frontier/semantic interest scoring and pathing
+  online_semantic_task_planner.py  # Qwen3-Max semantic candidate planner
   landmark_retrieval.py            # landmark retrieval / ranking
   semantic_grounding_adapter.py    # grounding adapter contracts
 
 scripts/
   phase23_habitat_control_server.py          # live Habitat control UI
+  phase5a_online_interest_explorer.py        # online observe-ground-map-plan-act loop
+  phase5a_online_interest_report.py          # synchronized online demo report
+  groundingdino_online_worker.py             # detector worker process
+  lingbot_map_online_worker.py               # optional LingBot geometry worker
   m25_habitat_rgbd_export.py                 # zero-map RGB-D/pose capture
   m25_groundingdino_export.py                # open-vocabulary grounding + 3D projection
   phase5a_active_table_search_capture.py     # close multi-view tabletop search
@@ -82,6 +97,7 @@ docs/
 
 outputs/
   phase5a_sim_demo/                 # curated demo reports/GIFs/videos/traces
+  m3_lingbot_foundation_benchmark/  # curated LingBot Map/Depth/Vision benchmark
   phase5a_api_semantic_planner/      # curated qwen3-max planner reports
   phase5a_navmesh_validation/        # curated navmesh validation reports
   m35_semantic_representation_alignment/
@@ -110,39 +126,27 @@ export OPENAI_MODEL=qwen3-max
 
 ## Reproduce The Demo
 
-On a development machine with `habitat-sim` and GroundingDINO dependencies
-installed, the zero-map case is a four-stage pipeline:
+On a development machine with `habitat-sim` and GroundingDINO dependencies,
+run the online loop directly:
 
 ```bash
-python scripts/m25_habitat_rgbd_export.py \
-  --scene /path/to/17DRP5sb8fy.glb \
-  --scene-dataset-config /path/to/mp3d.scene_dataset_config.json \
-  --trajectory-mode coverage-loop \
-  --lightweight-capture \
-  --pitch-scan-every 4 \
-  --max-frames 360 \
-  --out-dir outputs/zero_map_run/capture
-
-python scripts/m25_groundingdino_export.py \
-  --frames-metadata outputs/zero_map_run/capture/frames_metadata.json \
-  --labels cup,bottle,table,counter,sink \
-  --max-frames 10000 \
-  --out-dir outputs/zero_map_run/exploration_grounding
+python scripts/phase5a_online_interest_explorer.py \
+  --scene /path/to/GLAQ4DNUx5U.basis.glb \
+  --scene-dataset-config /path/to/hm3d_annotated_basis.scene_dataset_config.json \
+  --out-dir outputs/online_interest_run \
+  --max-steps 780 \
+  --frontier-strategy hierarchical \
+  --execution-planner hybrid_navmesh \
+  --task-planner-mode api \
+  --task-text "Find all cups in the room and report their locations"
 ```
 
-Use `phase5a_active_table_search_capture.py` to revisit candidate support
-surfaces, run GroundingDINO on those additional views, then build the final
-artifact:
-
-```bash
-python scripts/phase5a_zero_map_cup_search_report.py \
-  --frames-metadata outputs/zero_map_run/active_search/combined_frames_metadata.json \
-  --detections-json outputs/zero_map_run/exploration_grounding/detections.json \
-  --detections-json outputs/zero_map_run/active_grounding/detections.json \
-  --grounding-dir outputs/zero_map_run/exploration_grounding \
-  --grounding-dir outputs/zero_map_run/active_grounding \
-  --out-dir outputs/zero_map_run/final_report
-```
+The published case also uses
+`--guided-correction-position-xyz 0.059 -1.593 8.886` at step 120. This
+correction is explicit in the report and is not counted as autonomous
+exploration. Configure separate detector and LingBot runtimes with
+`RSCNAV_DETECTOR_PYTHON`, `RSCNAV_LINGBOT_PYTHON`,
+`RSCNAV_LINGBOT_REPO`, and `RSCNAV_LINGBOT_MODEL`.
 
 ## Key Reports
 
@@ -150,6 +154,8 @@ python scripts/phase5a_zero_map_cup_search_report.py \
 - `outputs/phase5a_api_semantic_planner/qwen3_max_20case_noleak_20260703/qwen3_max_20case_noleak_report.html`
 - `outputs/phase5a_navmesh_validation/qwen3_max_find5_20260704/navmesh_validation_report.html`
 - `outputs/m35_semantic_representation_alignment/paper_semantic_bev_index_20260703.html`
+- `outputs/m3_lingbot_foundation_benchmark/lingbot_benchmark_summary.html`
+- `outputs/phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/report/online_interest_exploration.html`
 
 ## Status
 
@@ -159,8 +165,9 @@ Validated:
 
 - qwen3-max semantic waypoint selection;
 - Habitat navmesh reachability for selected waypoint targets;
-- first-person execution trace with stop-and-look behavior;
-- empty-map RGB-D exploration with active tabletop scans;
-- GroundingDINO-to-depth-to-world projection and multi-view cup memory;
-- dynamic BEV + grounding + depth + confidence storyboard;
-- explicit backlog for localization, interest exploration, Lingbo model trials, and API planner demo refinement.
+- online interest-driven familiarization and frontier exploration;
+- GroundingDINO-to-depth-to-world projection and multi-view object memory;
+- delayed API task injection with memory-grounded candidate ordering;
+- positive / not-observable / expected-visible-miss evidence updates;
+- LingBot Map/Depth/Vision benchmark and integration recommendations;
+- explicit limitations for localization, privileged navmesh execution, and task completion.

@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>LingBot-Vision Parameter Scaling</title>
+<style>
+body{font-family:Arial,sans-serif;max-width:1400px;margin:28px auto;padding:0 22px;color:#202124}
+table{border-collapse:collapse;width:100%;margin:18px 0 30px}th,td{border:1px solid #d5d8dc;padding:9px;text-align:right}
+th:first-child,td:first-child{text-align:left}section{margin:30px 0}img{width:100%;height:auto;border:1px solid #d5d8dc}
+.note{background:#f4f6f8;border-left:4px solid #3b82f6;padding:14px 16px}
+</style></head><body>
+<h1>LingBot-Vision 参数规模实测</h1>
+<p class="note">同一批 Habitat RGB，使用 frozen patch token 相邻余弦距离预测 Habitat semantic-instance 边界。
+该测试衡量空间边界表征，不等价于开放词汇检测能力；这些权重没有 detector head。</p>
+<table><thead><tr><th>Variant</th><th>Params</th><th>Boundary AP</th><th>Best F1</th><th>ROC-AUC</th><th>Edge contrast</th><th>FPS</th><th>Peak VRAM</th></tr></thead>
+<tbody><tr><td>small</td><td>21.60M</td><td>0.3835</td><td>0.4439</td><td>0.8171</td><td>0.1086</td><td>82.59</td><td>0.07 GB</td></tr><tr><td>base</td><td>85.67M</td><td>0.3551</td><td>0.4229</td><td>0.7970</td><td>0.1046</td><td>83.96</td><td>0.23 GB</td></tr><tr><td>large</td><td>303.15M</td><td>0.3572</td><td>0.4310</td><td>0.8075</td><td>0.1148</td><td>48.33</td><td>0.66 GB</td></tr><tr><td>giant</td><td>1134.47M</td><td>0.3761</td><td>0.4387</td><td>0.8128</td><td>0.1320</td><td>29.72</td><td>2.35 GB</td></tr></tbody></table>
+<section><h2>Small</h2><img src='vision_small_boundary_example.png' alt='small boundary evidence'></section><section><h2>Base</h2><img src='vision_base_boundary_example.png' alt='base boundary evidence'></section><section><h2>Large</h2><img src='vision_large_boundary_example.png' alt='large boundary evidence'></section><section><h2>Giant</h2><img src='vision_giant_boundary_example.png' alt='giant boundary evidence'></section>
+<p><a href="lingbot_vision_metrics.json">Raw metrics JSON</a></p>
+</body></html>

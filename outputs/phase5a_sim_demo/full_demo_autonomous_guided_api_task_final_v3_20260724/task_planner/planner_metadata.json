@@ -1,0 +1,8 @@
+{
+  "mode_requested": "api",
+  "mode_used": "api",
+  "model": "qwen3-max",
+  "api_base": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+  "latency_ms": 9517.403,
+  "api_error": null
+}

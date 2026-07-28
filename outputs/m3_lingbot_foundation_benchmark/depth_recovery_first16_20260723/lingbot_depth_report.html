@@ -1,0 +1,13 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
+<title>LingBot-Depth Habitat Benchmark</title><style>
+body{font-family:Arial,sans-serif;max-width:1400px;margin:28px auto;padding:0 22px;color:#202124}
+table{border-collapse:collapse;width:100%}th,td{border:1px solid #d5d8dc;padding:8px;text-align:right}
+th:first-child,td:first-child{text-align:left}img{max-width:100%;border:1px solid #d5d8dc}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.note{background:#f4f6f8;border-left:4px solid #3b82f6;padding:14px}
+</style></head><body><h1>LingBot-Depth Habitat 传感器退化恢复</h1>
+<p class="note">以 Habitat depth 为 gold，加入噪声、随机掉点和块状空洞；比较简单填充与 LingBot-Depth，
+并把恢复后的 depth 送入相同 pose 和 DenseBEVMapper。Oracle depth 本身不需要修复。</p>
+<table><thead><tr><th>Method</th><th>Coverage</th><th>MAE m</th><th>RMSE m</th><th>AbsRel</th><th>delta1</th>
+<th>Free IoU</th><th>Occupied IoU</th><th>FPS</th><th>Peak VRAM</th></tr></thead><tbody><tr><td>Nearest fill</td><td>1.000</td><td>0.047</td><td>0.179</td><td>0.032</td><td>0.985</td><td>0.876</td><td>0.760</td><td>-</td><td>-</td></tr><tr><td>general_v05</td><td>1.000</td><td>0.035</td><td>0.155</td><td>0.018</td><td>0.991</td><td>0.863</td><td>0.701</td><td>8.58</td><td>2.77 GB</td></tr><tr><td>depth_dc</td><td>1.000</td><td>0.076</td><td>0.219</td><td>0.081</td><td>0.931</td><td>0.822</td><td>0.604</td><td>12.36</td><td>2.77 GB</td></tr></tbody></table>
+<section><h2>Depth evidence</h2><img src="depth_refinement_contact_sheet.png"></section>
+<section><h2>Oracle / degraded baselines</h2><div class='grid'><img src='bev_oracle.png'><img src='bev_degraded.png'><img src='bev_nearest_fill.png'></div></section><section><h2>general_v05 BEV</h2><img src='bev_general_v05.png'></section><section><h2>depth_dc BEV</h2><img src='bev_depth_dc.png'></section><p><a href="lingbot_depth_metrics.json">Raw metrics JSON</a></p></body></html>

@@ -1,0 +1,15 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
+<title>LingBot-Map vs VGGT</title><style>
+body{font-family:Arial,sans-serif;max-width:1400px;margin:28px auto;padding:0 22px;color:#202124}
+table{border-collapse:collapse;width:100%;margin:20px 0}th,td{border:1px solid #d5d8dc;padding:9px;text-align:right}
+th:first-child,td:first-child{text-align:left}.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+img{width:100%;border:1px solid #d5d8dc}.note{background:#f4f6f8;border-left:4px solid #3b82f6;padding:14px}
+</style></head><body><h1>LingBot-Map 与现有 VGGT 几何前端对照</h1>
+<p class="note">同一 Habitat 连续 16 帧 RGB，均用 Sim(3) 对齐到 Habitat world frame，再进入相同 DenseBEVMapper。
+这是几何前端对照，不含 GroundingDINO/SAM 语义误差。</p>
+<table><thead><tr><th>Method</th><th>ATE RMSE m</th><th>Explored IoU</th><th>Free IoU</th>
+<th>Occupied IoU</th><th>FPS</th><th>Peak VRAM</th></tr></thead><tbody><tr><td>VGGT-1B baseline</td><td>1.609</td><td>0.503</td><td>0.172</td><td>0.200</td><td>-</td><td>-</td></tr><tr><td>LingBot-Map-long</td><td>0.377</td><td>0.698</td><td>0.456</td><td>0.251</td><td>5.66</td><td>9.26 GB</td></tr></tbody></table>
+<div class="grid"><section><h2>Oracle</h2><img src="oracle_bev.png"></section>
+<section><h2>LingBot-Map</h2><img src="lingbot_map_bev.png"></section></div>
+<section><h2>Depth evidence</h2><img src="lingbot_map_depth_contact_sheet.png"></section>
+<p><a href="lingbot_map_metrics.json">Raw metrics JSON</a></p></body></html>

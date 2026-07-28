@@ -1,0 +1,102 @@
+{
+  "phase": "m3_lingbot_foundation_benchmark",
+  "benchmark": "lingbot_map_vs_vggt",
+  "model": "LingBot-Map-long",
+  "num_frames": 16,
+  "alignment": {
+    "scale": 4.634667229906081,
+    "rotation": [
+      [
+        0.1010287144760308,
+        -0.0038484182041596524,
+        0.9948760669192152
+      ],
+      [
+        0.027114923969413302,
+        -0.9996104008567095,
+        -0.006620226372381346
+      ],
+      [
+        0.9945139414555503,
+        0.027644821873445434,
+        -0.10088500420841501
+      ]
+    ],
+    "translation": [
+      -10.85042578584209,
+      1.591344475374645,
+      -4.216594165918654
+    ],
+    "ate_rmse_m": 0.3766599369132961,
+    "ate_mean_m": 0.34512206554619873,
+    "ate_max_m": 0.6253819277996662
+  },
+  "depth": {
+    "valid_pixels": 2348199,
+    "mae_m": 0.13898012042045593,
+    "rmse_m": 0.2622551918029785,
+    "abs_rel": 0.07915337383747101,
+    "delta1": 0.9600097777062336
+  },
+  "bev_comparison": {
+    "explored_iou": 0.6981119487624258,
+    "free_iou": 0.4555671589835397,
+    "occupied_iou": 0.2510697351682665,
+    "vggt_explored_cells": 25752,
+    "oracle_explored_cells": 25154,
+    "vggt_occupied_cells": 12208,
+    "oracle_occupied_cells": 9428
+  },
+  "runtime": {
+    "load_seconds": 16.15559400600614,
+    "inference_seconds": 2.826567721000174,
+    "fps": 5.6605755033311,
+    "peak_vram_gb": 9.26365184
+  },
+  "vggt_baseline": {
+    "backend": "VGGT-1B + OWLv2 boxes",
+    "alignment": {
+      "scale": 5.102992145648683,
+      "rotation": [
+        [
+          0.09937843033316442,
+          0.00254894210493617,
+          0.9950464463926609
+        ],
+        [
+          -0.039602260480504525,
+          -0.99919428477898,
+          0.006514770130764382
+        ],
+        [
+          0.994261328097071,
+          -0.04005351618981931,
+          -0.09919741575001456
+        ]
+      ],
+      "translation": [
+        -9.207825052595343,
+        1.5754129980116327,
+        -4.06851159814915
+      ],
+      "ate_rmse_m": 1.6090305790410262,
+      "ate_mean_m": 1.0976837810509212,
+      "ate_max_m": 5.28690416719818
+    },
+    "bev_comparison": {
+      "explored_iou": 0.5029640061572724,
+      "free_iou": 0.17153206903899423,
+      "occupied_iou": 0.19957835558678846,
+      "vggt_explored_cells": 20736,
+      "oracle_explored_cells": 25154,
+      "vggt_occupied_cells": 14470,
+      "oracle_occupied_cells": 9428
+    }
+  },
+  "outputs": {
+    "oracle_bev": "oracle_bev.png",
+    "lingbot_map_bev": "lingbot_map_bev.png",
+    "depth_contact_sheet": "lingbot_map_depth_contact_sheet.png",
+    "geometry_npz": "lingbot_map_geometry.npz"
+  }
+}

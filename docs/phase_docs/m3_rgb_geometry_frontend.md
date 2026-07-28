@@ -502,3 +502,88 @@ RGB 输入链路可以按 MVP 暂时通过，但不按最终论文效果通过�
 先审计常见 paper 中 semantic BEV / semantic map / object-centric map / topological graph 的表示方式，
 再把 RSC-Nav 当前 G/S/O/L 四层表示固定为 Phase 5 planner 的输入契约。
 ```
+
+### 2026-07-23: LingBot spatial foundation model audit
+
+背景：
+
+```text
+在既有 VGGT RGB-only geometry MVP 之后，
+审计蚂蚁 Robbyant/LingBot 最新公开 spatial foundation models，
+判断其是否能改善 RSC-Nav 的 RGB -> geometry / semantic BEV 链路。
+```
+
+固定验证协议：
+
+```text
+LingBot-Map:
+  Habitat 连续 RGB first16
+  -> RGB-only pose/depth
+  -> Sim(3) align to Habitat world
+  -> DenseBEVMapper
+  -> compare with the same first16 oracle and existing VGGT-1B result
+
+LingBot-Depth:
+  Habitat oracle depth
+  -> Gaussian noise + random dropout + block holes
+  -> LingBot-Depth v0.5 / Depth-DC
+  -> exact Habitat pose + DenseBEVMapper
+  -> compare depth and BEV metrics
+
+LingBot-Vision:
+  96 Habitat RGB frames
+  -> frozen S/B/L/G patch tokens
+  -> neighbor cosine-distance boundary score
+  -> Habitat semantic-instance boundary oracle
+```
+
+关键结果：
+
+```text
+LingBot-Map-long vs VGGT-1B, first16:
+  ATE RMSE:       0.377 m vs 1.609 m
+  explored IoU:   0.698 vs 0.503
+  free IoU:       0.456 vs 0.172
+  occupied IoU:   0.251 vs 0.200
+  inference:      5.66 FPS, 9.26 GB peak VRAM
+
+LingBot-Depth, degraded depth first16:
+  nearest fill:   MAE 0.0467 m, free/occupied IoU 0.876/0.760
+  general v0.5:   MAE 0.0348 m, free/occupied IoU 0.863/0.701
+  Depth-DC:       MAE 0.0762 m, free/occupied IoU 0.822/0.604
+
+LingBot-Vision, 96 frames:
+  Small 21.6M:    boundary AP 0.383, 82.6 FPS
+  Base 85.7M:     boundary AP 0.355, 84.0 FPS
+  Large 303M:     boundary AP 0.357, 48.3 FPS
+  Giant 1.13B:    boundary AP 0.376, 29.7 FPS
+```
+
+结论：
+
+```text
+1. LingBot-Map-long 是目前明确正收益的候选，应进入 M3 长序列复验，
+   并替换/补充 VGGT 作为 RGB-only geometry frontend。
+2. LingBot-Depth v0.5 改善像素级 depth，但在当前合成退化协议下没有改善 BEV IoU；
+   保留为未来真实 RGB-D sensor refinement 分支，不进入 Habitat oracle 默认路径。
+3. LingBot-Vision 参数扩展对本边界代理指标不单调；
+   Small 已有很高性价比，但 backbone-only 权重不能直接替换 GroundingDINO。
+4. LingBot-VLA / World / VA 与当前 semantic map -> waypoint planner 接口不直接匹配，
+   本轮不下载大权重、不宣称导航收益。
+5. 官方 demo 与 benchmark 对 LingBot-Map pose decoder 的 C2W 解释存在冲突；
+   正式结果采用官方 benchmark/methods/lingbot_map.py 的 C2W 约定。
+```
+
+可追溯产物：
+
+```text
+outputs/m3_lingbot_foundation_benchmark/lingbot_benchmark_summary.html
+outputs/m3_lingbot_foundation_benchmark/map_vs_vggt_first16_20260723_v2/
+outputs/m3_lingbot_foundation_benchmark/depth_recovery_first16_20260723/
+outputs/m3_lingbot_foundation_benchmark/vision_scaling_96_20260723/
+
+scripts/m3_lingbot_map_eval.py
+scripts/m3_lingbot_depth_benchmark.py
+scripts/m3_lingbot_vision_benchmark.py
+scripts/m3_lingbot_benchmark_report.py
+```

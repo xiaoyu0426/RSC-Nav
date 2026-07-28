@@ -1,0 +1,63 @@
+{
+  "task_plan": [
+    {
+      "step": 1,
+      "intent": "inspect_candidate",
+      "target_id": "track_89"
+    },
+    {
+      "step": 2,
+      "intent": "inspect_candidate",
+      "target_id": "track_52"
+    },
+    {
+      "step": 3,
+      "intent": "inspect_candidate",
+      "target_id": "track_46"
+    },
+    {
+      "step": 4,
+      "intent": "inspect_candidate",
+      "target_id": "track_232"
+    },
+    {
+      "step": 5,
+      "intent": "inspect_candidate",
+      "target_id": "track_254"
+    },
+    {
+      "step": 6,
+      "intent": "inspect_candidate",
+      "target_id": "track_250"
+    },
+    {
+      "step": 7,
+      "intent": "inspect_candidate",
+      "target_id": "track_260"
+    },
+    {
+      "step": 8,
+      "intent": "inspect_candidate",
+      "target_id": "track_269"
+    },
+    {
+      "step": 9,
+      "intent": "inspect_candidate",
+      "target_id": "track_98"
+    }
+  ],
+  "ordered_candidate_ids": [
+    "track_89",
+    "track_52",
+    "track_46",
+    "track_232",
+    "track_254",
+    "track_250",
+    "track_260",
+    "track_269",
+    "track_98"
+  ],
+  "stop_probability": 0.0,
+  "stop_condition": "all candidates inspected",
+  "reason": "target objects prioritized before support surfaces per constraints"
+}
