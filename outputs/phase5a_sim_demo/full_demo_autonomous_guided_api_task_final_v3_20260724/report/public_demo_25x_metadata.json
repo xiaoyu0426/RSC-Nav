@@ -1,7 +1,7 @@
 {
   "input_gif": "online_interest_exploration.gif",
   "output_gif": "online_interest_exploration_25x.gif",
-  "output_showcase": "confirmed_task_targets.png",
+  "output_showcase": "cup_candidate_audit.png",
   "playback_speed": 25.0,
   "source_step_stride": 3,
   "frame_count": 257,
@@ -19,7 +19,11 @@
         -5.423127174377441,
         -0.8087754249572754,
         -1.0600578784942627
-      ]
+      ],
+      "manual_visual_audit": {
+        "status": "FALSE POSITIVE",
+        "note": "printed object on wall poster"
+      }
     },
     {
       "track_id": 89,
@@ -31,7 +35,11 @@
         -7.259252071380615,
         -0.8352572917938232,
         -1.0163748264312744
-      ]
+      ],
+      "manual_visual_audit": {
+        "status": "NOT VERIFIED",
+        "note": "specific track box is not identifiable"
+      }
     },
     {
       "track_id": 179,
@@ -43,7 +51,11 @@
         -2.7557122707366943,
         -1.4287456274032593,
         2.299983263015747
-      ]
+      ],
+      "manual_visual_audit": {
+        "status": "FALSE POSITIVE",
+        "note": "wall artifact or electrical outlet"
+      }
     },
     {
       "track_id": 206,
@@ -55,7 +67,29 @@
         -0.6290279626846313,
         0.2336069792509079,
         5.205253601074219
-      ]
+      ],
+      "manual_visual_audit": {
+        "status": "NOT VERIFIED",
+        "note": "shelf object remains visually ambiguous"
+      }
     }
-  ]
+  ],
+  "manual_visual_audits": {
+    "52": {
+      "status": "FALSE POSITIVE",
+      "note": "printed object on wall poster"
+    },
+    "89": {
+      "status": "NOT VERIFIED",
+      "note": "specific track box is not identifiable"
+    },
+    "179": {
+      "status": "FALSE POSITIVE",
+      "note": "wall artifact or electrical outlet"
+    },
+    "206": {
+      "status": "NOT VERIFIED",
+      "note": "shelf object remains visually ambiguous"
+    }
+  }
 }

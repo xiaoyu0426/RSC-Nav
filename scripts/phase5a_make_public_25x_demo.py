@@ -29,6 +29,13 @@ def main() -> None:
         metavar="TRACK_ID:STEP",
         help="Override the showcase evidence step for a confirmed target.",
     )
+    parser.add_argument(
+        "--target-audit",
+        action="append",
+        default=[],
+        metavar="TRACK_ID:STATUS:NOTE",
+        help="Attach a manual visual-audit status and note to a target.",
+    )
     args = parser.parse_args()
 
     input_gif = Path(args.input_gif).expanduser().resolve()
@@ -43,6 +50,7 @@ def main() -> None:
 
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
     target_step_overrides = _target_step_overrides(args.target_step)
+    target_audits = _target_audits(args.target_audit)
     with Image.open(input_gif) as source:
         frame_count = int(source.n_frames)
         source_size = source.size
@@ -104,6 +112,7 @@ def main() -> None:
         summary=summary,
         step_stride=step_stride,
         target_step_overrides=target_step_overrides,
+        target_audits=target_audits,
         output_path=output_showcase,
     )
     output_metadata.write_text(
@@ -119,6 +128,10 @@ def main() -> None:
                 "planned_output_duration_s": desired_duration_ms / 1000.0,
                 "encoded_output_duration_s": encoded_duration_ms / 1000.0,
                 "target_selections": selections,
+                "manual_visual_audits": {
+                    str(track_id): {"status": status, "note": note}
+                    for track_id, (status, note) in target_audits.items()
+                },
             },
             ensure_ascii=False,
             indent=2,
@@ -159,6 +172,21 @@ def _render_speed_overlay(
         fill="#e5b74e",
         font=_font(max(10, round(15 * scale))),
     )
+    draw.rectangle(
+        (
+            round(496 * scale),
+            round(408 * scale),
+            round(716 * scale),
+            round(434 * scale),
+        ),
+        fill="#172028",
+    )
+    draw.text(
+        (round(500 * scale), round(410 * scale)),
+        "Detector-only cup gate",
+        fill="#eef3f5",
+        font=_font(max(10, round(15 * scale))),
+    )
     overlay.save(output_path)
 
 
@@ -167,6 +195,7 @@ def _render_target_showcase(
     summary: dict[str, Any],
     step_stride: int,
     target_step_overrides: dict[int, int],
+    target_audits: dict[int, tuple[str, str]],
     output_path: Path,
 ) -> list[dict[str, Any]]:
     confirmed = list(summary.get("confirmed_cups", []))
@@ -179,10 +208,10 @@ def _render_target_showcase(
     body_font = _font(18)
     tiny_font = _font(15)
 
-    draw.text((34, 24), "任务目标确认结果", fill="#eef3f5", font=title_font)
+    draw.text((34, 24), "Task-stage cup-candidate audit", fill="#eef3f5", font=title_font)
     draw.text(
         (34, 70),
-        f"任务：{summary.get('task', '寻找任务目标')}  |  在线再次确认 {len(confirmed)} 个 cup track",
+        f"Detector re-observed {len(confirmed)} cup-labeled tracks; this is not instance-level confirmation.",
         fill="#9fb0bd",
         font=subtitle_font,
     )
@@ -231,38 +260,47 @@ def _render_target_showcase(
             confidence = float(item.get("confidence", 0.0))
             views = int(item.get("views", 0))
             position = [float(value) for value in item.get("position_3d", [])]
+            audit_status, audit_note = target_audits.get(
+                track_id,
+                ("NOT REVIEWED", "No manual visual audit supplied."),
+            )
+            status_color = (
+                "#ef6b73"
+                if audit_status.upper() == "FALSE POSITIVE"
+                else "#e5b74e"
+            )
             draw.text(
-                (text_x, card_y + 22),
-                f"Cup track {track_id}",
+                (text_x, card_y + 16),
+                f"Detector cup track {track_id}",
                 fill="#65d2ad",
                 font=track_font,
             )
             draw.text(
-                (text_x, card_y + 70),
-                f"confidence  {confidence:.3f}",
-                fill="#eef3f5",
-                font=body_font,
+                (text_x, card_y + 52),
+                audit_status.upper(),
+                fill=status_color,
+                font=track_font,
             )
             draw.text(
-                (text_x, card_y + 108),
-                f"independent views  {views}",
+                (text_x, card_y + 86),
+                audit_note,
                 fill="#eef3f5",
-                font=body_font,
+                font=tiny_font,
             )
             draw.text(
-                (text_x, card_y + 146),
-                "world XYZ",
+                (text_x, card_y + 126),
+                f"detector score {confidence:.3f} | global views {views}",
                 fill="#9fb0bd",
-                font=body_font,
+                font=tiny_font,
             )
             draw.text(
-                (text_x, card_y + 178),
-                ", ".join(f"{value:.2f}" for value in position[:3]),
+                (text_x, card_y + 164),
+                "world XYZ  " + ", ".join(f"{value:.2f}" for value in position[:3]),
                 fill="#e5b74e",
-                font=body_font,
+                font=tiny_font,
             )
             draw.text(
-                (text_x, card_y + 224),
+                (text_x, card_y + 206),
                 f"online evidence step {evidence_step}",
                 fill="#9fb0bd",
                 font=tiny_font,
@@ -275,12 +313,16 @@ def _render_target_showcase(
                     "confidence": confidence,
                     "views": views,
                     "position_3d": position,
+                    "manual_visual_audit": {
+                        "status": audit_status,
+                        "note": audit_note,
+                    },
                 }
             )
 
     draw.text(
         (34, 690),
-        "展示帧来自任务执行阶段的在线 RGB + Grounding；Habitat oracle 不参与目标确认。",
+        "Manual audit of displayed online RGB + Grounding frames; semantic oracle was not used.",
         fill="#7f929f",
         font=tiny_font,
     )
@@ -308,6 +350,17 @@ def _target_step_overrides(values: list[str]) -> dict[int, int]:
             raise ValueError(f"Invalid --target-step value: {value!r}")
         overrides[int(track_text)] = int(step_text)
     return overrides
+
+
+def _target_audits(values: list[str]) -> dict[int, tuple[str, str]]:
+    audits: dict[int, tuple[str, str]] = {}
+    for value in values:
+        track_text, separator, remainder = value.partition(":")
+        status, second_separator, note = remainder.partition(":")
+        if not separator or not second_separator:
+            raise ValueError(f"Invalid --target-audit value: {value!r}")
+        audits[int(track_text)] = (status.strip(), note.strip())
+    return audits
 
 
 def _font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:

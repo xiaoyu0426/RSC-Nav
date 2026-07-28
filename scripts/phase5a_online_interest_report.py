@@ -251,7 +251,7 @@ def _html_report(
         f"<td>{', '.join(f'{float(v):.2f}' for v in item.get('position_3d', []))}</td>"
         "</tr>"
         for item in confirmed
-    ) or '<tr><td colspan="5">本次运行没有达到多视角确认阈值的 cup track。</td></tr>'
+    ) or '<tr><td colspan="5">本次运行没有达到检测器再观测门槛的 cup-labeled track。</td></tr>'
     mp4 = (
         f'<video controls loop muted playsinline src="{html.escape(mp4_name)}"></video>'
         if mp4_name
@@ -310,7 +310,7 @@ pre{{white-space:pre-wrap;overflow-wrap:anywhere;background:#0b1014;padding:14px
 </head>
 <body>
 <header>
-		  <h1>实时熟悉环境 → 执行寻找并汇报所有水杯任务</h1>
+		  <h1>Real-time environment familiarization → Find and report all cups</h1>
 	  <p>运行时任务：{html.escape(str(summary.get("task", "")))}</p>
 	  <p>这不是先录制再批处理：每一步均按 observe → GroundingDINO → 3D/BEV → object memory → interest policy → Habitat action 顺序执行。</p>
 		  <p>任务在 step <code>{html.escape(str(task_injection_step))}</code> 才注入；此前只做与任务无关的环境熟悉。Qwen3-Max 只排序语义候选，底层路径仍由传统 BEV/navmesh 执行。</p>
@@ -327,7 +327,7 @@ pre{{white-space:pre-wrap;overflow-wrap:anywhere;background:#0b1014;padding:14px
     <div class="metric"><b>{int(summary.get("num_detected_collisions", 0))}</b><span>检测到的碰撞</span></div>
     <div class="metric"><b>{int(summary.get("num_scanned_surface_regions", 0))}</b><span>独立台面巡视区域</span></div>
     <div class="metric"><b>{int(summary.get("num_candidate_cups", 0))}</b><span>稳定 cup 候选</span></div>
-	    <div class="metric"><b>{int(summary.get("num_confirmed_cups", 0))}</b><span>兴趣巡视确认 cup</span></div>
+	    <div class="metric"><b>{int(summary.get("num_confirmed_cups", 0))}</b><span>检测器再观测 cup track</span></div>
 	    <div class="metric"><b>{html.escape(str(familiarization_step if familiarization_step is not None else "N/A"))}</b><span>熟悉完成 step</span></div>
 		    <div class="metric"><b>{int(summary.get("cup_search_steps", 0))}</b><span>水杯搜索步</span></div>
 		    <div class="metric"><b>{int(guided.get("explored_cell_gain") or 0):,}</b><span>单次纠偏新增探索格</span></div>
@@ -392,7 +392,7 @@ pre{{white-space:pre-wrap;overflow-wrap:anywhere;background:#0b1014;padding:14px
 	    </div>
 	  </section>
   <section class="panel">
-    <h2>兴趣巡视再次确认的水杯记忆</h2>
+    <h2>任务阶段再次检测到的 cup-labeled tracks</h2>
     <table><thead><tr><th>Track</th><th>类别</th><th>置信度</th><th>独立视角</th><th>世界坐标 XYZ</th></tr></thead>
     <tbody>{confirmed_rows}</tbody></table>
   </section>

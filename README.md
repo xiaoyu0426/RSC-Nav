@@ -6,7 +6,7 @@ RSC-Nav studies a map-then-task navigation loop: an agent first builds reusable 
 
 ## Demo
 
-### Case：实时熟悉环境，然后执行“寻找并汇报所有水杯”任务
+### Case: Real-time environment familiarization followed by a "find and report all cups" task
 
 ![RSC-Nav real-time familiarization and cup-reporting task](outputs/phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/report/online_interest_exploration_25x.gif)
 
@@ -19,16 +19,20 @@ The GIF shows:
 
 The public replay preserves all 257 sampled frames and lasts about 30.7 seconds
 at 25x normal action speed. The underlying 771-step run averages 800 ms per
-online loop, reaches 94.6% post-hoc navmesh observation coverage, and
-re-confirms four cup tracks during task execution. One recorded guided
-correction occurs during familiarization; it is disclosed in the report and
-does not teleport the agent. Semantic oracle data is unavailable to the online
-policy. Exact Habitat pose and complete-scene navmesh shortest paths remain
-privileged geometric inputs and are reported as current limitations.
+online loop and reaches 94.6% post-hoc navmesh observation coverage. During
+task execution, the detector re-observes four tracks labeled as `cup`; this is
+not instance-level confirmation. Manual review finds two clear false positives
+and two visually unresolved candidates, so this run demonstrates the live
+closed loop but does **not** establish successful cup-task completion. One
+recorded guided correction occurs during familiarization; it is disclosed in
+the report and does not teleport the agent. Semantic oracle data is unavailable
+to the online policy. Exact Habitat pose and complete-scene navmesh shortest
+paths remain privileged geometric inputs and are reported as current
+limitations.
 
-#### 找到的任务目标
+#### Task-result visual audit
 
-![Confirmed task targets](outputs/phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/report/confirmed_task_targets.png)
+![Cup-candidate visual audit](outputs/phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/report/cup_candidate_audit.png)
 
 The full public result index is available at:
 
@@ -162,9 +166,13 @@ python scripts/phase5a_make_public_25x_demo.py \
   --input-gif outputs/online_interest_run/report/online_interest_exploration.gif \
   --summary-json outputs/online_interest_run/online_summary.json \
   --output-gif outputs/online_interest_run/report/online_interest_exploration_25x.gif \
-  --output-showcase outputs/online_interest_run/report/confirmed_task_targets.png \
+  --output-showcase outputs/online_interest_run/report/cup_candidate_audit.png \
   --playback-speed 25 \
-  --source-step-stride 3
+  --source-step-stride 3 \
+  --target-audit "52:FALSE POSITIVE:printed object on wall poster" \
+  --target-audit "89:NOT VERIFIED:specific track box is not identifiable" \
+  --target-audit "179:FALSE POSITIVE:wall artifact or electrical outlet" \
+  --target-audit "206:NOT VERIFIED:shelf object remains visually ambiguous"
 ```
 
 ## Key Reports
