@@ -34,6 +34,8 @@ outputs/**
 !outputs/phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/report/
 !outputs/phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/report/*.html
 !outputs/phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/report/*.gif
+!outputs/phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/report/*.png
+!outputs/phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/report/*.json
 !outputs/phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/checkpoints/
 !outputs/phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/checkpoints/**
 !outputs/phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/task_planner/

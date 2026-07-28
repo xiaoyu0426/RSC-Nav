@@ -32,10 +32,10 @@
     <div class="card"><h3>Semantic BEV</h3><a href="m35_semantic_representation_alignment/representation_bundle_best96_20260703/assets/semantic_bev.png"><img src="m35_semantic_representation_alignment/representation_bundle_best96_20260703/assets/semantic_bev.png"></a></div>
   </div>
 
-  <h2>Demo 展示：在线熟悉、一次纠偏与 API 任务执行</h2>
-  <p class="small">该 771 步 Habitat episode 逐步执行 observe → GroundingDINO → 3D/BEV → object memory → interest policy → action。任务在 step 360 才注入，Qwen3-Max 对在线语义候选排序；平均闭环延迟约 800 ms，事后 navmesh 观察覆盖率 94.6%，任务阶段再次确认 4 条 cup 轨迹。人工航点纠偏公开记录且没有瞬移。当前仍使用仿真精确位姿与完整场景 navmesh 最短路，真实世界版本还需 SLAM/VIO、重定位和 observed-BEV-only 执行。</p>
+  <h2>Demo 展示：实时熟悉环境，然后执行寻杯汇报任务</h2>
+  <p class="small">约 30.7 秒的 25× 回放保留全部 257 个采样帧。该 771 步 Habitat episode 逐步执行 observe → GroundingDINO → 3D/BEV → object memory → interest policy → action；任务在 step 360 才注入，Qwen3-Max 对在线语义候选排序，任务阶段再次确认 4 条 cup 轨迹。一次人工航点纠偏被完整记录且没有瞬移。当前仍使用仿真精确位姿与完整场景 navmesh 最短路，真实世界版本还需 SLAM/VIO、重定位和 observed-BEV-only 执行。</p>
   <div class="grid">
-    <div class="card"><span class="tag">Case</span><h3>自主探索 → 一次纠偏 → API 寻杯任务</h3><p><a href="phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/report/online_interest_exploration.html">Demo report</a> | <a href="phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/report/online_interest_exploration.gif">GIF</a> | <a href="phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/online_summary.json">Summary</a> | <a href="phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/posthoc_coverage_metrics.json">Coverage audit</a></p><a href="phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/report/online_interest_exploration.gif"><img src="phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/report/online_interest_exploration.gif"></a></div>
+    <div class="card"><span class="tag">Case</span><h3>实时熟悉环境 → 寻找并汇报所有水杯</h3><p><a href="phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/report/online_interest_exploration.html">Demo report</a> | <a href="phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/report/online_interest_exploration_25x.gif">30s / 25× GIF</a> | <a href="phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/report/confirmed_task_targets.png">目标展示图</a> | <a href="phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/online_summary.json">Summary</a></p><a href="phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/report/online_interest_exploration_25x.gif"><img src="phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/report/online_interest_exploration_25x.gif"></a></div>
   </div>
 
   <h2>补充入口</h2>

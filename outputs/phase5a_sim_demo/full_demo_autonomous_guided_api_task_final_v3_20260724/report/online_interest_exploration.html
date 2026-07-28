@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>RSC-Nav Explore, Correct, Plan and Execute</title>
+<title>RSC-Nav 实时环境熟悉与寻杯任务</title>
 <style>
 :root{--bg:#0d1217;--panel:#151d24;--line:#2a3741;--text:#eef3f5;--muted:#9aabb7;--accent:#65d2ad;--gold:#e5b74e}
 *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 ui-sans-serif,system-ui,sans-serif}
@@ -21,7 +21,7 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#0b1014;padding:14px;
 </head>
 <body>
 <header>
-		  <h1>自主探索 → 一次纠偏 → API 任务执行</h1>
+		  <h1>实时熟悉环境 → 执行寻找并汇报所有水杯任务</h1>
 	  <p>运行时任务：请找到房间里的所有水杯，并按位置汇报</p>
 	  <p>这不是先录制再批处理：每一步均按 observe → GroundingDINO → 3D/BEV → object memory → interest policy → Habitat action 顺序执行。</p>
 		  <p>任务在 step <code>360</code> 才注入；此前只做与任务无关的环境熟悉。Qwen3-Max 只排序语义候选，底层路径仍由传统 BEV/navmesh 执行。</p>
@@ -50,11 +50,11 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#0b1014;padding:14px;
   <section class="panel">
     <h2>同步执行回放</h2>
 
-	    <p>回放速度：<code>8.3× normal</code>；
+	    <p>回放速度：<code>25× normal</code>，完整回放约 <code>30.7 秒</code>；
 	    “正常速度”按每个离散动作 1.0 秒定义。
 	    这只是回放倍率，真实模型耗时见上方闭环延迟。</p>
 	    <p>GIF 版本：</p>
-    <img src="online_interest_exploration.gif" alt="Online interest exploration GIF">
+    <img src="online_interest_exploration_25x.gif" alt="25x online interest exploration GIF">
 	  </section>
 	  <section class="panel">
 	    <h2>四阶段可复用记忆检查点</h2>
@@ -168,6 +168,11 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#0b1014;padding:14px;
     <h2>兴趣巡视再次确认的水杯记忆</h2>
     <table><thead><tr><th>Track</th><th>类别</th><th>置信度</th><th>独立视角</th><th>世界坐标 XYZ</th></tr></thead>
     <tbody><tr><td>52</td><td>cup</td><td>0.290</td><td>9</td><td>-5.42, -0.81, -1.06</td></tr><tr><td>89</td><td>cup</td><td>0.287</td><td>12</td><td>-7.26, -0.84, -1.02</td></tr><tr><td>179</td><td>cup</td><td>0.283</td><td>8</td><td>-2.76, -1.43, 2.30</td></tr><tr><td>206</td><td>cup</td><td>0.293</td><td>5</td><td>-0.63, 0.23, 5.21</td></tr></tbody></table>
+  </section>
+  <section class="panel">
+    <h2>找到的任务目标展示</h2>
+    <p>以下四个画面取自任务执行阶段的在线 RGB + Grounding 证据，并附对应 object-memory 置信度、独立视角数和世界坐标。</p>
+    <img src="confirmed_task_targets.png" alt="Confirmed cup targets">
   </section>
 </main>
 </body>

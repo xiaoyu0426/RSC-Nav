@@ -6,22 +6,29 @@ RSC-Nav studies a map-then-task navigation loop: an agent first builds reusable 
 
 ## Demo
 
-### Case: online familiarization, one guided correction, then API task
+### Case：实时熟悉环境，然后执行“寻找并汇报所有水杯”任务
 
-![RSC-Nav online exploration and API task demo](outputs/phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/report/online_interest_exploration.gif)
+![RSC-Nav real-time familiarization and cup-reporting task](outputs/phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/report/online_interest_exploration_25x.gif)
 
 The GIF shows:
 
 - online RGB + GroundingDINO observations and current depth;
 - online BEV, route history, object memory, and policy state;
-- task-independent familiarization followed by one recorded guided correction;
+- real-time task-independent environment familiarization;
 - Qwen3-Max task injection at step 360 and semantic candidate execution.
 
-The 771-step run averages 800 ms per online loop, reaches 94.6% post-hoc
-navmesh observation coverage, and re-confirms four cup tracks during task
-execution. Semantic oracle data is unavailable to the online policy. Exact
-Habitat pose and complete-scene navmesh shortest paths remain privileged
-geometric inputs and are reported as current limitations.
+The public replay preserves all 257 sampled frames and lasts about 30.7 seconds
+at 25x normal action speed. The underlying 771-step run averages 800 ms per
+online loop, reaches 94.6% post-hoc navmesh observation coverage, and
+re-confirms four cup tracks during task execution. One recorded guided
+correction occurs during familiarization; it is disclosed in the report and
+does not teleport the agent. Semantic oracle data is unavailable to the online
+policy. Exact Habitat pose and complete-scene navmesh shortest paths remain
+privileged geometric inputs and are reported as current limitations.
+
+#### 找到的任务目标
+
+![Confirmed task targets](outputs/phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/report/confirmed_task_targets.png)
 
 The full public result index is available at:
 
@@ -147,6 +154,18 @@ correction is explicit in the report and is not counted as autonomous
 exploration. Configure separate detector and LingBot runtimes with
 `RSCNAV_DETECTOR_PYTHON`, `RSCNAV_LINGBOT_PYTHON`,
 `RSCNAV_LINGBOT_REPO`, and `RSCNAV_LINGBOT_MODEL`.
+
+Create the compact public replay and target evidence sheet with:
+
+```bash
+python scripts/phase5a_make_public_25x_demo.py \
+  --input-gif outputs/online_interest_run/report/online_interest_exploration.gif \
+  --summary-json outputs/online_interest_run/online_summary.json \
+  --output-gif outputs/online_interest_run/report/online_interest_exploration_25x.gif \
+  --output-showcase outputs/online_interest_run/report/confirmed_task_targets.png \
+  --playback-speed 25 \
+  --source-step-stride 3
+```
 
 ## Key Reports
 

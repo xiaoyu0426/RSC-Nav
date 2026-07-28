@@ -292,7 +292,7 @@ def _html_report(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>RSC-Nav Explore, Correct, Plan and Execute</title>
+<title>RSC-Nav 实时环境熟悉与寻杯任务</title>
 <style>
 :root{{--bg:#0d1217;--panel:#151d24;--line:#2a3741;--text:#eef3f5;--muted:#9aabb7;--accent:#65d2ad;--gold:#e5b74e}}
 *{{box-sizing:border-box}} body{{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 ui-sans-serif,system-ui,sans-serif}}
@@ -310,7 +310,7 @@ pre{{white-space:pre-wrap;overflow-wrap:anywhere;background:#0b1014;padding:14px
 </head>
 <body>
 <header>
-		  <h1>自主探索 → 一次纠偏 → API 任务执行</h1>
+		  <h1>实时熟悉环境 → 执行寻找并汇报所有水杯任务</h1>
 	  <p>运行时任务：{html.escape(str(summary.get("task", "")))}</p>
 	  <p>这不是先录制再批处理：每一步均按 observe → GroundingDINO → 3D/BEV → object memory → interest policy → Habitat action 顺序执行。</p>
 		  <p>任务在 step <code>{html.escape(str(task_injection_step))}</code> 才注入；此前只做与任务无关的环境熟悉。Qwen3-Max 只排序语义候选，底层路径仍由传统 BEV/navmesh 执行。</p>

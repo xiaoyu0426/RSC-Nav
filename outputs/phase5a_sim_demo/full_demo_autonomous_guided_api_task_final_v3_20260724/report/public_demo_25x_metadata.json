@@ -1,0 +1,61 @@
+{
+  "input_gif": "online_interest_exploration.gif",
+  "output_gif": "online_interest_exploration_25x.gif",
+  "output_showcase": "confirmed_task_targets.png",
+  "playback_speed": 25.0,
+  "source_step_stride": 3,
+  "frame_count": 257,
+  "source_duration_s": 92.52,
+  "planned_output_duration_s": 30.84,
+  "encoded_output_duration_s": 30.72,
+  "target_selections": [
+    {
+      "track_id": 52,
+      "evidence_step": 435,
+      "source_frame_index": 145,
+      "confidence": 0.28978001717670765,
+      "views": 9,
+      "position_3d": [
+        -5.423127174377441,
+        -0.8087754249572754,
+        -1.0600578784942627
+      ]
+    },
+    {
+      "track_id": 89,
+      "evidence_step": 756,
+      "source_frame_index": 252,
+      "confidence": 0.2867849766780107,
+      "views": 12,
+      "position_3d": [
+        -7.259252071380615,
+        -0.8352572917938232,
+        -1.0163748264312744
+      ]
+    },
+    {
+      "track_id": 179,
+      "evidence_step": 504,
+      "source_frame_index": 168,
+      "confidence": 0.2826568249932147,
+      "views": 8,
+      "position_3d": [
+        -2.7557122707366943,
+        -1.4287456274032593,
+        2.299983263015747
+      ]
+    },
+    {
+      "track_id": 206,
+      "evidence_step": 701,
+      "source_frame_index": 234,
+      "confidence": 0.29311261686016904,
+      "views": 5,
+      "position_3d": [
+        -0.6290279626846313,
+        0.2336069792509079,
+        5.205253601074219
+      ]
+    }
+  ]
+}
