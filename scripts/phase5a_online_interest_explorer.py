@@ -1413,7 +1413,22 @@ def main() -> None:
                     item["candidate_id"]
                     for item in task_search_ranking
                 ]
-                if task_candidate_order != order_before_update:
+                ranking_top_changed = (
+                    (task_candidate_order[0] if task_candidate_order else None)
+                    != (
+                        order_before_update[0]
+                        if order_before_update
+                        else None
+                    )
+                )
+                ranking_membership_changed = (
+                    set(task_candidate_order) != set(order_before_update)
+                )
+                if (
+                    ranking_top_changed
+                    or ranking_membership_changed
+                    or bool(new_candidate_ids)
+                ):
                     replan_event = {
                         "step": step,
                         "event": "search_priority_replanned",
