@@ -21,6 +21,14 @@ class DoorTaskProfileTests(unittest.TestCase):
             DOOR_TASK_PROFILE.canonical_label("cabinet door"),
             "cabinet door",
         )
+        self.assertNotIn(
+            "cabinet door",
+            DOOR_TASK_PROFILE.detector_labels,
+        )
+        self.assertIn(
+            "cabinet door",
+            DOOR_TASK_PROFILE.verifier_labels,
+        )
 
     def test_planner_uses_only_grounded_door_candidates(self) -> None:
         tracks = [

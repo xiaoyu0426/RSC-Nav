@@ -38,11 +38,7 @@ DOOR_TASK_PROFILE = SemanticTaskProfile(
     detector_labels=(
         "door",
         "doorway",
-        "open door",
-        "closed door",
         "window",
-        "cabinet door",
-        "refrigerator",
         "table",
         "chair",
         "sofa",
@@ -72,8 +68,8 @@ DOOR_TASK_PROFILE = SemanticTaskProfile(
     confirmation_min_depth_relief_m=0.0,
     confirmation_min_depth_relief_passes=0,
     confirmation_max_position_spread_m=0.75,
-    track_merge_radius_m=0.55,
-    dynamic_target_merge_radius_m=0.85,
+    track_merge_radius_m=0.75,
+    dynamic_target_merge_radius_m=1.10,
 )
 
 
