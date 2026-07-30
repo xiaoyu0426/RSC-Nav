@@ -6,41 +6,35 @@ RSC-Nav studies a map-then-task navigation loop: an agent first builds reusable 
 
 ## Demo
 
-### Case: Familiarize the environment online, then find and report all cups
+### Case: Familiarize the environment online, then find and report all doors
 
-![RSC-Nav goal-centric online cup-search demo](outputs/phase5a_sim_demo/vlm_goal_caption_20260730/rscnav_goal_caption_30s.gif)
+![RSC-Nav goal-centric online door-search demo](outputs/phase5a_sim_demo/door_goal_caption_20260730/rscnav_goal_caption_30s.gif)
 
 This 30-second GIF is a curated replay of one live Habitat episode. Repetitive
-navigation is shown at approximately 25x speed, while task injection, evidence
-updates, verification, and replanning decisions are held long enough to read.
-Each `AGENT PLAN / WHY / NEXT / EVIDENCE` caption is reconstructed from the
-current trace record only and records its source fields in the accompanying
-[caption metadata](outputs/phase5a_sim_demo/vlm_goal_caption_20260730/rscnav_goal_caption_metadata.json).
+navigation is shown at approximately 25x speed, while key API planning and
+verification decisions are held long enough to read. The first 15 seconds show
+task-hidden online familiarization and reusable spatial-memory construction;
+the next 12.6 seconds show task execution, and the final 2.4 seconds report the
+result. Each `PLAN / WHY / NEXT / EVIDENCE` caption is grounded in the current
+trace record and documented in the accompanying
+[caption metadata](outputs/phase5a_sim_demo/door_goal_caption_20260730/rscnav_goal_caption_metadata.json).
 
-The episode contains 878 live Habitat steps. The task remains hidden during
-online familiarization and is injected at step 347. Qwen3-VL-Plus summarizes
-eight causal keyframes and grounded scene regions, then Qwen3-Max plans the
-semantic search. GroundingDINO, RGB-D projection, object memory, search beliefs,
-and low-level execution continue online after task injection.
+The episode contains 873 live Habitat steps. The task is injected at step 347.
+Qwen3-VL-Plus summarizes causal scene evidence, Qwen3-Max produces the semantic
+search plan, and GroundingDINO, RGB-D projection, object memory, search belief,
+navigation, independent re-observation, and VLM verification continue online.
 
-The trace exposes both successful and failed reasoning transitions:
-
-- cup hypothesis `track_90` is rejected as a planar surface at step 431;
-- inspecting table `track_99` produces new cup evidence and raises its search
-  belief from `0.75` to `0.94`;
-- `track_232` is skipped after its inspection waypoint is unreachable;
-- an observable sweep of dining table `track_254` finds no cup evidence and
-  lowers its belief from `0.70` to `0.21`.
-
-Zero cup candidates pass the strict confirmation gate, so this run does
-**not** complete the task and the planner does not claim success. It
-demonstrates grounded scene-aware search, evidence-driven belief revision, and
-fail-closed reporting; active confirmation-viewpoint selection remains the next
-demo bottleneck.
+The run strictly verifies `track_190` as a human-passable doorway with Qwen VLM
+confidence `0.95`. It also rejects five grounded lookalikes, including windows,
+a closet interior, and a wall panel. Two additional candidates fail during
+navigation. Therefore the run demonstrates a complete live
+observe-map-plan-navigate-verify loop, but **only partially completes** the
+"find all doors" task; candidate fragmentation and failed candidate approaches
+remain the main coverage bottlenecks.
 
 #### Task result
 
-![Goal-centric task result](outputs/phase5a_sim_demo/vlm_goal_caption_20260730/rscnav_goal_caption_result.png)
+![Goal-centric task result](outputs/phase5a_sim_demo/door_goal_caption_20260730/rscnav_goal_caption_result.png)
 
 Semantic oracle data is unavailable to the online policy. Exact Habitat pose
 and complete-scene navmesh shortest paths remain privileged geometric inputs
@@ -60,7 +54,7 @@ pose for projection and complete-scene navmesh queries for low-level execution,
 so it validates the semantic loop rather than a full real-world localization
 stack.
 
-The default profile for the next live run is now:
+The current live profile is:
 
 ```text
 Familiarize online -> one guided coverage correction
@@ -72,9 +66,8 @@ For this profile, `door`, `doorway`, `open door`, and `closed door` are
 canonicalized to the target class `door`. `window`, `cabinet door`,
 `refrigerator door`, `wall panel`, and `mirror` are verifier negatives rather
 than task targets. Door verification uses independent task-stage views, crop
-classification, and 3D consistency; it deliberately disables the cup-specific
-depth-relief gate because a valid door is planar. The published GIF above
-remains the preceding cup-search Case and is not relabeled retroactively.
+classification, 3D consistency, and a Qwen VLM tie-break; it deliberately
+disables the cup-specific depth-relief gate because a valid door is planar.
 
 The real-world roadmap explicitly includes:
 

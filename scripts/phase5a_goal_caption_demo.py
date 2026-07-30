@@ -51,6 +51,12 @@ def main() -> None:
     parser.add_argument("--run-dir", required=True)
     parser.add_argument("--out-dir")
     parser.add_argument("--target-duration-s", type=float, default=30.0)
+    parser.add_argument(
+        "--familiarization-share",
+        type=float,
+        default=0.5,
+        help="Share of the full demo reserved for pre-task familiarization.",
+    )
     parser.add_argument("--gif-width", type=int, default=960)
     parser.add_argument("--palette-colors", type=int, default=192)
     args = parser.parse_args()
@@ -74,11 +80,25 @@ def main() -> None:
             f"Frame/trace length mismatch: {len(frames)} != {len(trace)}"
         )
 
+    target_duration_ms = max(5000, round(args.target_duration_s * 1000))
+    closing_duration_ms = min(2400, target_duration_ms // 3)
+    frame_budget_ms = target_duration_ms - closing_duration_ms
+    familiarization_share = float(args.familiarization_share)
+    if not 0.0 < familiarization_share < 1.0:
+        parser.error("--familiarization-share must be between 0 and 1")
+    requested_familiarization_ms = min(
+        frame_budget_ms,
+        round(target_duration_ms * familiarization_share),
+    )
+
     selection = _select_demo_steps(trace)
-    durations = _allocate_durations(
-        selection,
-        trace,
-        target_duration_ms=max(5000, round(args.target_duration_s * 1000)),
+    durations, familiarization_duration_ms, execution_duration_ms = (
+        _allocate_durations(
+            selection,
+            trace,
+            target_duration_ms=frame_budget_ms,
+            familiarization_budget_ms=requested_familiarization_ms,
+        )
     )
     bev_crop_box = _bev_crop_box(run_dir)
     rendered_paths: list[Path] = []
@@ -132,11 +152,6 @@ def main() -> None:
     )
     closing.save(closing_path, quality=92, subsampling=1)
     rendered_paths.append(closing_path)
-    closing_duration_ms = 2400
-
-    target_duration_ms = max(5000, round(args.target_duration_s * 1000))
-    frame_budget_ms = target_duration_ms - closing_duration_ms
-    durations = _rescale_durations(durations, frame_budget_ms)
     all_durations = durations + [closing_duration_ms]
 
     gif_path = out_dir / "rscnav_goal_caption_30s.gif"
@@ -165,9 +180,16 @@ def main() -> None:
                 "output_frames": len(rendered_paths),
                 "duration_s": sum(all_durations) / 1000.0,
                 "timing_contract": (
-                    "Navigation is curated at approximately 25x; key decisions "
-                    "are held for readability."
+                    "Pre-task online familiarization receives "
+                    f"{familiarization_share:.0%} of the full demo; navigation "
+                    "is curated at approximately 25x and key decisions are "
+                    "held for readability."
                 ),
+                "duration_allocation_s": {
+                    "familiarization": familiarization_duration_ms / 1000.0,
+                    "task_execution": execution_duration_ms / 1000.0,
+                    "closing_result": closing_duration_ms / 1000.0,
+                },
                 "caption_contract": {
                     "trace_grounded": True,
                     "stored_caption_preferred": True,
@@ -243,7 +265,8 @@ def _allocate_durations(
     trace: list[dict[str, Any]],
     *,
     target_duration_ms: int,
-) -> list[int]:
+    familiarization_budget_ms: int,
+) -> tuple[list[int], int, int]:
     weights: list[int] = []
     previous_candidate: str | None = None
     for step in selection:
@@ -264,7 +287,56 @@ def _allocate_durations(
             weight = max(weight, 1500)
         weights.append(weight)
         previous_candidate = candidate or previous_candidate
-    return _rescale_durations(weights, target_duration_ms)
+
+    familiarization_indexes = [
+        index
+        for index, step in enumerate(selection)
+        if trace[step].get("task") is None
+    ]
+    execution_indexes = [
+        index
+        for index, step in enumerate(selection)
+        if trace[step].get("task") is not None
+    ]
+    if not familiarization_indexes:
+        return (
+            _rescale_durations(weights, target_duration_ms),
+            0,
+            target_duration_ms,
+        )
+    if not execution_indexes:
+        return (
+            _rescale_durations(weights, target_duration_ms),
+            target_duration_ms,
+            0,
+        )
+
+    familiarization_duration_ms = max(
+        0,
+        min(target_duration_ms, int(familiarization_budget_ms)),
+    )
+    execution_duration_ms = target_duration_ms - familiarization_duration_ms
+    durations = [0] * len(selection)
+    familiarization_durations = _rescale_durations(
+        [weights[index] for index in familiarization_indexes],
+        familiarization_duration_ms,
+    )
+    execution_durations = _rescale_durations(
+        [weights[index] for index in execution_indexes],
+        execution_duration_ms,
+    )
+    for index, duration in zip(
+        familiarization_indexes,
+        familiarization_durations,
+    ):
+        durations[index] = duration
+    for index, duration in zip(execution_indexes, execution_durations):
+        durations[index] = duration
+    return (
+        durations,
+        sum(familiarization_durations),
+        sum(execution_durations),
+    )
 
 
 def _rescale_durations(durations: list[int], target_ms: int) -> list[int]:
@@ -513,7 +585,9 @@ def _compose_closing_frame(
     target_label: str,
 ) -> Image.Image:
     result = _result_summary(summary)
-    evidence_step = result.get("positive_support_step")
+    evidence_step = result.get("verified_step")
+    if evidence_step is None:
+        evidence_step = result.get("positive_support_step")
     if evidence_step is None:
         evidence_step = len(trace) - 1
     evidence_step = max(0, min(len(trace) - 1, int(evidence_step)))
@@ -527,7 +601,7 @@ def _compose_closing_frame(
     draw.rectangle((0, 0, 660, 58), fill="#10171d")
     draw.text(
         (22, 17),
-        f"BEST POSITIVE SEARCH EVIDENCE | STEP {evidence_step}",
+        f"VERIFIED {target_label.upper()} EVIDENCE | STEP {evidence_step}",
         fill="#eef3f5",
         font=_font(20, bold=True),
     )
@@ -538,10 +612,11 @@ def _compose_closing_frame(
         fill="#eef3f5",
         font=_font(24, bold=True),
     )
-    verified = int(result["verified_cups"])
+    verified = int(result["verified_targets"])
+    verified_label = target_label if verified == 1 else _plural(target_label)
     draw.text(
         (690, 82),
-        f"{verified} strictly verified {_plural(target_label)}",
+        f"{verified} strictly verified {verified_label}",
         fill="#67d5ae" if verified else "#ef8b73",
         font=_font(34, bold=True),
     )
@@ -570,7 +645,12 @@ def _compose_closing_frame(
         "The planner found useful search evidence but did not claim task "
         "success. The remaining bottleneck is active viewpoint verification."
         if verified == 0
-        else "Verified targets are reportable; search continues for additional cups."
+        else (
+            f"Qwen VLM verified {result['verified_candidate_id']} as "
+            f"{result['observed_type']} with confidence "
+            f"{result['vlm_confidence']:.2f}. Search continues for "
+            f"additional {_plural(target_label)}."
+        )
     )
     for index, line in enumerate(
         _wrap_lines(
@@ -589,7 +669,14 @@ def _compose_closing_frame(
         )
     draw.text(
         (690, 474),
-        "Evidence image is a search observation, not a verified target crop.",
+        (
+            "This image is the live observation used at final confirmation."
+            if verified
+            else (
+                "Evidence image is a search observation, not a verified "
+                "target crop."
+            )
+        ),
         fill="#f0c768",
         font=_font(16),
     )
@@ -606,7 +693,10 @@ def _compose_closing_frame(
             f"{target_label} candidates passed the strict gate."
         )
         if verified == 0
-        else f"Goal partially completed: {verified} cups passed the strict gate."
+        else (
+            f"Goal partially completed: {verified} "
+            f"{verified_label} passed the strict gate."
+        )
     )
     draw.text(
         (30, 622),
@@ -616,7 +706,11 @@ def _compose_closing_frame(
     )
     draw.text(
         (30, 670),
-        "Next iteration: choose informative confirmation viewpoints before spending budget on lower-priority supports.",
+        (
+            "Next iteration: reduce candidate fragmentation and navigation "
+            "failures "
+            f"to cover every remaining {target_label} hypothesis."
+        ),
         fill="#67d5ae",
         font=_font(19),
     )
@@ -662,8 +756,15 @@ def _result_summary(summary: dict[str, Any]) -> dict[str, Any]:
         for event in confirmation_events
         if str(event.get("status", "")).startswith("inconclusive")
     ]
+    verified = [
+        event
+        for event in confirmation_events
+        if event.get("status") == "verified"
+    ]
+    best_verified = verified[0] if verified else {}
+    vlm_verification = best_verified.get("vlm_verification") or {}
     return {
-        "verified_cups": int(
+        "verified_targets": int(
             summary.get(
                 "num_confirmed_targets",
                 summary.get("num_confirmed_cups", 0),
@@ -675,6 +776,20 @@ def _result_summary(summary: dict[str, Any]) -> dict[str, Any]:
         "inconclusive_candidates": len(inconclusive),
         "positive_support_step": (
             int(positive[0]["step"]) if positive else None
+        ),
+        "verified_step": (
+            int(best_verified["step"])
+            if best_verified.get("step") is not None
+            else None
+        ),
+        "verified_candidate_id": str(
+            best_verified.get("candidate_id") or "verified candidate"
+        ),
+        "observed_type": str(
+            vlm_verification.get("observed_type") or "target"
+        ),
+        "vlm_confidence": float(
+            vlm_verification.get("confidence") or 0.0
         ),
     }
 

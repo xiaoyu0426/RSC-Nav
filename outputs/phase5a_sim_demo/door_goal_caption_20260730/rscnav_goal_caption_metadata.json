@@ -1,0 +1,5147 @@
+{
+  "source_run": "/workspace/yujiexiao/rscnav_door_runs/door_api_ad62206b_20260730_163726",
+  "source_commit": null,
+  "renderer_commit": null,
+  "task": "Find and report all doors in the room.",
+  "task_injection_step": 347,
+  "source_steps": 873,
+  "retained_trace_frames": 321,
+  "output_frames": 322,
+  "duration_s": 30.0,
+  "timing_contract": "Pre-task online familiarization receives 50% of the full demo; navigation is curated at approximately 25x and key decisions are held for readability.",
+  "duration_allocation_s": {
+    "familiarization": 15.0,
+    "task_execution": 12.6,
+    "closing_result": 2.4
+  },
+  "caption_contract": {
+    "trace_grounded": true,
+    "stored_caption_preferred": true,
+    "reconstruction_uses_current_record_only": true,
+    "success_requires_verified_status": true
+  },
+  "selected_steps": [
+    0,
+    1,
+    2,
+    12,
+    24,
+    36,
+    48,
+    60,
+    72,
+    84,
+    96,
+    108,
+    120,
+    132,
+    144,
+    156,
+    168,
+    180,
+    192,
+    204,
+    216,
+    228,
+    240,
+    252,
+    264,
+    276,
+    288,
+    300,
+    312,
+    324,
+    336,
+    343,
+    344,
+    345,
+    346,
+    347,
+    348,
+    349,
+    350,
+    351,
+    352,
+    353,
+    354,
+    355,
+    356,
+    357,
+    358,
+    359,
+    365,
+    371,
+    372,
+    373,
+    374,
+    375,
+    376,
+    377,
+    378,
+    379,
+    380,
+    381,
+    382,
+    383,
+    384,
+    385,
+    386,
+    387,
+    388,
+    389,
+    390,
+    391,
+    392,
+    393,
+    395,
+    401,
+    404,
+    405,
+    406,
+    407,
+    408,
+    409,
+    410,
+    411,
+    412,
+    413,
+    419,
+    425,
+    431,
+    435,
+    436,
+    437,
+    438,
+    439,
+    440,
+    441,
+    442,
+    443,
+    449,
+    455,
+    460,
+    461,
+    462,
+    463,
+    464,
+    465,
+    466,
+    467,
+    468,
+    469,
+    470,
+    471,
+    472,
+    473,
+    474,
+    479,
+    485,
+    491,
+    494,
+    495,
+    496,
+    497,
+    498,
+    499,
+    500,
+    501,
+    502,
+    503,
+    504,
+    505,
+    506,
+    509,
+    515,
+    521,
+    523,
+    524,
+    525,
+    526,
+    527,
+    528,
+    529,
+    530,
+    531,
+    533,
+    539,
+    545,
+    551,
+    555,
+    556,
+    557,
+    558,
+    559,
+    560,
+    561,
+    562,
+    563,
+    569,
+    574,
+    575,
+    576,
+    577,
+    578,
+    579,
+    580,
+    581,
+    582,
+    587,
+    593,
+    599,
+    605,
+    611,
+    613,
+    614,
+    615,
+    616,
+    617,
+    618,
+    619,
+    620,
+    621,
+    622,
+    623,
+    629,
+    634,
+    635,
+    636,
+    637,
+    638,
+    639,
+    640,
+    641,
+    642,
+    643,
+    644,
+    645,
+    646,
+    647,
+    648,
+    649,
+    650,
+    651,
+    653,
+    659,
+    665,
+    671,
+    672,
+    673,
+    674,
+    675,
+    676,
+    677,
+    678,
+    679,
+    680,
+    683,
+    689,
+    690,
+    691,
+    692,
+    693,
+    694,
+    695,
+    701,
+    705,
+    706,
+    707,
+    708,
+    709,
+    710,
+    711,
+    712,
+    713,
+    714,
+    715,
+    719,
+    720,
+    721,
+    722,
+    723,
+    725,
+    731,
+    733,
+    734,
+    735,
+    736,
+    737,
+    738,
+    739,
+    740,
+    741,
+    742,
+    743,
+    744,
+    745,
+    746,
+    747,
+    749,
+    750,
+    751,
+    752,
+    753,
+    754,
+    755,
+    756,
+    757,
+    761,
+    767,
+    773,
+    779,
+    781,
+    782,
+    783,
+    784,
+    785,
+    786,
+    787,
+    788,
+    789,
+    790,
+    791,
+    792,
+    793,
+    794,
+    797,
+    803,
+    804,
+    805,
+    806,
+    807,
+    808,
+    809,
+    810,
+    811,
+    812,
+    813,
+    814,
+    815,
+    816,
+    817,
+    818,
+    819,
+    820,
+    821,
+    827,
+    833,
+    839,
+    840,
+    841,
+    842,
+    843,
+    844,
+    845,
+    846,
+    847,
+    851,
+    857,
+    863,
+    867,
+    868,
+    869,
+    870,
+    871,
+    872
+  ],
+  "captions": [
+    {
+      "output_index": 0,
+      "step": 0,
+      "duration_ms": 4930,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 1,
+      "step": 1,
+      "duration_ms": 300,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 2,
+      "step": 2,
+      "duration_ms": 300,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 3,
+      "step": 12,
+      "duration_ms": 300,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 4,
+      "step": 24,
+      "duration_ms": 300,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 5,
+      "step": 36,
+      "duration_ms": 300,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 6,
+      "step": 48,
+      "duration_ms": 300,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 7,
+      "step": 60,
+      "duration_ms": 300,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 8,
+      "step": 72,
+      "duration_ms": 300,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 9,
+      "step": 84,
+      "duration_ms": 300,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 10,
+      "step": 96,
+      "duration_ms": 300,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 11,
+      "step": 108,
+      "duration_ms": 300,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 12,
+      "step": 120,
+      "duration_ms": 300,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 13,
+      "step": 132,
+      "duration_ms": 300,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 14,
+      "step": 144,
+      "duration_ms": 300,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 15,
+      "step": 156,
+      "duration_ms": 300,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 16,
+      "step": 168,
+      "duration_ms": 300,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 17,
+      "step": 180,
+      "duration_ms": 300,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 18,
+      "step": 192,
+      "duration_ms": 300,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 19,
+      "step": 204,
+      "duration_ms": 300,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 20,
+      "step": 216,
+      "duration_ms": 300,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 21,
+      "step": 228,
+      "duration_ms": 300,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 22,
+      "step": 240,
+      "duration_ms": 290,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 23,
+      "step": 252,
+      "duration_ms": 290,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 24,
+      "step": 264,
+      "duration_ms": 290,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 25,
+      "step": 276,
+      "duration_ms": 290,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 26,
+      "step": 288,
+      "duration_ms": 290,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 27,
+      "step": 300,
+      "duration_ms": 290,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 28,
+      "step": 312,
+      "duration_ms": 290,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 29,
+      "step": 324,
+      "duration_ms": 290,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 30,
+      "step": 336,
+      "duration_ms": 290,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 31,
+      "step": 343,
+      "duration_ms": 290,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 32,
+      "step": 344,
+      "duration_ms": 290,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 33,
+      "step": 345,
+      "duration_ms": 290,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 34,
+      "step": 346,
+      "duration_ms": 290,
+      "stage": "FAMILIARIZE",
+      "plan": "Build reusable spatial memory",
+      "why": "The task is still hidden. Update geometry, object tracks, and room anchors from the current RGB-D observation.",
+      "next": "Move to the next high-information reachable view.",
+      "evidence": "No task-specific evidence is available to the agent.",
+      "source_fields": [
+        "task",
+        "interest.mode"
+      ]
+    },
+    {
+      "output_index": 35,
+      "step": 347,
+      "duration_ms": 160,
+      "stage": "PLAN",
+      "plan": "Task received: find and report all doors",
+      "why": "Use grounded object memory and scene context to rank direct door hypotheses before likely support surfaces.",
+      "next": "Initialize search beliefs from grounded planner candidates.",
+      "evidence": "Planner response: qwen3-max; grounded ranking is initializing.",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.task_injected_and_planned",
+        "task",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 36,
+      "step": 348,
+      "duration_ms": 40,
+      "stage": "REPLAN",
+      "plan": "Choose the next search hypothesis",
+      "why": "No active candidate is currently assigned to the executor.",
+      "next": "Wait for grounded candidates, then replan.",
+      "evidence": "No ranked hypothesis is available.",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 37,
+      "step": 349,
+      "duration_ms": 40,
+      "stage": "REPLAN",
+      "plan": "Choose the next search hypothesis",
+      "why": "No active candidate is currently assigned to the executor.",
+      "next": "Wait for grounded candidates, then replan.",
+      "evidence": "No ranked hypothesis is available.",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 38,
+      "step": 350,
+      "duration_ms": 40,
+      "stage": "REPLAN",
+      "plan": "Choose the next search hypothesis",
+      "why": "No active candidate is currently assigned to the executor.",
+      "next": "Wait for grounded candidates, then replan.",
+      "evidence": "No ranked hypothesis is available.",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 39,
+      "step": 351,
+      "duration_ms": 40,
+      "stage": "REPLAN",
+      "plan": "Choose the next search hypothesis",
+      "why": "No active candidate is currently assigned to the executor.",
+      "next": "Wait for grounded candidates, then replan.",
+      "evidence": "No ranked hypothesis is available.",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 40,
+      "step": 352,
+      "duration_ms": 40,
+      "stage": "REPLAN",
+      "plan": "Choose the next search hypothesis",
+      "why": "No active candidate is currently assigned to the executor.",
+      "next": "Wait for grounded candidates, then replan.",
+      "evidence": "No ranked hypothesis is available.",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 41,
+      "step": 353,
+      "duration_ms": 40,
+      "stage": "REPLAN",
+      "plan": "Choose the next search hypothesis",
+      "why": "No active candidate is currently assigned to the executor.",
+      "next": "Wait for grounded candidates, then replan.",
+      "evidence": "No ranked hypothesis is available.",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 42,
+      "step": 354,
+      "duration_ms": 40,
+      "stage": "REPLAN",
+      "plan": "Choose the next search hypothesis",
+      "why": "No active candidate is currently assigned to the executor.",
+      "next": "Wait for grounded candidates, then replan.",
+      "evidence": "No ranked hypothesis is available.",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 43,
+      "step": 355,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_192",
+      "why": "A detector candidate is not a result. Independent RGB-D views must confirm visual identity and 3D relief.",
+      "next": "Hold the target in view and collect translated observations.",
+      "evidence": "track_192: door | posterior 0.95",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.target_candidate_reobservation_started",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 44,
+      "step": 356,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_192",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_192: door | posterior 0.95",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 45,
+      "step": 357,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Gather evidence for track_192",
+      "why": "Current gate status is insufficient_task_views; 1 independent views and 0 visual passes are recorded.",
+      "next": "Continue until the strict confirmation gate resolves.",
+      "evidence": "track_192: door | posterior 0.95",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.target_confirmation_observation",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 46,
+      "step": 358,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_192",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_192: door | posterior 0.95",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 47,
+      "step": 359,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_192",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_192: door | posterior 0.95",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 48,
+      "step": 365,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_192",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_192: door | posterior 0.95",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 49,
+      "step": 371,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_192",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_192: door | posterior 0.95",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 50,
+      "step": 372,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_192",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_192: door | posterior 0.95",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 51,
+      "step": 373,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_192",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_192: door | posterior 0.95",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 52,
+      "step": 374,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_192",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_192: door | posterior 0.95",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 53,
+      "step": 375,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_192",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_192: door | posterior 0.95",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 54,
+      "step": 376,
+      "duration_ms": 40,
+      "stage": "REPLAN",
+      "plan": "Add newly observed hypotheses",
+      "why": "Online grounding produced candidates that were absent when the task was first planned.",
+      "next": "Re-rank direct doors and support surfaces with current evidence.",
+      "evidence": "New candidates: track_266",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.online_memory_candidates_appended",
+        "task_plan_events.candidate_ids"
+      ]
+    },
+    {
+      "output_index": 55,
+      "step": 377,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_192",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_192: door | posterior 0.95",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 56,
+      "step": 378,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_192",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_192: door | posterior 0.95",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 57,
+      "step": 379,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_192",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_192: door | posterior 0.95",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 58,
+      "step": 380,
+      "duration_ms": 40,
+      "stage": "REPLAN",
+      "plan": "Add newly observed hypotheses",
+      "why": "Online grounding produced candidates that were absent when the task was first planned.",
+      "next": "Re-rank direct doors and support surfaces with current evidence.",
+      "evidence": "New candidates: track_187",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.online_memory_candidates_appended",
+        "task_plan_events.candidate_ids"
+      ]
+    },
+    {
+      "output_index": 59,
+      "step": 381,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_192",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_192: door | posterior 0.95",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 60,
+      "step": 382,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_192",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_192: door | posterior 0.95",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 61,
+      "step": 383,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Gather evidence for track_192",
+      "why": "Current gate status is insufficient_visual_evidence; 2 independent views and 1 visual passes are recorded.",
+      "next": "Continue until the strict confirmation gate resolves.",
+      "evidence": "track_192: door | posterior 0.95",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.target_confirmation_observation",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 62,
+      "step": 384,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_192",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_192: door | posterior 0.95",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 63,
+      "step": 385,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_192",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_192: door | posterior 0.95",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 64,
+      "step": 386,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_192",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_192: door | posterior 0.95",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 65,
+      "step": 387,
+      "duration_ms": 200,
+      "stage": "REPLAN",
+      "plan": "Reject door hypothesis track_192",
+      "why": "Strict confirmation resolved it as vlm verifier.",
+      "next": "Remove it from the result set and inspect the next hypothesis.",
+      "evidence": "track_192: rejected_vlm_verifier | views 2 | visual +1/-0",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.target_confirmation_completed",
+        "task_plan_events.belief_update"
+      ]
+    },
+    {
+      "output_index": 66,
+      "step": 388,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_236",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_236: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 67,
+      "step": 389,
+      "duration_ms": 40,
+      "stage": "REPLAN",
+      "plan": "Add newly observed hypotheses",
+      "why": "Online grounding produced candidates that were absent when the task was first planned.",
+      "next": "Re-rank direct doors and support surfaces with current evidence.",
+      "evidence": "New candidates: track_190",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.online_memory_candidates_appended",
+        "task_plan_events.candidate_ids"
+      ]
+    },
+    {
+      "output_index": 68,
+      "step": 390,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_236",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_236: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 69,
+      "step": 391,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_236",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_236: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 70,
+      "step": 392,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_236",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_236: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 71,
+      "step": 393,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_236",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_236: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 72,
+      "step": 395,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_236",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_236: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 73,
+      "step": 401,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_236",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_236: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 74,
+      "step": 404,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_236",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_236: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 75,
+      "step": 405,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_236",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_236: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 76,
+      "step": 406,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_236",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_236: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 77,
+      "step": 407,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_236",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_236: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 78,
+      "step": 408,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_236",
+      "why": "A detector candidate is not a result. Independent RGB-D views must confirm visual identity and 3D relief.",
+      "next": "Hold the target in view and collect translated observations.",
+      "evidence": "track_236: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.target_candidate_reobservation_started",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 79,
+      "step": 409,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_236",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_236: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 80,
+      "step": 410,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_236",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_236: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 81,
+      "step": 411,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_236",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_236: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 82,
+      "step": 412,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_236",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_236: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 83,
+      "step": 413,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_236",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_236: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 84,
+      "step": 419,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_236",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_236: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 85,
+      "step": 425,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_236",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_236: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 86,
+      "step": 431,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_236",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_236: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 87,
+      "step": 435,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_236",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_236: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 88,
+      "step": 436,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_236",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_236: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 89,
+      "step": 437,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_236",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_236: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 90,
+      "step": 438,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_236",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_236: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 91,
+      "step": 439,
+      "duration_ms": 60,
+      "stage": "REPLAN",
+      "plan": "Keep track_236 inconclusive",
+      "why": "The bounded verification attempt did not produce enough evidence.",
+      "next": "Deprioritize it for now and continue with the next hypothesis.",
+      "evidence": "track_236: insufficient_task_views | views 1 | visual +1/-0",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.target_confirmation_retry_scheduled",
+        "task_plan_events.belief_update"
+      ]
+    },
+    {
+      "output_index": 92,
+      "step": 440,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_277",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_277: door | posterior 0.70",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 93,
+      "step": 441,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_277",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_277: door | posterior 0.70",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 94,
+      "step": 442,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_277",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_277: door | posterior 0.70",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 95,
+      "step": 443,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_277",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_277: door | posterior 0.70",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 96,
+      "step": 449,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_277",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_277: door | posterior 0.70",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 97,
+      "step": 455,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_277",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_277: door | posterior 0.70",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 98,
+      "step": 460,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_277",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_277: door | posterior 0.70",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 99,
+      "step": 461,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_277",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_277: door | posterior 0.70",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 100,
+      "step": 462,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_277",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_277: door | posterior 0.70",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 101,
+      "step": 463,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_277",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_277: door | posterior 0.70",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 102,
+      "step": 464,
+      "duration_ms": 40,
+      "stage": "REPLAN",
+      "plan": "Add newly observed hypotheses",
+      "why": "Online grounding produced candidates that were absent when the task was first planned.",
+      "next": "Re-rank direct doors and support surfaces with current evidence.",
+      "evidence": "New candidates: track_295",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.online_memory_candidates_appended",
+        "task_plan_events.candidate_ids"
+      ]
+    },
+    {
+      "output_index": 103,
+      "step": 465,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_277",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_277: door | posterior 0.70",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 104,
+      "step": 466,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_277",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_277: door | posterior 0.70",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 105,
+      "step": 467,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_277",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_277: door | posterior 0.70",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 106,
+      "step": 468,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_277",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_277: door | posterior 0.70",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 107,
+      "step": 469,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_277",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_277: door | posterior 0.70",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 108,
+      "step": 470,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_277",
+      "why": "A detector candidate is not a result. Independent RGB-D views must confirm visual identity and 3D relief.",
+      "next": "Hold the target in view and collect translated observations.",
+      "evidence": "track_277: door | posterior 0.70",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.target_candidate_reobservation_started",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 109,
+      "step": 471,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_277",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_277: door | posterior 0.70",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 110,
+      "step": 472,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_277",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_277: door | posterior 0.70",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 111,
+      "step": 473,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_277",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_277: door | posterior 0.70",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 112,
+      "step": 474,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_277",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_277: door | posterior 0.70",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 113,
+      "step": 479,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_277",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_277: door | posterior 0.70",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 114,
+      "step": 485,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Gather evidence for track_277",
+      "why": "Current gate status is rejected_visual_verifier; 2 independent views and 0 visual passes are recorded.",
+      "next": "Continue until the strict confirmation gate resolves.",
+      "evidence": "track_277: door | posterior 0.70",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.target_confirmation_observation",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 115,
+      "step": 491,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_277",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_277: door | posterior 0.70",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 116,
+      "step": 494,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_277",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_277: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 117,
+      "step": 495,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_277",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_277: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 118,
+      "step": 496,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_277",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_277: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 119,
+      "step": 497,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_277",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_277: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 120,
+      "step": 498,
+      "duration_ms": 200,
+      "stage": "REPLAN",
+      "plan": "Reject door hypothesis track_277",
+      "why": "Strict confirmation resolved it as vlm verifier.",
+      "next": "Remove it from the result set and inspect the next hypothesis.",
+      "evidence": "track_277: rejected_vlm_verifier | views 2 | visual +0/-2",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.target_confirmation_completed",
+        "task_plan_events.belief_update"
+      ]
+    },
+    {
+      "output_index": 121,
+      "step": 499,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_190",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_190: door | posterior 0.99",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 122,
+      "step": 500,
+      "duration_ms": 40,
+      "stage": "REPLAN",
+      "plan": "Add newly observed hypotheses",
+      "why": "Online grounding produced candidates that were absent when the task was first planned.",
+      "next": "Re-rank direct doors and support surfaces with current evidence.",
+      "evidence": "New candidates: track_278",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.online_memory_candidates_appended",
+        "task_plan_events.candidate_ids"
+      ]
+    },
+    {
+      "output_index": 123,
+      "step": 501,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_190",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_190: door | posterior 0.99",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 124,
+      "step": 502,
+      "duration_ms": 40,
+      "stage": "REPLAN",
+      "plan": "Add newly observed hypotheses",
+      "why": "Online grounding produced candidates that were absent when the task was first planned.",
+      "next": "Re-rank direct doors and support surfaces with current evidence.",
+      "evidence": "New candidates: track_308",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.online_memory_candidates_appended",
+        "task_plan_events.candidate_ids"
+      ]
+    },
+    {
+      "output_index": 125,
+      "step": 503,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_190",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_190: door | posterior 0.99",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 126,
+      "step": 504,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_190",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_190: door | posterior 0.99",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 127,
+      "step": 505,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_190",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_190: door | posterior 0.99",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 128,
+      "step": 506,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_190",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_190: door | posterior 0.99",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 129,
+      "step": 509,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_190",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_190: door | posterior 0.99",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 130,
+      "step": 515,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_190",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_190: door | posterior 0.99",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 131,
+      "step": 521,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_190",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_190: door | posterior 0.99",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 132,
+      "step": 523,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_190",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_190: door | posterior 0.99",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 133,
+      "step": 524,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_190",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_190: door | posterior 0.99",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 134,
+      "step": 525,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_190",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_190: door | posterior 0.99",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 135,
+      "step": 526,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_190",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_190: door | posterior 0.99",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 136,
+      "step": 527,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_190",
+      "why": "A detector candidate is not a result. Independent RGB-D views must confirm visual identity and 3D relief.",
+      "next": "Hold the target in view and collect translated observations.",
+      "evidence": "track_190: door | posterior 0.99",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.target_candidate_reobservation_started",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 137,
+      "step": 528,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_190",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_190: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 138,
+      "step": 529,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_190",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_190: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 139,
+      "step": 530,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_190",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_190: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 140,
+      "step": 531,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_190",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_190: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 141,
+      "step": 533,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_190",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_190: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 142,
+      "step": 539,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_190",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_190: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 143,
+      "step": 545,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_190",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_190: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 144,
+      "step": 551,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_190",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_190: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 145,
+      "step": 555,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Gather evidence for track_190",
+      "why": "Current gate status is insufficient_visual_evidence; 2 independent views and 0 visual passes are recorded.",
+      "next": "Continue until the strict confirmation gate resolves.",
+      "evidence": "track_190: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.target_confirmation_observation",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 146,
+      "step": 556,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_190",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_190: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 147,
+      "step": 557,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_190",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_190: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 148,
+      "step": 558,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_190",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_190: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 149,
+      "step": 559,
+      "duration_ms": 200,
+      "stage": "CONFIRMED",
+      "plan": "Verify door track_190",
+      "why": "The candidate passed the independent-view, visual, and 3D gate.",
+      "next": "Store the verified location and continue searching for other doors.",
+      "evidence": "track_190: verified | views 2 | visual +0/-1",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.target_confirmation_completed",
+        "task_plan_events.belief_update"
+      ]
+    },
+    {
+      "output_index": 150,
+      "step": 560,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_278",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_278: door | posterior 0.91",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 151,
+      "step": 561,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_278",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_278: door | posterior 0.91",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 152,
+      "step": 562,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_278",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_278: door | posterior 0.91",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 153,
+      "step": 563,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_278",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_278: door | posterior 0.91",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 154,
+      "step": 569,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_278",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_278: door | posterior 0.91",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 155,
+      "step": 574,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_278",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_278: door | posterior 0.91",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 156,
+      "step": 575,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_278",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_278: door | posterior 0.91",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 157,
+      "step": 576,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_278",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_278: door | posterior 0.91",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 158,
+      "step": 577,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_278",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_278: door | posterior 0.91",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 159,
+      "step": 578,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_197",
+      "why": "A detector candidate is not a result. Independent RGB-D views must confirm visual identity and 3D relief.",
+      "next": "Hold the target in view and collect translated observations.",
+      "evidence": "track_197: door | posterior 0.95",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.target_candidate_reobservation_started",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 160,
+      "step": 579,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_197",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_197: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 161,
+      "step": 580,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_197",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_197: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 162,
+      "step": 581,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_197",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_197: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 163,
+      "step": 582,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_197",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_197: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 164,
+      "step": 587,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Gather evidence for track_197",
+      "why": "Current gate status is insufficient_task_views; 1 independent views and 1 visual passes are recorded.",
+      "next": "Continue until the strict confirmation gate resolves.",
+      "evidence": "track_197: door | posterior 0.95",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.target_confirmation_observation",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 165,
+      "step": 593,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_197",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_197: door | posterior 0.95",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 166,
+      "step": 599,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_197",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_197: door | posterior 0.95",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 167,
+      "step": 605,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_197",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_197: door | posterior 0.95",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 168,
+      "step": 611,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_197",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_197: door | posterior 0.95",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 169,
+      "step": 613,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_197",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_197: door | posterior 0.95",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 170,
+      "step": 614,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_197",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_197: door | posterior 0.95",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 171,
+      "step": 615,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_197",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_197: door | posterior 0.95",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 172,
+      "step": 616,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_197",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_197: door | posterior 0.95",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 173,
+      "step": 617,
+      "duration_ms": 200,
+      "stage": "REPLAN",
+      "plan": "Reject door hypothesis track_197",
+      "why": "Strict confirmation resolved it as vlm verifier.",
+      "next": "Remove it from the result set and inspect the next hypothesis.",
+      "evidence": "track_197: rejected_vlm_verifier | views 2 | visual +1/-0",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.target_confirmation_completed",
+        "task_plan_events.belief_update"
+      ]
+    },
+    {
+      "output_index": 174,
+      "step": 618,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_112",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_112: door | posterior 0.90 | room kitchen",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 175,
+      "step": 619,
+      "duration_ms": 40,
+      "stage": "REPLAN",
+      "plan": "Add newly observed hypotheses",
+      "why": "Online grounding produced candidates that were absent when the task was first planned.",
+      "next": "Re-rank direct doors and support surfaces with current evidence.",
+      "evidence": "New candidates: track_286",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.online_memory_candidates_appended",
+        "task_plan_events.candidate_ids"
+      ]
+    },
+    {
+      "output_index": 176,
+      "step": 620,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_112",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_112: door | posterior 0.90 | room kitchen",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 177,
+      "step": 621,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_112",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_112: door | posterior 0.90 | room kitchen",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 178,
+      "step": 622,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_112",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_112: door | posterior 0.90 | room kitchen",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 179,
+      "step": 623,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_112",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_112: door | posterior 0.90 | room kitchen",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 180,
+      "step": 629,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_112",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_112: door | posterior 0.90 | room kitchen",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 181,
+      "step": 634,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_112",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_112: door | posterior 0.90 | room kitchen",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 182,
+      "step": 635,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_112",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_112: door | posterior 0.90 | room kitchen",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 183,
+      "step": 636,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_112",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_112: door | posterior 0.90 | room kitchen",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 184,
+      "step": 637,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_112",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_112: door | posterior 0.90 | room kitchen",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 185,
+      "step": 638,
+      "duration_ms": 40,
+      "stage": "REPLAN",
+      "plan": "Add newly observed hypotheses",
+      "why": "Online grounding produced candidates that were absent when the task was first planned.",
+      "next": "Re-rank direct doors and support surfaces with current evidence.",
+      "evidence": "New candidates: track_177",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.online_memory_candidates_appended",
+        "task_plan_events.candidate_ids"
+      ]
+    },
+    {
+      "output_index": 186,
+      "step": 639,
+      "duration_ms": 80,
+      "stage": "REPLAN",
+      "plan": "Skip unreachable hypothesis track_112",
+      "why": "The current execution route could not reach its inspection waypoint, so this candidate cannot be evaluated now.",
+      "next": "Select the next reachable high-posterior hypothesis.",
+      "evidence": "track_112: door | posterior 0.90 | room kitchen",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.candidate_navigation_failed",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 187,
+      "step": 640,
+      "duration_ms": 40,
+      "stage": "REPORT",
+      "plan": "Preserve verified door results",
+      "why": "Only candidates that passed the strict gate may be reported.",
+      "next": "Continue searching untested high-posterior locations.",
+      "evidence": "Verified: track_190",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking",
+        "confirmed_target_track_ids"
+      ]
+    },
+    {
+      "output_index": 188,
+      "step": 641,
+      "duration_ms": 40,
+      "stage": "REPLAN",
+      "plan": "Add newly observed hypotheses",
+      "why": "Online grounding produced candidates that were absent when the task was first planned.",
+      "next": "Re-rank direct doors and support surfaces with current evidence.",
+      "evidence": "New candidates: track_136",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.online_memory_candidates_appended",
+        "task_plan_events.candidate_ids"
+      ]
+    },
+    {
+      "output_index": 189,
+      "step": 642,
+      "duration_ms": 40,
+      "stage": "REPORT",
+      "plan": "Preserve verified door results",
+      "why": "Only candidates that passed the strict gate may be reported.",
+      "next": "Continue searching untested high-posterior locations.",
+      "evidence": "Verified: track_190",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking",
+        "confirmed_target_track_ids"
+      ]
+    },
+    {
+      "output_index": 190,
+      "step": 643,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_187",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_187: door | posterior 0.75",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 191,
+      "step": 644,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_187",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_187: door | posterior 0.75",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 192,
+      "step": 645,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_187",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_187: door | posterior 0.75",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 193,
+      "step": 646,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_187",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_187: door | posterior 0.75",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 194,
+      "step": 647,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_187",
+      "why": "A detector candidate is not a result. Independent RGB-D views must confirm visual identity and 3D relief.",
+      "next": "Hold the target in view and collect translated observations.",
+      "evidence": "track_187: door | posterior 0.75",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.target_candidate_reobservation_started",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 195,
+      "step": 648,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_187",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_187: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 196,
+      "step": 649,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_187",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_187: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 197,
+      "step": 650,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_187",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_187: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 198,
+      "step": 651,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_187",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_187: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 199,
+      "step": 653,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_187",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_187: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 200,
+      "step": 659,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_187",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_187: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 201,
+      "step": 665,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_187",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_187: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 202,
+      "step": 671,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_187",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_187: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 203,
+      "step": 672,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Gather evidence for track_187",
+      "why": "Current gate status is insufficient_visual_evidence; 2 independent views and 1 visual passes are recorded.",
+      "next": "Continue until the strict confirmation gate resolves.",
+      "evidence": "track_187: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.target_confirmation_observation",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 204,
+      "step": 673,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_187",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_187: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 205,
+      "step": 674,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_187",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_187: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 206,
+      "step": 675,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_187",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_187: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 207,
+      "step": 676,
+      "duration_ms": 50,
+      "stage": "REPLAN",
+      "plan": "Keep track_187 inconclusive",
+      "why": "The bounded verification attempt did not produce enough evidence.",
+      "next": "Deprioritize it for now and continue with the next hypothesis.",
+      "evidence": "track_187: insufficient_vlm_evidence | views 2 | visual +1/-0",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.target_confirmation_retry_scheduled",
+        "task_plan_events.belief_update"
+      ]
+    },
+    {
+      "output_index": 208,
+      "step": 677,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_203",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_203: door | posterior 0.75",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 209,
+      "step": 678,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_203",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_203: door | posterior 0.75",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 210,
+      "step": 679,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_203",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_203: door | posterior 0.75",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 211,
+      "step": 680,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_203",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_203: door | posterior 0.75",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 212,
+      "step": 683,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_203",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_203: door | posterior 0.75",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 213,
+      "step": 689,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_203",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_203: door | posterior 0.75",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 214,
+      "step": 690,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_203",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_203: door | posterior 0.75",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 215,
+      "step": 691,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_203",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_203: door | posterior 0.75",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 216,
+      "step": 692,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_195",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_195: door | posterior 0.60",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 217,
+      "step": 693,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_195",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_195: door | posterior 0.60",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 218,
+      "step": 694,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_195",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_195: door | posterior 0.60",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 219,
+      "step": 695,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_195",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_195: door | posterior 0.60",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 220,
+      "step": 701,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_195",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_195: door | posterior 0.60",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 221,
+      "step": 705,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_195",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_195: door | posterior 0.60",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 222,
+      "step": 706,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_195",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_195: door | posterior 0.60",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 223,
+      "step": 707,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_195",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_195: door | posterior 0.60",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 224,
+      "step": 708,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_195",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_195: door | posterior 0.60",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 225,
+      "step": 709,
+      "duration_ms": 70,
+      "stage": "REPLAN",
+      "plan": "Skip unreachable hypothesis track_195",
+      "why": "The current execution route could not reach its inspection waypoint, so this candidate cannot be evaluated now.",
+      "next": "Select the next reachable high-posterior hypothesis.",
+      "evidence": "track_195: door | posterior 0.60",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.candidate_navigation_failed",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 226,
+      "step": 710,
+      "duration_ms": 40,
+      "stage": "REPORT",
+      "plan": "Preserve verified door results",
+      "why": "Only candidates that passed the strict gate may be reported.",
+      "next": "Continue searching untested high-posterior locations.",
+      "evidence": "Verified: track_190",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking",
+        "confirmed_target_track_ids"
+      ]
+    },
+    {
+      "output_index": 227,
+      "step": 711,
+      "duration_ms": 40,
+      "stage": "REPORT",
+      "plan": "Preserve verified door results",
+      "why": "Only candidates that passed the strict gate may be reported.",
+      "next": "Continue searching untested high-posterior locations.",
+      "evidence": "Verified: track_190",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking",
+        "confirmed_target_track_ids"
+      ]
+    },
+    {
+      "output_index": 228,
+      "step": 712,
+      "duration_ms": 40,
+      "stage": "REPORT",
+      "plan": "Preserve verified door results",
+      "why": "Only candidates that passed the strict gate may be reported.",
+      "next": "Continue searching untested high-posterior locations.",
+      "evidence": "Verified: track_190",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking",
+        "confirmed_target_track_ids"
+      ]
+    },
+    {
+      "output_index": 229,
+      "step": 713,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_203",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_203: door | posterior 0.75",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 230,
+      "step": 714,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_203",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_203: door | posterior 0.75",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 231,
+      "step": 715,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_203",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_203: door | posterior 0.75",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 232,
+      "step": 719,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_203",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_203: door | posterior 0.75",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 233,
+      "step": 720,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_203",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_203: door | posterior 0.75",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 234,
+      "step": 721,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_75",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_75: door | posterior 0.75 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 235,
+      "step": 722,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_75",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_75: door | posterior 0.75 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 236,
+      "step": 723,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_75",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_75: door | posterior 0.75 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 237,
+      "step": 725,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_75",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_75: door | posterior 0.75 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 238,
+      "step": 731,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_75",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_75: door | posterior 0.75 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 239,
+      "step": 733,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_75",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_75: door | posterior 0.75 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 240,
+      "step": 734,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_75",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_75: door | posterior 0.75 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 241,
+      "step": 735,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_75",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_75: door | posterior 0.75 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 242,
+      "step": 736,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_75",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_75: door | posterior 0.75 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 243,
+      "step": 737,
+      "duration_ms": 40,
+      "stage": "REPLAN",
+      "plan": "Add newly observed hypotheses",
+      "why": "Online grounding produced candidates that were absent when the task was first planned.",
+      "next": "Re-rank direct doors and support surfaces with current evidence.",
+      "evidence": "New candidates: track_101",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.online_memory_candidates_appended",
+        "task_plan_events.candidate_ids"
+      ]
+    },
+    {
+      "output_index": 244,
+      "step": 738,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_75",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_75: door | posterior 0.75 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 245,
+      "step": 739,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_75",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_75: door | posterior 0.75 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 246,
+      "step": 740,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_75",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_75: door | posterior 0.75 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 247,
+      "step": 741,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_75",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_75: door | posterior 0.75 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 248,
+      "step": 742,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_75",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_75: door | posterior 0.75 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 249,
+      "step": 743,
+      "duration_ms": 40,
+      "stage": "REPLAN",
+      "plan": "Add newly observed hypotheses",
+      "why": "Online grounding produced candidates that were absent when the task was first planned.",
+      "next": "Re-rank direct doors and support surfaces with current evidence.",
+      "evidence": "New candidates: track_337",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.online_memory_candidates_appended",
+        "task_plan_events.candidate_ids"
+      ]
+    },
+    {
+      "output_index": 250,
+      "step": 744,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_75",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_75: door | posterior 0.75 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 251,
+      "step": 745,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_75",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_75: door | posterior 0.75 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 252,
+      "step": 746,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_75",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_75: door | posterior 0.75 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 253,
+      "step": 747,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_75",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_75: door | posterior 0.75 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 254,
+      "step": 749,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_75",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_75: door | posterior 0.75 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 255,
+      "step": 750,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_75",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_75: door | posterior 0.75 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 256,
+      "step": 751,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_75",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_75: door | posterior 0.75 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 257,
+      "step": 752,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_75",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_75: door | posterior 0.75 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 258,
+      "step": 753,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_71",
+      "why": "A detector candidate is not a result. Independent RGB-D views must confirm visual identity and 3D relief.",
+      "next": "Hold the target in view and collect translated observations.",
+      "evidence": "track_71: door | posterior 0.80 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.target_candidate_reobservation_started",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 259,
+      "step": 754,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_71",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_71: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 260,
+      "step": 755,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_71",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_71: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 261,
+      "step": 756,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Gather evidence for track_71",
+      "why": "Current gate status is insufficient_task_views; 1 independent views and 0 visual passes are recorded.",
+      "next": "Continue until the strict confirmation gate resolves.",
+      "evidence": "track_71: door | posterior 0.80 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.target_confirmation_observation",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 262,
+      "step": 757,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_71",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_71: door | posterior 0.80 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 263,
+      "step": 761,
+      "duration_ms": 40,
+      "stage": "SEARCH",
+      "plan": "Inspect candidate track_71",
+      "why": "Its current posterior makes this a useful place to search for door evidence.",
+      "next": "Complete the observable sweep, then update its belief.",
+      "evidence": "track_71: hypothesis",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 264,
+      "step": 767,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_71",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_71: door | posterior 0.80 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 265,
+      "step": 773,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Gather evidence for track_71",
+      "why": "Current gate status is insufficient_visual_evidence; 2 independent views and 0 visual passes are recorded.",
+      "next": "Continue until the strict confirmation gate resolves.",
+      "evidence": "track_71: door | posterior 0.80 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.target_confirmation_observation",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 266,
+      "step": 779,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_71",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_71: door | posterior 0.80 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 267,
+      "step": 781,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_71",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_71: door | posterior 0.80 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 268,
+      "step": 782,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_71",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_71: door | posterior 0.80 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 269,
+      "step": 783,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_71",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_71: door | posterior 0.80 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 270,
+      "step": 784,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_71",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_71: door | posterior 0.80 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 271,
+      "step": 785,
+      "duration_ms": 190,
+      "stage": "REPLAN",
+      "plan": "Reject door hypothesis track_71",
+      "why": "Strict confirmation resolved it as vlm verifier.",
+      "next": "Remove it from the result set and inspect the next hypothesis.",
+      "evidence": "track_71: rejected_vlm_verifier | views 2 | visual +0/-1",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.target_confirmation_completed",
+        "task_plan_events.belief_update"
+      ]
+    },
+    {
+      "output_index": 272,
+      "step": 786,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_75",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_75: door | posterior 0.75 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 273,
+      "step": 787,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_75",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_75: door | posterior 0.75 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 274,
+      "step": 788,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_75",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_75: door | posterior 0.75 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 275,
+      "step": 789,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_75",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_75: door | posterior 0.75 | room dining_room",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 276,
+      "step": 790,
+      "duration_ms": 40,
+      "stage": "REPLAN",
+      "plan": "Add newly observed hypotheses",
+      "why": "Online grounding produced candidates that were absent when the task was first planned.",
+      "next": "Re-rank direct doors and support surfaces with current evidence.",
+      "evidence": "New candidates: track_5",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.online_memory_candidates_appended",
+        "task_plan_events.candidate_ids"
+      ]
+    },
+    {
+      "output_index": 277,
+      "step": 791,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_11",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 278,
+      "step": 792,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_11",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 279,
+      "step": 793,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_11",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 280,
+      "step": 794,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_11",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 281,
+      "step": 797,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_11",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 282,
+      "step": 803,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_11",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 283,
+      "step": 804,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_11",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 284,
+      "step": 805,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_11",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 285,
+      "step": 806,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_11",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 286,
+      "step": 807,
+      "duration_ms": 40,
+      "stage": "REPLAN",
+      "plan": "Add newly observed hypotheses",
+      "why": "Online grounding produced candidates that were absent when the task was first planned.",
+      "next": "Re-rank direct doors and support surfaces with current evidence.",
+      "evidence": "New candidates: track_152",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.online_memory_candidates_appended",
+        "task_plan_events.candidate_ids"
+      ]
+    },
+    {
+      "output_index": 287,
+      "step": 808,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_11",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 288,
+      "step": 809,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_11",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 289,
+      "step": 810,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_11",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 290,
+      "step": 811,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_11",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 291,
+      "step": 812,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_11",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 292,
+      "step": 813,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_11",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 293,
+      "step": 814,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_11",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 294,
+      "step": 815,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_11",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 295,
+      "step": 816,
+      "duration_ms": 40,
+      "stage": "REPLAN",
+      "plan": "Add newly observed hypotheses",
+      "why": "Online grounding produced candidates that were absent when the task was first planned.",
+      "next": "Re-rank direct doors and support surfaces with current evidence.",
+      "evidence": "New candidates: track_44",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.online_memory_candidates_appended",
+        "task_plan_events.candidate_ids"
+      ]
+    },
+    {
+      "output_index": 296,
+      "step": 817,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_11",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 297,
+      "step": 818,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_11",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 298,
+      "step": 819,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_11",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 299,
+      "step": 820,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_11",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 300,
+      "step": 821,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_11",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 301,
+      "step": 827,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_11",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 302,
+      "step": 833,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_11",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 303,
+      "step": 839,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_11",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 304,
+      "step": 840,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_11",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 305,
+      "step": 841,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_11",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 306,
+      "step": 842,
+      "duration_ms": 40,
+      "stage": "APPROACH",
+      "plan": "Approach door hypothesis track_11",
+      "why": "Direct target hypotheses are inspected before contextual supports.",
+      "next": "Reach a clear viewpoint, then start strict confirmation.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 307,
+      "step": 843,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_11",
+      "why": "A detector candidate is not a result. Independent RGB-D views must confirm visual identity and 3D relief.",
+      "next": "Hold the target in view and collect translated observations.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.target_candidate_reobservation_started",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 308,
+      "step": 844,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_11",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 309,
+      "step": 845,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_11",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 310,
+      "step": 846,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_11",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 311,
+      "step": 847,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_11",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 312,
+      "step": 851,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_11",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 313,
+      "step": 857,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_11",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 314,
+      "step": 863,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_11",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 315,
+      "step": 867,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_11",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 316,
+      "step": 868,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_11",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 317,
+      "step": 869,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_11",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 318,
+      "step": 870,
+      "duration_ms": 40,
+      "stage": "VERIFY",
+      "plan": "Verify door hypothesis track_11",
+      "why": "The candidate is visually plausible, but only independent RGB-D evidence can promote it to a reported result.",
+      "next": "Collect enough stable views to resolve the strict gate.",
+      "evidence": "track_11: door | posterior 0.85",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking"
+      ]
+    },
+    {
+      "output_index": 319,
+      "step": 871,
+      "duration_ms": 190,
+      "stage": "REPLAN",
+      "plan": "Reject door hypothesis track_11",
+      "why": "Strict confirmation resolved it as vlm verifier.",
+      "next": "Remove it from the result set and inspect the next hypothesis.",
+      "evidence": "track_11: rejected_vlm_verifier | views 2 | visual +0/-1",
+      "source_fields": [
+        "interest.mode",
+        "task_plan_events.target_confirmation_completed",
+        "task_plan_events.belief_update"
+      ]
+    },
+    {
+      "output_index": 320,
+      "step": 872,
+      "duration_ms": 40,
+      "stage": "REPORT",
+      "plan": "Preserve verified door results",
+      "why": "Only candidates that passed the strict gate may be reported.",
+      "next": "Continue searching untested high-posterior locations.",
+      "evidence": "Verified: track_190",
+      "source_fields": [
+        "interest.mode",
+        "interest.task_active_candidate_id",
+        "interest.task_search_ranking",
+        "confirmed_target_track_ids"
+      ]
+    }
+  ],
+  "closing_result": {
+    "verified_targets": 1,
+    "positive_supports": 0,
+    "negative_supports": 0,
+    "rejected_candidates": 5,
+    "inconclusive_candidates": 0,
+    "positive_support_step": null,
+    "verified_step": 559,
+    "verified_candidate_id": "track_190",
+    "observed_type": "doorway",
+    "vlm_confidence": 0.95
+  }
+}
