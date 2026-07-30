@@ -26,9 +26,13 @@ CAPTION_BOX = (0, 540, 1280, 720)
 KEY_EVENT_WEIGHTS_MS = {
     "task_injected_and_planned": 1500,
     "cup_candidate_reobservation_started": 900,
+    "target_candidate_reobservation_started": 900,
     "cup_confirmation_completed": 1700,
+    "target_confirmation_completed": 1700,
     "cup_confirmation_deferred": 1500,
+    "target_confirmation_deferred": 1500,
     "cup_confirmation_retry_scheduled": 1000,
+    "target_confirmation_retry_scheduled": 1000,
     "support_surface_inspection_started": 900,
     "support_surface_inspection_completed": 1700,
     "candidate_unreachable": 1100,
@@ -62,6 +66,7 @@ def main() -> None:
 
     metadata = _read_json(run_dir / "frames_metadata.json")
     summary = _read_json(run_dir / "online_summary.json")
+    target_label = str(summary.get("target_label") or "cup")
     trace = _read_jsonl(run_dir / "online_trace.jsonl")
     frames = list(metadata.get("frames", []))
     if not frames or len(frames) != len(trace):
@@ -88,9 +93,13 @@ def main() -> None:
                 interest=record.get("interest"),
                 task_plan_events=record.get("task_plan_events"),
                 confirmed_cup_track_ids=record.get(
-                    "confirmed_cup_track_ids",
-                    [],
+                    "confirmed_target_track_ids",
+                    record.get(
+                        "confirmed_cup_track_ids",
+                        [],
+                    ),
                 ),
+                target_label=target_label,
             )
         rendered = _compose_frame(
             run_dir,
@@ -98,6 +107,8 @@ def main() -> None:
             record,
             caption=caption,
             bev_crop_box=bev_crop_box,
+            task_text=str(summary.get("task") or ""),
+            target_label=target_label,
         )
         path = rendered_dir / f"frame_{output_index:04d}.jpg"
         rendered.save(path, quality=91, subsampling=1)
@@ -117,6 +128,7 @@ def main() -> None:
         frames,
         trace,
         summary,
+        target_label=target_label,
     )
     closing.save(closing_path, quality=92, subsampling=1)
     rendered_paths.append(closing_path)
@@ -280,6 +292,8 @@ def _compose_frame(
     *,
     caption: dict[str, Any],
     bev_crop_box: tuple[int, int, int, int] | None,
+    task_text: str,
+    target_label: str,
 ) -> Image.Image:
     step = int(record["step"])
     canvas = Image.new("RGB", CANVAS_SIZE, "#0d1217")
@@ -299,7 +313,13 @@ def _compose_frame(
     _panel_label(draw, DEPTH_BOX, "DEPTH")
     _panel_label(draw, BEV_BOX, "SEMANTIC EVIDENCE")
     _draw_belief_panel(draw, record)
-    _draw_caption_panel(draw, record, caption)
+    _draw_caption_panel(
+        draw,
+        record,
+        caption,
+        task_text=task_text,
+        target_label=target_label,
+    )
     return canvas
 
 
@@ -377,6 +397,9 @@ def _draw_caption_panel(
     draw: ImageDraw.ImageDraw,
     record: dict[str, Any],
     caption: dict[str, Any],
+    *,
+    task_text: str,
+    target_label: str,
 ) -> None:
     x0, y0, x1, y1 = CAPTION_BOX
     draw.rectangle(CAPTION_BOX, fill="#090d11")
@@ -393,7 +416,10 @@ def _draw_caption_panel(
     }.get(stage, "#9fb0bd")
     draw.text(
         (x0 + 28, y0 + 13),
-        'GOAL  Find and report all cups',
+        "GOAL  " + (
+            task_text
+            or f"Find and report all {_plural(target_label)}."
+        ),
         fill="#eef3f5",
         font=_font(17, bold=True),
     )
@@ -483,6 +509,8 @@ def _compose_closing_frame(
     frames: list[dict[str, Any]],
     trace: list[dict[str, Any]],
     summary: dict[str, Any],
+    *,
+    target_label: str,
 ) -> Image.Image:
     result = _result_summary(summary)
     evidence_step = result.get("positive_support_step")
@@ -513,7 +541,7 @@ def _compose_closing_frame(
     verified = int(result["verified_cups"])
     draw.text(
         (690, 82),
-        f"{verified} strictly verified cups",
+        f"{verified} strictly verified {_plural(target_label)}",
         fill="#67d5ae" if verified else "#ef8b73",
         font=_font(34, bold=True),
     )
@@ -522,7 +550,10 @@ def _compose_closing_frame(
             f"Support evidence: +{result['positive_supports']} / "
             f"-{result['negative_supports']}"
         ),
-        f"Rejected cup hypotheses: {result['rejected_candidates']}",
+        (
+            f"Rejected {target_label} hypotheses: "
+            f"{result['rejected_candidates']}"
+        ),
         f"Inconclusive hypotheses: {result['inconclusive_candidates']}",
     ]
     y = 150
@@ -536,7 +567,7 @@ def _compose_closing_frame(
         width=2,
     )
     conclusion = (
-        "The planner found useful support evidence but did not claim task "
+        "The planner found useful search evidence but did not claim task "
         "success. The remaining bottleneck is active viewpoint verification."
         if verified == 0
         else "Verified targets are reportable; search continues for additional cups."
@@ -570,7 +601,10 @@ def _compose_closing_frame(
         font=_font(16, bold=True),
     )
     final_text = (
-        "Goal not completed in this run: zero cup candidates passed the strict gate."
+        (
+            "Goal not completed in this run: zero "
+            f"{target_label} candidates passed the strict gate."
+        )
         if verified == 0
         else f"Goal partially completed: {verified} cups passed the strict gate."
     )
@@ -600,7 +634,12 @@ def _result_summary(summary: dict[str, Any]) -> dict[str, Any]:
         event
         for event in events
         if event.get("event")
-        in {"cup_confirmation_completed", "cup_confirmation_deferred"}
+        in {
+            "cup_confirmation_completed",
+            "cup_confirmation_deferred",
+            "target_confirmation_completed",
+            "target_confirmation_deferred",
+        }
     ]
     positive = [
         event
@@ -624,7 +663,12 @@ def _result_summary(summary: dict[str, Any]) -> dict[str, Any]:
         if str(event.get("status", "")).startswith("inconclusive")
     ]
     return {
-        "verified_cups": int(summary.get("num_confirmed_cups", 0)),
+        "verified_cups": int(
+            summary.get(
+                "num_confirmed_targets",
+                summary.get("num_confirmed_cups", 0),
+            )
+        ),
         "positive_supports": len(positive),
         "negative_supports": len(negative),
         "rejected_candidates": len(rejected),
@@ -643,6 +687,15 @@ def _candidate_probability(item: dict[str, Any]) -> float | None:
             except (TypeError, ValueError):
                 continue
     return None
+
+
+def _plural(label: str) -> str:
+    normalized = str(label).strip()
+    if normalized.endswith("s"):
+        return normalized
+    if normalized.endswith(("ch", "sh", "x", "z")):
+        return normalized + "es"
+    return normalized + "s"
 
 
 def _write_gif(

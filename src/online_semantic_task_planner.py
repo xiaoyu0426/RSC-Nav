@@ -7,9 +7,14 @@ import urllib.error
 import urllib.request
 from typing import Any, Iterable
 
+try:
+    from semantic_task_profile import CUP_TASK_PROFILE, normalize_label
+except ModuleNotFoundError:  # Package import in tests.
+    from .semantic_task_profile import CUP_TASK_PROFILE, normalize_label
 
-TARGET_LABELS = {"cup", "mug", "glass", "drinking glass", "wine glass"}
-SUPPORT_LABELS = {"table", "counter", "sink"}
+
+TARGET_LABELS = set(CUP_TASK_PROFILE.target_aliases)
+SUPPORT_LABELS = set(CUP_TASK_PROFILE.support_labels)
 
 
 def build_online_planner_request(
@@ -20,7 +25,25 @@ def build_online_planner_request(
     max_candidates: int = 32,
     max_support_candidates: int = 6,
     support_merge_radius_m: float = 1.25,
+    target_labels: Iterable[str] | None = None,
+    support_labels: Iterable[str] | None = None,
+    target_label: str | None = None,
 ) -> dict[str, Any]:
+    target_aliases = {
+        normalize_label(value)
+        for value in (
+            TARGET_LABELS if target_labels is None else target_labels
+        )
+    }
+    support_set = {
+        normalize_label(value)
+        for value in (
+            SUPPORT_LABELS if support_labels is None else support_labels
+        )
+    }
+    canonical_target = normalize_label(
+        target_label or CUP_TASK_PROFILE.target_label
+    )
     memory_by_semantic_id = {
         int(item["semantic_id"]): item
         for item in memory_items
@@ -28,8 +51,12 @@ def build_online_planner_request(
     }
     candidates = []
     for track in tracks:
-        label = canonical_label(str(track.get("label", "")))
-        if label not in TARGET_LABELS and label not in SUPPORT_LABELS:
+        label = canonical_label(
+            str(track.get("label", "")),
+            target_labels=target_aliases,
+            target_label=canonical_target,
+        )
+        if label != canonical_target and label not in support_set:
             continue
         track_id = int(track["track_id"])
         position = list(track.get("position_3d") or [])
@@ -44,7 +71,7 @@ def build_online_planner_request(
         freshness = float(memory.get("freshness", 1.0))
         views = int(track.get("views", 0))
         status = str(memory.get("status", "active"))
-        kind = "target_object" if label in TARGET_LABELS else "support_surface"
+        kind = "target_object" if label == canonical_target else "support_surface"
         base_priority = (
             2.0 * confidence
             + 0.10 * min(8, views)
@@ -97,7 +124,8 @@ def build_online_planner_request(
         "schema_version": "phase5a_online_task_request_v1",
         "task_text": str(task_text),
         "current_xz": [round(float(current_xz[0]), 4), round(float(current_xz[1]), 4)],
-        "target_labels": sorted(TARGET_LABELS),
+        "target_label": canonical_target,
+        "target_labels": sorted(target_aliases),
         "candidate_landmarks": candidates,
         "required_output_schema": {
             "task_plan": [
@@ -367,9 +395,20 @@ def extract_planner_output(raw_response: dict[str, Any]) -> dict[str, Any]:
     return output
 
 
-def canonical_label(label: str) -> str:
-    normalized = str(label).strip().lower().replace("-", " ")
-    return "cup" if normalized in TARGET_LABELS else normalized
+def canonical_label(
+    label: str,
+    *,
+    target_labels: Iterable[str] | None = None,
+    target_label: str = "cup",
+) -> str:
+    normalized = normalize_label(label)
+    aliases = {
+        normalize_label(value)
+        for value in (
+            TARGET_LABELS if target_labels is None else target_labels
+        )
+    }
+    return normalize_label(target_label) if normalized in aliases else normalized
 
 
 def _unique(values: Iterable[str]) -> list[str]:

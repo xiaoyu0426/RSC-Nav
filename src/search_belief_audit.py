@@ -29,6 +29,10 @@ def audit_search_belief_run(
         for item in planner_request.get("candidate_landmarks", [])
         if item.get("id") is not None
     }
+    has_support_candidates = any(
+        item.get("kind") == "support_surface"
+        for item in planner_request.get("candidate_landmarks", [])
+    )
     assessment_ids = {
         str(item.get("candidate_id"))
         for item in scene.get("candidate_assessments", [])
@@ -51,7 +55,12 @@ def audit_search_belief_run(
         for item in posterior_updates
         if item.get("outcome") == "no_target_evidence_observed"
     ]
-    confirmed_cups = list(summary.get("confirmed_cups", []))
+    confirmed_targets = list(
+        summary.get(
+            "confirmed_targets",
+            summary.get("confirmed_cups", []),
+        )
+    )
 
     checks = {
         "causal_frames_only": bool(
@@ -81,7 +90,9 @@ def audit_search_belief_run(
             <= candidate_ids
             for item in scene.get("regions", [])
         ),
-        "support_inspection_completed": bool(support_events),
+        "support_inspection_completed": (
+            bool(support_events) if has_support_candidates else True
+        ),
         "positive_updates_increase_posterior": all(
             float(item["posterior"]) > float(item["prior_posterior"])
             for item in positive_updates
@@ -101,7 +112,7 @@ def audit_search_belief_run(
         )
         and all(
             bool(item.get("confirmation", {}).get("verified"))
-            for item in confirmed_cups
+            for item in confirmed_targets
         ),
     }
     if require_api:
@@ -140,8 +151,12 @@ def audit_search_belief_run(
             "num_support_inspections": len(support_events),
             "num_positive_support_updates": len(positive_updates),
             "num_negative_support_updates": len(negative_updates),
-            "num_confirmed_cups": int(
-                summary.get("num_confirmed_cups", 0)
+            "target_label": summary.get("target_label", "cup"),
+            "num_confirmed_targets": int(
+                summary.get(
+                    "num_confirmed_targets",
+                    summary.get("num_confirmed_cups", 0),
+                )
             ),
         },
         "support_updates": [

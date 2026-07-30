@@ -9,6 +9,73 @@ from src.search_belief_audit import audit_search_belief_run
 
 
 class SearchBeliefAuditTests(unittest.TestCase):
+    def test_door_run_does_not_require_support_surface_inspection(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            run_dir = Path(temp_dir)
+            planner_dir = run_dir / "task_planner"
+            planner_dir.mkdir()
+            (planner_dir / "planner_request.json").write_text(
+                json.dumps(
+                    {
+                        "candidate_landmarks": [
+                            {
+                                "id": "track_1",
+                                "kind": "target_object",
+                                "label": "door",
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (run_dir / "online_summary.json").write_text(
+                json.dumps(
+                    {
+                        "target_label": "door",
+                        "num_confirmed_targets": 1,
+                        "confirmed_targets": [
+                            {
+                                "track_id": 1,
+                                "confirmation": {"verified": True},
+                            }
+                        ],
+                        "task_injection_step": 100,
+                        "task_execution_steps": 50,
+                        "causal_invariants": {
+                            "all_decisions_use_current_or_past_frames": True,
+                            "task_hidden_until_memory_ready": True,
+                        },
+                        "scene_vlm": {
+                            "keyframes": [{"frame_index": 90}]
+                        },
+                        "scene_understanding": {
+                            "candidate_assessments": [
+                                {"candidate_id": "track_1"}
+                            ],
+                            "regions": [
+                                {
+                                    "anchor_xz": [1.0, 2.0],
+                                    "anchor_candidate_ids": ["track_1"],
+                                }
+                            ],
+                            "contract": {
+                                "likelihood_is_search_prior_not_object_confirmation": True
+                            },
+                        },
+                        "task_plan_events": [
+                            {"event": "search_priority_replanned"}
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            report = audit_search_belief_run(run_dir)
+
+        self.assertTrue(report["passed"])
+        self.assertEqual(report["metrics"]["target_label"], "door")
+        self.assertEqual(report["metrics"]["num_confirmed_targets"], 1)
+
     def test_complete_api_search_belief_run_passes(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             run_dir = Path(temp_dir)

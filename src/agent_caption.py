@@ -10,11 +10,14 @@ def build_agent_caption(
     interest: Mapping[str, Any] | None,
     task_plan_events: Sequence[Mapping[str, Any]] | None = None,
     confirmed_cup_track_ids: Sequence[int] | None = None,
+    target_label: str = "cup",
 ) -> dict[str, Any]:
     """Build a concise, trace-grounded explanation of the current decision."""
     state = dict(interest or {})
     events = [dict(event) for event in (task_plan_events or [])]
     confirmed = [int(track_id) for track_id in (confirmed_cup_track_ids or [])]
+    target = str(target_label or "target").strip().lower()
+    targets = _plural(target)
     sources = ["interest.mode"]
 
     if not task:
@@ -59,10 +62,10 @@ def build_agent_caption(
             planner = str(state.get("task_planner_model") or "API planner")
             return _caption(
                 stage="PLAN",
-                plan="Task received: find and report all cups",
+                plan=f"Task received: find and report all {targets}",
                 why=(
                     "Use grounded object memory and scene context to rank direct "
-                    "cup hypotheses before likely support surfaces."
+                    f"{target} hypotheses before likely support surfaces."
                 ),
                 next=(
                     _ranking_next(ranking)
@@ -77,10 +80,13 @@ def build_agent_caption(
                 sources=sources + ["task", "interest.task_search_ranking"],
             )
 
-        if name == "cup_candidate_reobservation_started":
+        if name in {
+            "cup_candidate_reobservation_started",
+            "target_candidate_reobservation_started",
+        }:
             return _caption(
                 stage="VERIFY",
-                plan=f"Verify cup hypothesis {candidate_id}",
+                plan=f"Verify {target} hypothesis {candidate_id}",
                 why=(
                     "A detector candidate is not a result. Independent RGB-D "
                     "views must confirm visual identity and 3D relief."
@@ -90,7 +96,10 @@ def build_agent_caption(
                 sources=sources + ["interest.task_search_ranking"],
             )
 
-        if name == "cup_confirmation_observation":
+        if name in {
+            "cup_confirmation_observation",
+            "target_confirmation_observation",
+        }:
             status = str(event.get("status", "collecting"))
             return _caption(
                 stage="VERIFY",
@@ -110,8 +119,16 @@ def build_agent_caption(
             "cup_confirmation_completed",
             "cup_confirmation_deferred",
             "cup_confirmation_retry_scheduled",
+            "target_confirmation_completed",
+            "target_confirmation_deferred",
+            "target_confirmation_retry_scheduled",
         }:
-            return _cup_result_caption(event, candidate, sources)
+            return _target_result_caption(
+                event,
+                candidate,
+                sources,
+                target_label=target,
+            )
 
         if name == "support_surface_inspection_started":
             hypothesis = event.get("search_hypothesis")
@@ -121,10 +138,12 @@ def build_agent_caption(
                 stage="SEARCH",
                 plan=f"Inspect likely support {candidate_id}",
                 why=(
-                    "Scene context predicts cups may occur here, but this is a "
+                    f"Scene context predicts {targets} may occur here, but this is a "
                     "search prior rather than object confirmation."
                 ),
-                next="Sweep the surface and look down for newly grounded cup evidence.",
+                next=(
+                    f"Sweep the surface and look for newly grounded {target} evidence."
+                ),
                 evidence=_candidate_evidence(candidate_id, candidate),
                 sources=sources + ["task_plan_events.search_hypothesis"],
             )
@@ -161,7 +180,9 @@ def build_agent_caption(
                     "Online grounding produced candidates that were absent when "
                     "the task was first planned."
                 ),
-                next="Re-rank direct cups and support surfaces with current evidence.",
+                next=(
+                    f"Re-rank direct {targets} and support surfaces with current evidence."
+                ),
                 evidence=(
                     "New candidates: " + ", ".join(appended[:4])
                     if appended
@@ -180,11 +201,14 @@ def build_agent_caption(
         ]
     )
 
-    if active_id and (kind == "cup" or label.lower() == "cup"):
+    if active_id and (
+        kind in {"cup", "target", "target_object"}
+        or label.lower() == target
+    ):
         if "scan" in mode or "confirm" in mode:
             return _caption(
                 stage="VERIFY",
-                plan=f"Verify cup hypothesis {active_id}",
+                plan=f"Verify {target} hypothesis {active_id}",
                 why=(
                     "The candidate is visually plausible, but only independent "
                     "RGB-D evidence can promote it to a reported result."
@@ -195,7 +219,7 @@ def build_agent_caption(
             )
         return _caption(
             stage="APPROACH",
-            plan=f"Approach cup hypothesis {active_id}",
+            plan=f"Approach {target} hypothesis {active_id}",
             why="Direct target hypotheses are inspected before contextual supports.",
             next="Reach a clear viewpoint, then start strict confirmation.",
             evidence=_candidate_evidence(active_id, active),
@@ -209,7 +233,7 @@ def build_agent_caption(
                 plan=f"Inspect {label} {active_id}",
                 why=(
                     "Its current posterior makes this a useful place to search "
-                    "for cup evidence."
+                    f"for {target} evidence."
                 ),
                 next="Complete the observable sweep, then update its belief.",
                 evidence=_candidate_evidence(active_id, active),
@@ -231,11 +255,11 @@ def build_agent_caption(
         ids = ", ".join(f"track_{track_id}" for track_id in confirmed)
         return _caption(
             stage="REPORT",
-            plan="Preserve verified cup results",
+            plan=f"Preserve verified {target} results",
             why="Only candidates that passed the strict gate may be reported.",
             next="Continue searching untested high-posterior locations.",
             evidence=f"Verified: {ids}",
-            sources=sources + ["confirmed_cup_track_ids"],
+            sources=sources + ["confirmed_target_track_ids"],
         )
 
     return _caption(
@@ -272,6 +296,15 @@ def _candidate_id(value: Any) -> str:
     if text.isdigit():
         return f"track_{text}"
     return text
+
+
+def _plural(label: str) -> str:
+    normalized = str(label).strip()
+    if normalized.endswith("s"):
+        return normalized
+    if normalized.endswith(("ch", "sh", "x", "z")):
+        return normalized + "es"
+    return normalized + "s"
 
 
 def _posterior(candidate: Mapping[str, Any]) -> float | None:
@@ -330,6 +363,9 @@ def _most_informative_event(
         "cup_confirmation_completed": 100,
         "cup_confirmation_deferred": 99,
         "cup_confirmation_retry_scheduled": 98,
+        "target_confirmation_completed": 100,
+        "target_confirmation_deferred": 99,
+        "target_confirmation_retry_scheduled": 98,
         "support_surface_inspection_completed": 95,
         "candidate_unreachable": 90,
         "candidate_navigation_failed": 90,
@@ -337,6 +373,8 @@ def _most_informative_event(
         "support_surface_inspection_started": 80,
         "cup_candidate_reobservation_started": 80,
         "cup_confirmation_observation": 70,
+        "target_candidate_reobservation_started": 80,
+        "target_confirmation_observation": 70,
         "online_memory_candidates_appended": 60,
         "task_injected_and_planned": 50,
     }
@@ -353,10 +391,12 @@ def _most_informative_event(
     )
 
 
-def _cup_result_caption(
+def _target_result_caption(
     event: Mapping[str, Any],
     candidate: Mapping[str, Any],
     sources: Sequence[str],
+    *,
+    target_label: str,
 ) -> dict[str, Any]:
     candidate_id = _candidate_id(event.get("candidate_id"))
     status = str(event.get("status", "inconclusive"))
@@ -370,9 +410,12 @@ def _cup_result_caption(
     if status == "verified":
         return _caption(
             stage="CONFIRMED",
-            plan=f"Verify cup {candidate_id}",
+            plan=f"Verify {target_label} {candidate_id}",
             why="The candidate passed the independent-view, visual, and 3D gate.",
-            next="Store the verified location and continue searching for other cups.",
+            next=(
+                "Store the verified location and continue searching for other "
+                f"{_plural(target_label)}."
+            ),
             evidence=evidence,
             sources=sources + ["task_plan_events.belief_update"],
         )
@@ -380,7 +423,7 @@ def _cup_result_caption(
         reason = status.removeprefix("rejected_").replace("_", " ")
         return _caption(
             stage="REPLAN",
-            plan=f"Reject cup hypothesis {candidate_id}",
+            plan=f"Reject {target_label} hypothesis {candidate_id}",
             why=f"Strict confirmation resolved it as {reason}.",
             next="Remove it from the result set and inspect the next hypothesis.",
             evidence=evidence,

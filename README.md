@@ -60,6 +60,22 @@ pose for projection and complete-scene navmesh queries for low-level execution,
 so it validates the semantic loop rather than a full real-world localization
 stack.
 
+The default profile for the next live run is now:
+
+```text
+Familiarize online -> one guided coverage correction
+-> inject "Find and report all doors in the room."
+-> independently re-observe and verify every grounded door track
+```
+
+For this profile, `door`, `doorway`, `open door`, and `closed door` are
+canonicalized to the target class `door`. `window`, `cabinet door`,
+`refrigerator door`, `wall panel`, and `mirror` are verifier negatives rather
+than task targets. Door verification uses independent task-stage views, crop
+classification, and 3D consistency; it deliberately disables the cup-specific
+depth-relief gate because a valid door is planar. The published GIF above
+remains the preceding cup-search Case and is not relabeled retroactively.
+
 The real-world roadmap explicitly includes:
 
 - real computed localization with SLAM/VIO/wheel odometry/relocalization uncertainty;
