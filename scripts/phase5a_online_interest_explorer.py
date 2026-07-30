@@ -1293,6 +1293,9 @@ def main() -> None:
                     support_merge_radius_m=float(
                         args.task_planner_support_merge_radius_m
                     ),
+                    target_merge_radius_m=float(
+                        args.task_dynamic_cup_merge_radius_m
+                    ),
                     target_labels=target_aliases,
                     support_labels=support_labels,
                     target_label=target_label,

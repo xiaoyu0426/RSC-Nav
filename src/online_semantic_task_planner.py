@@ -25,6 +25,7 @@ def build_online_planner_request(
     max_candidates: int = 32,
     max_support_candidates: int = 6,
     support_merge_radius_m: float = 1.25,
+    target_merge_radius_m: float = 0.0,
     target_labels: Iterable[str] | None = None,
     support_labels: Iterable[str] | None = None,
     target_label: str | None = None,
@@ -105,9 +106,13 @@ def build_online_planner_request(
         ),
         reverse=True,
     )
-    target_candidates = [
-        item for item in candidates if item["kind"] == "target_object"
-    ]
+    target_candidates = _spatially_diverse_candidates(
+        [
+            item for item in candidates if item["kind"] == "target_object"
+        ],
+        radius_m=float(target_merge_radius_m),
+        limit=max(1, int(max_candidates)),
+    )
     support_candidates = _spatially_diverse_candidates(
         [
             item
@@ -427,6 +432,8 @@ def _spatially_diverse_candidates(
     radius_m: float,
     limit: int,
 ) -> list[dict[str, Any]]:
+    if int(limit) <= 0:
+        return []
     selected: list[dict[str, Any]] = []
     radius = max(0.0, float(radius_m))
     for candidate in candidates:

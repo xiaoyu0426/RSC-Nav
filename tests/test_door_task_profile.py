@@ -47,6 +47,13 @@ class DoorTaskProfileTests(unittest.TestCase):
                 "views": 3,
             },
             {
+                "track_id": 5,
+                "label": "door",
+                "position_3d": [1.4, 1.0, 2.2],
+                "confidence": 0.6,
+                "views": 3,
+            },
+            {
                 "track_id": 3,
                 "label": "window",
                 "position_3d": [2.0, 1.0, 3.0],
@@ -69,6 +76,7 @@ class DoorTaskProfileTests(unittest.TestCase):
             target_labels=DOOR_TASK_PROFILE.target_aliases,
             support_labels=DOOR_TASK_PROFILE.support_labels,
             target_label=DOOR_TASK_PROFILE.target_label,
+            target_merge_radius_m=DOOR_TASK_PROFILE.dynamic_target_merge_radius_m,
         )
 
         self.assertEqual(
