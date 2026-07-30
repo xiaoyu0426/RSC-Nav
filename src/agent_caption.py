@@ -40,7 +40,12 @@ def build_agent_caption(
         for item in ranking
         if item.get("candidate_id") is not None
     }
-    active_id = _candidate_id(state.get("task_active_candidate_id"))
+    active_value = state.get("task_active_candidate_id")
+    active_id = (
+        _candidate_id(active_value)
+        if active_value is not None and str(active_value).strip()
+        else ""
+    )
     active = by_id.get(active_id, {})
     event = _most_informative_event(events)
 
@@ -51,6 +56,7 @@ def build_agent_caption(
         sources.append(f"task_plan_events.{name}")
 
         if name == "task_injected_and_planned":
+            planner = str(state.get("task_planner_model") or "API planner")
             return _caption(
                 stage="PLAN",
                 plan="Task received: find and report all cups",
@@ -58,8 +64,16 @@ def build_agent_caption(
                     "Use grounded object memory and scene context to rank direct "
                     "cup hypotheses before likely support surfaces."
                 ),
-                next=_ranking_next(ranking),
-                evidence=_ranking_evidence(ranking),
+                next=(
+                    _ranking_next(ranking)
+                    if ranking
+                    else "Initialize search beliefs from grounded planner candidates."
+                ),
+                evidence=(
+                    _ranking_evidence(ranking)
+                    if ranking
+                    else f"Planner response: {planner}; grounded ranking is initializing."
+                ),
                 sources=sources + ["task", "interest.task_search_ranking"],
             )
 

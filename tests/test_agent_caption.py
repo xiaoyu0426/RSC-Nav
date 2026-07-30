@@ -117,6 +117,19 @@ class AgentCaptionTests(unittest.TestCase):
         self.assertIn("No cup evidence", caption["plan"])
         self.assertIn("0.70 -> 0.21", caption["evidence"])
 
+    def test_missing_active_candidate_triggers_replan_not_unknown_approach(self) -> None:
+        caption = build_agent_caption(
+            task="find cups",
+            interest={
+                "mode": "semantic_interest",
+                "task_active_candidate_id": None,
+                "task_search_ranking": [],
+            },
+        )
+
+        self.assertEqual(caption["stage"], "REPLAN")
+        self.assertNotIn("unknown", caption["plan"].lower())
+
 
 if __name__ == "__main__":
     unittest.main()

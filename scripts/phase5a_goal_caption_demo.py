@@ -324,7 +324,11 @@ def _draw_belief_panel(
     if not ranking:
         draw.text(
             (x0 + 22, y0 + 65),
-            "Task hidden: building reusable memory",
+            (
+                "Task received: initializing grounded ranking"
+                if record.get("task") is not None
+                else "Task hidden: building reusable memory"
+            ),
             fill="#9fb0bd",
             font=_font(18),
         )
