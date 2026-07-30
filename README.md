@@ -6,41 +6,45 @@ RSC-Nav studies a map-then-task navigation loop: an agent first builds reusable 
 
 ## Demo
 
-### Case: Real-time environment familiarization followed by a "find and report all cups" task
+### Case: Familiarize the environment online, then find and report all cups
 
-![RSC-Nav strict online cup-confirmation task](outputs/phase5a_sim_demo/cup_confirmation_api_task_20260728/report/online_interest_exploration_25x_curated_30s.gif)
+![RSC-Nav goal-centric online cup-search demo](outputs/phase5a_sim_demo/vlm_goal_caption_20260730/rscnav_goal_caption_30s.gif)
 
-The GIF shows:
+This 30-second GIF is a curated replay of one live Habitat episode. Repetitive
+navigation is shown at approximately 25x speed, while task injection, evidence
+updates, verification, and replanning decisions are held long enough to read.
+Each `AGENT PLAN / WHY / NEXT / EVIDENCE` caption is reconstructed from the
+current trace record only and records its source fields in the accompanying
+[caption metadata](outputs/phase5a_sim_demo/vlm_goal_caption_20260730/rscnav_goal_caption_metadata.json).
 
-- online RGB + GroundingDINO observations and current depth;
-- online BEV, route history, object memory, and policy state;
-- real-time task-independent environment familiarization;
-- a real Qwen3-Max API task injection at step 418;
-- task-stage candidate re-observation with translated RGB-D viewpoints;
-- fail-closed cup verification using 3D consistency, depth relief, and
-  target-aligned positive/negative crop evidence.
+The episode contains 878 live Habitat steps. The task remains hidden during
+online familiarization and is injected at step 347. Qwen3-VL-Plus summarizes
+eight causal keyframes and grounded scene regions, then Qwen3-Max plans the
+semantic search. GroundingDINO, RGB-D projection, object memory, search beliefs,
+and low-level execution continue online after task injection.
 
-The underlying run executes 901 live Habitat steps. Qwen3-Max plans 10 initial
-semantic candidates in 5.95 seconds, two more are appended from subsequent
-online observations, and the final memory contains five stable cup candidates.
-The detector re-observes two cup tracks, but the strict gate verifies zero.
-Track 90 is rejected as a planar surface from two translated views; three other
-attempted tracks remain inconclusive after bounded retries, and one candidate
-is not reached before the step budget. This run therefore demonstrates that the
-new confirmation loop suppresses unsupported success claims and continues
-searching, but it does **not** establish successful cup-task completion.
+The trace exposes both successful and failed reasoning transitions:
 
-The public GIF contains 250 retained sampled frames and lasts 29.89 seconds.
-Each retained frame is timed at 25x normal action speed; repetitive navigation
-segments are explicitly omitted in the accompanying metadata. One recorded
-guided correction occurs during familiarization and does not teleport the
-agent. Semantic oracle data is unavailable to the online policy. Exact Habitat
-pose and complete-scene navmesh shortest paths remain privileged geometric
-inputs and are reported as current limitations.
+- cup hypothesis `track_90` is rejected as a planar surface at step 431;
+- inspecting table `track_99` produces new cup evidence and raises its search
+  belief from `0.75` to `0.94`;
+- `track_232` is skipped after its inspection waypoint is unreachable;
+- an observable sweep of dining table `track_254` finds no cup evidence and
+  lowers its belief from `0.70` to `0.21`.
 
-#### Task-result visual audit
+Zero cup candidates pass the strict confirmation gate, so this run does
+**not** complete the task and the planner does not claim success. It
+demonstrates grounded scene-aware search, evidence-driven belief revision, and
+fail-closed reporting; active confirmation-viewpoint selection remains the next
+demo bottleneck.
 
-![Strict cup-confirmation audit](outputs/phase5a_sim_demo/cup_confirmation_api_task_20260728/report/cup_confirmation_audit.png)
+#### Task result
+
+![Goal-centric task result](outputs/phase5a_sim_demo/vlm_goal_caption_20260730/rscnav_goal_caption_result.png)
+
+Semantic oracle data is unavailable to the online policy. Exact Habitat pose
+and complete-scene navmesh shortest paths remain privileged geometric inputs
+and are reported as current limitations.
 
 The full public result index is available at:
 

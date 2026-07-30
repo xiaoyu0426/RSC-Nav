@@ -144,7 +144,8 @@ def main() -> None:
         json.dumps(
             {
                 "source_run": str(run_dir),
-                "source_commit": summary.get("run_commit"),
+                "source_commit": _source_run_commit(run_dir, summary),
+                "renderer_commit": _repository_commit(),
                 "task": summary.get("task"),
                 "task_injection_step": summary.get("task_injection_step"),
                 "source_steps": len(trace),
@@ -848,6 +849,34 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
         for line in path.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
+
+
+def _source_run_commit(
+    run_dir: Path,
+    summary: dict[str, Any],
+) -> str | None:
+    commit = summary.get("run_commit")
+    if commit:
+        return str(commit)
+    manifest_path = run_dir / "run_manifest.txt"
+    if not manifest_path.exists():
+        return None
+    for line in manifest_path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("head="):
+            return line.partition("=")[2].strip() or None
+    return None
+
+
+def _repository_commit() -> str | None:
+    try:
+        return subprocess.run(
+            ["git", "-C", str(ROOT), "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return None
 
 
 if __name__ == "__main__":

@@ -40,6 +40,10 @@ outputs/**
 !outputs/phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/checkpoints/**
 !outputs/phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/task_planner/
 !outputs/phase5a_sim_demo/full_demo_autonomous_guided_api_task_final_v3_20260724/task_planner/**
+!outputs/phase5a_sim_demo/vlm_goal_caption_20260730/
+!outputs/phase5a_sim_demo/vlm_goal_caption_20260730/*.gif
+!outputs/phase5a_sim_demo/vlm_goal_caption_20260730/*.png
+!outputs/phase5a_sim_demo/vlm_goal_caption_20260730/*.json
 !outputs/m3_lingbot_foundation_benchmark/
 !outputs/m3_lingbot_foundation_benchmark/lingbot_benchmark_summary.html
 !outputs/m3_lingbot_foundation_benchmark/map_vs_vggt_first16_20260723_v2/
