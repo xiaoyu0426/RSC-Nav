@@ -19,6 +19,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "src"))
 
 from dense_bev_mapper import DenseBEVConfig, DenseBEVMapper  # noqa: E402
+from agent_caption import build_agent_caption  # noqa: E402
 from cup_confirmation import (  # noqa: E402
     CupConfirmationConfig,
     append_independent_observation,
@@ -2147,15 +2148,25 @@ def main() -> None:
                     if state == "expected_visible_miss"
                 ),
             }
+            current_task_plan_events = [
+                event
+                for event in task_plan_events
+                if int(event.get("step", -1)) == step
+            ]
+            agent_caption = build_agent_caption(
+                task=task_text if task_injection_step is not None else None,
+                interest=decision,
+                task_plan_events=current_task_plan_events,
+                confirmed_cup_track_ids=[
+                    track.track_id for track in confirmed_cups
+                ],
+            )
             record = {
                 "step": step,
                 "task": task_text if task_injection_step is not None else None,
                 "task_injection_step": task_injection_step,
-                "task_plan_events": [
-                    event
-                    for event in task_plan_events
-                    if int(event.get("step", -1)) == step
-                ],
+                "task_plan_events": current_task_plan_events,
+                "agent_caption": agent_caption,
                 "observation_frame": step,
                 "causal_frame_max": step,
                 "action": action,
