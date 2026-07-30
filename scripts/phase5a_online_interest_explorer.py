@@ -57,6 +57,11 @@ from semantic_task_profile import (  # noqa: E402
     TASK_PROFILES,
     get_task_profile,
 )
+from target_vlm_verifier import (  # noqa: E402
+    apply_target_vlm_verdict,
+    should_request_target_vlm,
+    verify_target_crops_with_vlm,
+)
 from phase23_habitat_control_server import (  # noqa: E402
     HabitatControlSession,
     _depth_image,
@@ -593,6 +598,16 @@ def main() -> None:
     )
     parser.add_argument("--scene-vlm-timeout-s", type=float, default=120.0)
     parser.add_argument("--scene-vlm-max-images", type=int, default=8)
+    parser.add_argument(
+        "--target-vlm-verifier-mode",
+        choices=("off", "auto", "api"),
+        default="auto",
+    )
+    parser.add_argument(
+        "--target-vlm-verifier-min-confidence",
+        type=float,
+        default=0.70,
+    )
     parser.add_argument("--start-position-xyz", nargs=3, type=float)
     parser.add_argument("--start-yaw-deg", type=float, default=0.0)
     parser.add_argument(
@@ -777,6 +792,7 @@ def main() -> None:
     cup_confirmation_observations: dict[int, list[dict[str, Any]]] = {}
     cup_confirmation_attempts: dict[int, int] = {}
     cup_confirmation_terminal_statuses: dict[int, str] = {}
+    cup_confirmation_vlm_results: dict[int, dict[str, Any]] = {}
     cup_scan_in_progress_id: int | None = None
     cup_confirmation_config = CupConfirmationConfig(
         min_task_views=max(1, int(args.cup_confirmation_min_task_views)),
@@ -2059,11 +2075,85 @@ def main() -> None:
                     cup_confirmation_observations.get(finalized_track_id, []),
                     cup_confirmation_config,
                 )
+                target_vlm_enabled = (
+                    task_profile.name == "door"
+                    and str(args.target_vlm_verifier_mode) != "off"
+                    and (
+                        str(args.target_vlm_verifier_mode) == "api"
+                        or bool(os.getenv(str(args.scene_vlm_api_key_env), ""))
+                    )
+                )
+                if target_vlm_enabled and should_request_target_vlm(
+                    confirmation_result,
+                    min_task_views=cup_confirmation_config.min_task_views,
+                ):
+                    evidence_steps = tuple(
+                        int(value)
+                        for value in confirmation_result.get("evidence_steps", [])
+                    )
+                    cached = cup_confirmation_vlm_results.get(finalized_track_id)
+                    if (
+                        cached is None
+                        or tuple(cached.get("evidence_steps", ()))
+                        != evidence_steps
+                    ):
+                        try:
+                            vlm_result, vlm_metadata = (
+                                verify_target_crops_with_vlm(
+                                    target_label=target_label,
+                                    candidate_id=f"track_{finalized_track_id}",
+                                    crop_paths=confirmation_result.get(
+                                        "crop_paths",
+                                        [],
+                                    ),
+                                    api_base=str(args.scene_vlm_api_base),
+                                    api_key=os.getenv(
+                                        str(args.scene_vlm_api_key_env),
+                                        "",
+                                    ),
+                                    model=str(args.scene_vlm_model),
+                                    timeout_s=float(args.scene_vlm_timeout_s),
+                                )
+                            )
+                            cached = {
+                                "evidence_steps": list(evidence_steps),
+                                "result": vlm_result,
+                                "metadata": vlm_metadata,
+                            }
+                        except Exception as exc:
+                            cached = {
+                                "evidence_steps": list(evidence_steps),
+                                "result": {
+                                    "candidate_id": (
+                                        f"track_{finalized_track_id}"
+                                    ),
+                                    "verdict": "unclear",
+                                    "confidence": 0.0,
+                                    "observed_type": "",
+                                    "reason": "",
+                                },
+                                "metadata": {
+                                    "mode_used": "api_error",
+                                    "model": str(args.scene_vlm_model),
+                                    "error": f"{type(exc).__name__}: {exc}",
+                                },
+                            }
+                        cup_confirmation_vlm_results[
+                            finalized_track_id
+                        ] = cached
+                    confirmation_result = apply_target_vlm_verdict(
+                        confirmation_result,
+                        cached.get("result") if cached else None,
+                        min_confidence=float(
+                            args.target_vlm_verifier_min_confidence
+                        ),
+                    )
                 confirmation_status = str(confirmation_result["status"])
                 terminal = confirmation_status in {
                     "verified",
                     "rejected_planar_surface",
                     "rejected_visual_verifier",
+                    "rejected_vlm_verifier",
                 }
                 attempts = cup_confirmation_attempts.get(finalized_track_id, 0)
                 if terminal:
@@ -2123,6 +2213,12 @@ def main() -> None:
                     "visual_negatives": confirmation_result[
                         "visual_negatives"
                     ],
+                    "verification_source": confirmation_result.get(
+                        "verification_source"
+                    ),
+                    "vlm_verification": confirmation_result.get(
+                        "vlm_verification"
+                    ),
                     "belief_update": belief_update,
                 }
                 task_plan_events.append(confirmation_event)
@@ -2268,6 +2364,10 @@ def main() -> None:
                 cup_confirmation_config,
                 terminal_statuses=cup_confirmation_terminal_statuses,
                 attempts=cup_confirmation_attempts,
+                vlm_results=cup_confirmation_vlm_results,
+                vlm_min_confidence=float(
+                    args.target_vlm_verifier_min_confidence
+                ),
             )
             verified_track_ids = {
                 track_id
@@ -2404,6 +2504,8 @@ def main() -> None:
         cup_confirmation_config,
         terminal_statuses=cup_confirmation_terminal_statuses,
         attempts=cup_confirmation_attempts,
+        vlm_results=cup_confirmation_vlm_results,
+        vlm_min_confidence=float(args.target_vlm_verifier_min_confidence),
     )
     verified_track_ids = {
         track_id
@@ -2582,6 +2684,13 @@ def main() -> None:
                 ),
                 "verifier_min_score_margin": float(
                     args.cup_verifier_min_score_margin
+                ),
+                "target_vlm_verifier_mode": str(
+                    args.target_vlm_verifier_mode
+                ),
+                "target_vlm_verifier_model": str(args.scene_vlm_model),
+                "target_vlm_verifier_min_confidence": float(
+                    args.target_vlm_verifier_min_confidence
                 ),
             },
             "results": {
@@ -3609,6 +3718,8 @@ def _cup_confirmation_evaluations(
     config: CupConfirmationConfig,
     terminal_statuses: dict[int, str] | None = None,
     attempts: dict[int, int] | None = None,
+    vlm_results: dict[int, dict[str, Any]] | None = None,
+    vlm_min_confidence: float = 0.70,
 ) -> dict[int, dict[str, Any]]:
     track_ids = set(int(track_id) for track_id in observations)
     track_ids.update((terminal_statuses or {}).keys())
@@ -3617,6 +3728,16 @@ def _cup_confirmation_evaluations(
         result = evaluate_cup_confirmation(
             observations.get(track_id, []),
             config,
+        )
+        vlm_entry = (vlm_results or {}).get(track_id)
+        result = apply_target_vlm_verdict(
+            result,
+            (
+                vlm_entry.get("result")
+                if isinstance(vlm_entry, dict)
+                else None
+            ),
+            min_confidence=float(vlm_min_confidence),
         )
         terminal_status = (terminal_statuses or {}).get(track_id)
         if terminal_status is not None:
