@@ -12,6 +12,7 @@ from scripts.grounding_audit_compare import (
     BOOTSTRAP_SEED,
     MANIFEST_SCHEMA_VERSION,
     PRIMARY_METRIC,
+    _validate_formal_cluster_minimum,
     compare_manifest_payload,
     main,
 )
@@ -30,6 +31,24 @@ PARAMETERS_HASH = hashlib.sha256(
 GROUND_TRUTH_HASH = "b" * 64
 DETECTIONS_HASH = "c" * 64
 GROUND_TRUTH_GENERATOR_HASH = "d" * 64
+SCENE_HASH = "e" * 64
+FRAMES_METADATA_HASH = "f" * 64
+SELECTED_FRAME_INDICES_HASH = "1" * 64
+INPUT_FRAME_HASHES_HASH = "2" * 64
+DETECTION_RUN_CONTRACT_HASH = "3" * 64
+SEMANTIC_INTEGRITY_CONTRACT = {
+    "contract": "full_frame_rgb_depth_replay_v1",
+    "frame_count": 1,
+}
+SEMANTIC_INTEGRITY_HASH = hashlib.sha256(
+    json.dumps(
+        SEMANTIC_INTEGRITY_CONTRACT,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
+    ).encode("utf-8")
+).hexdigest()
 
 
 def _canonical_hash(payload: dict) -> str:
@@ -298,6 +317,97 @@ class GroundingAuditCompareTests(unittest.TestCase):
             ):
                 compare_manifest_payload(manifest, manifest_dir=root)
 
+    def test_rejects_paired_identity_and_unregistered_algorithm_changes(
+        self,
+    ) -> None:
+        def run_case(label: str) -> None:
+            with tempfile.TemporaryDirectory() as temporary_directory:
+                root = Path(temporary_directory)
+                baseline_path = self._write_audit(
+                    root / "baseline.json",
+                    {"baseline": self._variant()},
+                )
+                candidate_path = self._write_audit(
+                    root / "candidate.json",
+                    {"candidate": self._variant()},
+                )
+                manifest = self._manifest(
+                    [
+                        self._cluster(
+                            "scene/trajectory",
+                            baseline_path,
+                            candidate_path,
+                        )
+                    ]
+                )
+                expected = ""
+                if label == "manifest scene alias":
+                    manifest["clusters"][0]["scene_id"] = "fake-scene"
+                    expected = "manifest scene_id does not match audit"
+                elif label == "run contract mismatch":
+                    candidate = json.loads(
+                        candidate_path.read_text(encoding="utf-8")
+                    )
+                    candidate["inputs"][
+                        "detection_run_contract_sha256"
+                    ] = "4" * 64
+                    candidate_path.write_text(
+                        json.dumps(candidate, sort_keys=True) + "\n",
+                        encoding="utf-8",
+                    )
+                    manifest["clusters"][0]["candidate"][
+                        "audit_json_sha256"
+                    ] = _file_hash(candidate_path)
+                    expected = "paired input detection_run_contract_sha256"
+                elif label == "undeclared algorithm change":
+                    candidate = json.loads(
+                        candidate_path.read_text(encoding="utf-8")
+                    )
+                    contract = candidate["variant_algorithms"]["candidate"][
+                        "contract"
+                    ]
+                    contract["hidden_variable"] = True
+                    algorithm_sha256 = _canonical_hash(contract)
+                    candidate["variant_algorithms"]["candidate"][
+                        "sha256"
+                    ] = algorithm_sha256
+                    candidate_path.write_text(
+                        json.dumps(candidate, sort_keys=True) + "\n",
+                        encoding="utf-8",
+                    )
+                    manifest["clusters"][0]["candidate"][
+                        "audit_json_sha256"
+                    ] = _file_hash(candidate_path)
+                    manifest["clusters"][0]["candidate"][
+                        "algorithm_sha256"
+                    ] = algorithm_sha256
+                    expected = "do not exactly match the preregistered paths"
+                elif label == "declared but unchanged":
+                    manifest[
+                        "allowed_algorithm_contract_differences"
+                    ].append("hidden_variable")
+                    expected = "declared_but_unchanged"
+                elif label == "ancestor path":
+                    manifest[
+                        "allowed_algorithm_contract_differences"
+                    ] = ["operation", "operation.mode"]
+                    expected = "ancestor/descendant"
+                else:
+                    self.fail(f"unknown test case {label}")
+
+                with self.assertRaisesRegex(ValueError, expected):
+                    compare_manifest_payload(manifest, manifest_dir=root)
+
+        for label in (
+            "manifest scene alias",
+            "run contract mismatch",
+            "undeclared algorithm change",
+            "declared but unchanged",
+            "ancestor path",
+        ):
+            with self.subTest(case=label):
+                run_case(label)
+
     def test_output_is_byte_deterministic_and_strict_json(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
@@ -532,12 +642,113 @@ class GroundingAuditCompareTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "at least 6"):
                 compare_manifest_payload(manifest, manifest_dir=root)
 
+    def test_formal_validation_rejects_reused_trajectory_fingerprint(
+        self,
+    ) -> None:
+        clusters = self._formal_clusters()
+        for cluster in clusters:
+            cluster["trajectory_sha256"] = "a" * 64
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "reuses an input trajectory fingerprint",
+        ):
+            _validate_formal_cluster_minimum(clusters)
+
+    def test_formal_validation_freezes_identity_and_algorithms(self) -> None:
+        _validate_formal_cluster_minimum(self._formal_clusters())
+        cases = (
+            (
+                "scene id maps to two assets",
+                lambda clusters: clusters[1].update(
+                    {"scene_sha256": "f" * 64}
+                ),
+                "one scene_id to multiple scene asset hashes",
+            ),
+            (
+                "asset aliases two scenes",
+                lambda clusters: clusters[2].update(
+                    {"scene_sha256": clusters[0]["scene_sha256"]}
+                ),
+                "aliases one scene asset hash",
+            ),
+            (
+                "external detector contract",
+                lambda clusters: clusters[0]["candidate"].update(
+                    {"formal_detection_contract_eligible": False}
+                ),
+                "requires embedded candidate detector contracts",
+            ),
+            (
+                "baseline algorithm drift",
+                lambda clusters: clusters[0]["baseline"].update(
+                    {"algorithm_sha256": "e" * 64}
+                ),
+                "one frozen baseline algorithm hash",
+            ),
+            (
+                "candidate algorithm drift",
+                lambda clusters: clusters[0]["candidate"].update(
+                    {"algorithm_sha256": "e" * 64}
+                ),
+                "one frozen candidate algorithm hash",
+            ),
+            (
+                "ground truth generator drift",
+                lambda clusters: clusters[0]["baseline"].update(
+                    {"ground_truth_generator_sha256": "e" * 64}
+                ),
+                "one frozen ground-truth generator hash",
+            ),
+            (
+                "evaluation parameter drift",
+                lambda clusters: clusters[0].update(
+                    {"parameters_sha256": "e" * 64}
+                ),
+                "one frozen evaluation parameters hash",
+            ),
+        )
+        for label, mutate, expected in cases:
+            with self.subTest(case=label):
+                clusters = self._formal_clusters()
+                mutate(clusters)
+                with self.assertRaisesRegex(ValueError, expected):
+                    _validate_formal_cluster_minimum(clusters)
+
+    @staticmethod
+    def _formal_clusters() -> list[dict]:
+        clusters = []
+        for index in range(6):
+            scene_index = index // 2
+            clusters.append(
+                {
+                    "scene_id": f"scene-{scene_index}",
+                    "scene_sha256": f"{scene_index + 4:x}" * 64,
+                    "trajectory_id": f"trajectory-{index % 2}",
+                    "trajectory_sha256": f"{index + 7:x}" * 64,
+                    "parameters_sha256": PARAMETERS_HASH,
+                    "baseline": {
+                        "algorithm_sha256": "b" * 64,
+                        "ground_truth_generator_sha256": (
+                            GROUND_TRUTH_GENERATOR_HASH
+                        ),
+                        "formal_detection_contract_eligible": True,
+                    },
+                    "candidate": {
+                        "algorithm_sha256": "c" * 64,
+                        "formal_detection_contract_eligible": True,
+                    },
+                }
+            )
+        return clusters
+
     @staticmethod
     def _manifest(clusters: list[dict]) -> dict:
         return {
             "schema_version": MANIFEST_SCHEMA_VERSION,
             "role": "unit_test",
             "formal_acceptance_eligible": False,
+            "allowed_algorithm_contract_differences": ["operation"],
             "clusters": clusters,
         }
 
@@ -553,11 +764,16 @@ class GroundingAuditCompareTests(unittest.TestCase):
         candidate_payload = json.loads(
             candidate_path.read_text(encoding="utf-8")
         )
-        scene_id, trajectory_id = cluster_id.split("/", 1)
+        _, trajectory_id = cluster_id.split("/", 1)
+        scene_id = baseline_payload["inputs"]["scene_id"]
         return {
             "cluster_id": cluster_id,
             "scene_id": scene_id,
+            "scene_sha256": baseline_payload["inputs"]["scene_sha256"],
             "trajectory_id": trajectory_id,
+            "trajectory_sha256": baseline_payload["inputs"][
+                "input_frame_hashes_sha256"
+            ],
             "baseline": {
                 "audit_json": baseline_path.name,
                 "audit_json_sha256": _file_hash(baseline_path),
@@ -649,6 +865,25 @@ class GroundingAuditCompareTests(unittest.TestCase):
                         "semantic_gt_generator_sha256": (
                             GROUND_TRUTH_GENERATOR_HASH
                         ),
+                        "scene_id": "scene",
+                        "scene_sha256": SCENE_HASH,
+                        "frames_metadata_sha256": FRAMES_METADATA_HASH,
+                        "selected_frame_indices_sha256": (
+                            SELECTED_FRAME_INDICES_HASH
+                        ),
+                        "input_frame_hashes_sha256": (
+                            INPUT_FRAME_HASHES_HASH
+                        ),
+                        "detection_run_contract_sha256": (
+                            DETECTION_RUN_CONTRACT_HASH
+                        ),
+                        "semantic_gt_integrity_contract": (
+                            SEMANTIC_INTEGRITY_CONTRACT
+                        ),
+                        "semantic_gt_integrity_sha256": (
+                            SEMANTIC_INTEGRITY_HASH
+                        ),
+                        "formal_detection_contract_eligible": True,
                     },
                     "variant_algorithms": variant_algorithms,
                     "variants": variants,

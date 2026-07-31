@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "protocol_id": "grounding-box-contrastive-prompt-v1-evidence-amendment",
+  "frozen_date": "2026-07-31",
+  "amends_preregistration": {
+    "path": "preregistration.json",
+    "sha256_before_amendment": "250f9f762c4d51bbb05fa1caeb446b955c1b2fd0ad853ac9db68db1be647b145"
+  },
+  "reason": "Independent audit rejected the first full-replay attempt because legacy external detector contracts and reusable trajectory labels could not prove a same-input, single-variable comparison.",
+  "superseded_attempts": [
+    {
+      "name": "partial_candidate_full_replay_before_contract_hardening",
+      "status": "ineligible",
+      "reuse_for_metrics_or_acceptance": false
+    }
+  ],
+  "paired_replay_contract": {
+    "runner": "scripts/grounding_detector_replay.py",
+    "baseline_and_candidate_runner_sha256_must_match": true,
+    "grounding_projection_and_task_profile_dependency_hashes_must_match": true,
+    "python_torch_transformers_numpy_and_pillow_versions_must_match": true,
+    "baseline_and_candidate_model_artifact_manifest_must_match": true,
+    "detector_contract_source": "embedded_in_each_detection_output",
+    "legacy_external_contract_formal_eligible": false,
+    "same_scene_asset_sha256": true,
+    "same_frames_metadata_sha256": true,
+    "same_selected_frame_indices_sha256": true,
+    "same_input_frame_hashes_sha256": true,
+    "full_frame_rgb_integrity_required": true,
+    "full_frame_depth_integrity_required": true
+  },
+  "single_variable_contract": {
+    "allowed_algorithm_contract_differences": [
+      "detection_algorithm.labels"
+    ],
+    "actual_difference_paths_must_exactly_equal_allowed_paths": true,
+    "baseline_labels": [
+      "door",
+      "doorway",
+      "window",
+      "table",
+      "chair",
+      "sofa",
+      "bed",
+      "sink",
+      "counter",
+      "toilet"
+    ],
+    "candidate_labels": [
+      "door",
+      "doorway",
+      "window",
+      "table",
+      "chair",
+      "sofa",
+      "bed",
+      "sink",
+      "counter",
+      "toilet",
+      "cabinet door",
+      "refrigerator door",
+      "mirror",
+      "wall panel"
+    ]
+  },
+  "formal_identity_contract": {
+    "minimum_distinct_scene_assets": 3,
+    "minimum_unique_trajectories_per_scene": 2,
+    "trajectory_identity": "canonical SHA-256 of ordered frame_index, RGB SHA-256, and depth SHA-256 records",
+    "duplicate_trajectory_fingerprints_forbidden": true,
+    "scene_id_to_scene_asset_sha256_must_be_one_to_one": true,
+    "evaluation_parameters_frozen_across_clusters": true,
+    "ground_truth_generator_frozen_across_clusters": true,
+    "baseline_algorithm_frozen_across_clusters": true,
+    "candidate_algorithm_frozen_across_clusters": true
+  },
+  "restart_gate": {
+    "all_local_tests_pass": true,
+    "independent_auditor_reproduces_and_rejects_fake_3x2_replay": true,
+    "independent_auditor_rejects_changes_outside_labels": true,
+    "independent_auditor_accepts_evidence_chain_before_gpu_restart": true
+  }
+}

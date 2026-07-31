@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import copy
 import json
 import tempfile
 import unittest
 from pathlib import Path
 
 from scripts.grounding_box_audit import (
+    _canonical_payload_sha256,
+    _detection_contract,
     _hard_negative_category,
+    _validate_semantic_gt_integrity,
     audit_payloads,
     box_iou,
     classwise_nms,
@@ -565,28 +569,259 @@ class GroundingBoxAuditTests(unittest.TestCase):
         )
 
     def test_cli_writes_strict_json_and_nms_can_be_disabled(self) -> None:
+        frame_indices_sha = _canonical_payload_sha256(
+            {"frame_indices": [0]}
+        )
+        input_hashes_sha = _canonical_payload_sha256(
+            {
+                "frames": [
+                    {
+                        "frame_index": 0,
+                        "rgb_sha256": "a" * 64,
+                        "depth_sha256": "b" * 64,
+                    }
+                ]
+            }
+        )
         detections = {
             "detections": [
                 self._detection(0, "door", 0.9, [0, 0, 10, 10], 1, [0, 0, 0])
             ]
         }
         semantic_gt = {
+            "source": {
+                "generator_sha256": "c" * 64,
+                "scene_id": "test-scene",
+                "scene_sha256": "d" * 64,
+                "frames_metadata_sha256": "e" * 64,
+                "input_frame_hashes_sha256": input_hashes_sha,
+            },
+            "selection": {
+                "selected_num_frames": 1,
+                "selected_frame_indices_sha256": frame_indices_sha,
+            },
+            "rgb_replay_checks": [
+                {
+                    "frame_index": 0,
+                    "available": True,
+                }
+            ],
+            "rgb_replay_integrity": {
+                "enabled": True,
+                "passed": True,
+                "required_checks": 1,
+                "available_checks": 1,
+            },
+            "depth_replay_checks": [
+                {
+                    "frame_index": 0,
+                    "available": True,
+                }
+            ],
+            "depth_replay_integrity": {
+                "enabled": True,
+                "passed": True,
+                "required_checks": 1,
+                "available_checks": 1,
+            },
             "frames": [
                 {
                     "frame_index": 0,
+                    "source_rgb_sha256": "a" * 64,
+                    "source_depth_sha256": "b" * 64,
                     "instances": [
                         self._instance(7, "door", [0, 0, 10, 10], [0, 0, 0])
                     ],
                 }
             ]
         }
+        integrity = _validate_semantic_gt_integrity(semantic_gt)
+        self.assertEqual(integrity["frame_count"], 1)
+        for label, mutate, expected in (
+            (
+                "disabled",
+                lambda value: value["rgb_replay_integrity"].update(
+                    {"enabled": False}
+                ),
+                "was not enabled",
+            ),
+            (
+                "missing frame",
+                lambda value: value.update({"depth_replay_checks": []}),
+                "not full-frame",
+            ),
+            (
+                "wrong frame",
+                lambda value: value["rgb_replay_checks"][0].update(
+                    {"frame_index": 1}
+                ),
+                "do not match selected frame order",
+            ),
+        ):
+            with self.subTest(integrity_case=label):
+                invalid = copy.deepcopy(semantic_gt)
+                mutate(invalid)
+                with self.assertRaisesRegex(ValueError, expected):
+                    _validate_semantic_gt_integrity(invalid)
+
+        embedded = copy.deepcopy(detections)
+        implementation_files = [
+            {
+                "path": "scripts/grounding_detector_replay.py",
+                "size_bytes": 1,
+                "sha256": "f" * 64,
+            },
+            {
+                "path": "scripts/m25_groundingdino_export.py",
+                "size_bytes": 2,
+                "sha256": "8" * 64,
+            },
+            {
+                "path": "src/semantic_task_profile.py",
+                "size_bytes": 3,
+                "sha256": "7" * 64,
+            },
+        ]
+        embedded_algorithm = {
+            "schema_version": 1,
+            "generator_sha256": "f" * 64,
+            "implementation_artifacts": {
+                "files": implementation_files,
+                "manifest_sha256": _canonical_payload_sha256(
+                    {"files": implementation_files}
+                ),
+            },
+            "runtime": {
+                "python": "3.10.0",
+                "packages": {
+                    "numpy": "1.0",
+                    "Pillow": "1.0",
+                    "torch": "1.0",
+                    "transformers": "1.0",
+                },
+            },
+            "labels": ["door"],
+            "model_artifacts": {
+                "local_directory": False,
+                "identifier": "test/model",
+            },
+            "semantic_oracle_access": False,
+        }
+        embedded_run = {
+            "frames_metadata_sha256": "e" * 64,
+            "frame_start": 0,
+            "frame_end": None,
+            "frame_stride": 1,
+            "max_frames": None,
+            "selected_frames": 1,
+            "selected_frame_indices_sha256": frame_indices_sha,
+            "input_frame_hashes_sha256": input_hashes_sha,
+        }
+        embedded_source = {
+            **embedded_run,
+            "input_frame_hashes": [
+                {
+                    "frame_index": 0,
+                    "rgb_sha256": "a" * 64,
+                    "depth_sha256": "b" * 64,
+                }
+            ],
+        }
+        embedded.update(
+            {
+                "source": embedded_source,
+                "algorithm_contract": embedded_algorithm,
+                "algorithm_sha256": _canonical_payload_sha256(
+                    embedded_algorithm
+                ),
+                "run_contract": embedded_run,
+                "run_contract_sha256": _canonical_payload_sha256(
+                    embedded_run
+                ),
+            }
+        )
+        _, embedded_provenance = _detection_contract(
+            embedded,
+            external_contract_path=None,
+            semantic_integrity=integrity,
+        )
+        self.assertTrue(embedded_provenance["formal_eligible"])
+
+        for label, mutate, expected in (
+            (
+                "oracle access",
+                lambda value: value["algorithm_contract"].update(
+                    {"semantic_oracle_access": True}
+                ),
+                "semantic_oracle_access=false",
+            ),
+            (
+                "input hash record",
+                lambda value: value["source"]["input_frame_hashes"][0].update(
+                    {"rgb_sha256": "9" * 64}
+                ),
+                "input frame hash manifest does not match",
+            ),
+            (
+                "implementation dependency",
+                lambda value: value["algorithm_contract"][
+                    "implementation_artifacts"
+                ]["files"][1].update({"sha256": "6" * 64}),
+                "implementation artifact manifest hash mismatch",
+            ),
+            (
+                "selection contract",
+                lambda value: value["run_contract"].update(
+                    {"frame_stride": 2}
+                ),
+                "source.frame_stride does not match run_contract",
+            ),
+            (
+                "outside frame",
+                lambda value: value["detections"][0].update(
+                    {"frame_index": 1}
+                ),
+                "outside the frozen selection",
+            ),
+        ):
+            with self.subTest(embedded_case=label):
+                invalid = copy.deepcopy(embedded)
+                mutate(invalid)
+                invalid["algorithm_sha256"] = _canonical_payload_sha256(
+                    invalid["algorithm_contract"]
+                )
+                invalid["run_contract_sha256"] = (
+                    _canonical_payload_sha256(invalid["run_contract"])
+                )
+                with self.assertRaisesRegex(ValueError, expected):
+                    _detection_contract(
+                        invalid,
+                        external_contract_path=None,
+                        semantic_integrity=integrity,
+                    )
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             detections_path = root / "detections.json"
             gt_path = root / "semantic_gt.json"
             output_path = root / "audit.json"
+            contract_path = root / "detector_contract.json"
+            detector_contract = {
+                "algorithm_contract": {
+                    "backend": "test-detector",
+                },
+                "run_contract": {
+                    "frames_metadata_sha256": "e" * 64,
+                    "selected_frame_indices_sha256": frame_indices_sha,
+                    "input_frame_hashes_sha256": input_hashes_sha,
+                    "selected_frames": 1,
+                }
+            }
             detections_path.write_text(json.dumps(detections), encoding="utf-8")
             gt_path.write_text(json.dumps(semantic_gt), encoding="utf-8")
+            contract_path.write_text(
+                json.dumps(detector_contract),
+                encoding="utf-8",
+            )
 
             exit_code = main(
                 [
@@ -596,6 +831,8 @@ class GroundingBoxAuditTests(unittest.TestCase):
                     str(gt_path),
                     "--output-json",
                     str(output_path),
+                    "--detection-algorithm-contract-json",
+                    str(contract_path),
                     "--nms-iou",
                     "1",
                 ]

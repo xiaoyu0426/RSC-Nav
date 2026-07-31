@@ -5,8 +5,11 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.metadata
 import json
 import math
+import platform
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -14,6 +17,10 @@ from typing import Any, Mapping
 
 import numpy as np
 from PIL import Image
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "src"))
 
 from m25_groundingdino_export import (
     _detect,
@@ -88,9 +95,27 @@ def main() -> int:
         raise ValueError("No frames selected for detector replay")
 
     generator_path = Path(__file__).resolve()
+    frames_metadata_sha256 = _sha256(metadata_path)
+    selected_frame_indices = [
+        int(frame["frame_index"]) for frame in selected_frames
+    ]
     algorithm_contract = {
         "schema_version": 1,
         "generator_sha256": _sha256(generator_path),
+        "implementation_artifacts": _implementation_artifact_manifest(
+            [
+                generator_path,
+                ROOT / "scripts" / "m25_groundingdino_export.py",
+                ROOT / "src" / "semantic_task_profile.py",
+            ]
+        ),
+        "runtime": {
+            "python": platform.python_version(),
+            "packages": {
+                name: _package_version(name)
+                for name in ("numpy", "Pillow", "torch", "transformers")
+            },
+        },
         "backend": "GroundingDINO",
         "model_id": str(args.model_id),
         "model_artifacts": _model_artifact_manifest(args.model_id),
@@ -121,6 +146,8 @@ def main() -> int:
     tracks: list[ReplayTrack] = []
     detections: list[dict[str, Any]] = []
     inference_ms: list[float] = []
+    inference_records: list[dict[str, Any]] = []
+    input_frame_hashes: list[dict[str, Any]] = []
     for selected_index, frame in enumerate(selected_frames):
         if selected_index == 0 or selected_index % 100 == 0:
             print(
@@ -137,6 +164,13 @@ def main() -> int:
             )
         rgb_path = _source_path(frame.get("rgb_path"), metadata_path)
         depth_path = _source_path(frame.get("depth_npy"), metadata_path)
+        input_frame_hashes.append(
+            {
+                "frame_index": int(frame["frame_index"]),
+                "rgb_sha256": _sha256(rgb_path),
+                "depth_sha256": _sha256(depth_path),
+            }
+        )
         image = Image.open(rgb_path).convert("RGB")
         started = time.perf_counter()
         frame_detections = _detect(
@@ -147,7 +181,14 @@ def main() -> int:
             text_threshold=float(args.text_threshold),
             max_detections=int(args.max_detections),
         )
-        inference_ms.append((time.perf_counter() - started) * 1000.0)
+        elapsed_ms = (time.perf_counter() - started) * 1000.0
+        inference_ms.append(elapsed_ms)
+        inference_records.append(
+            {
+                "frame_index": int(frame["frame_index"]),
+                "elapsed_ms": elapsed_ms,
+            }
+        )
         depth = np.squeeze(np.asarray(np.load(depth_path), dtype=np.float32))
         if depth.shape != (image.height, image.width):
             raise ValueError(
@@ -186,22 +227,57 @@ def main() -> int:
         detections.extend(projected)
 
     timing = _distribution(inference_ms)
+    input_frame_hashes_sha256 = _canonical_sha256(
+        {"frames": input_frame_hashes}
+    )
+    run_contract = {
+        "frames_metadata_sha256": frames_metadata_sha256,
+        "frame_start": int(args.frame_start),
+        "frame_end": (
+            int(args.frame_end) if args.frame_end is not None else None
+        ),
+        "frame_stride": max(1, int(args.frame_stride)),
+        "max_frames": (
+            int(args.max_frames) if args.max_frames is not None else None
+        ),
+        "selected_frames": len(selected_frames),
+        "selected_frame_indices_sha256": _canonical_sha256(
+            {"frame_indices": selected_frame_indices}
+        ),
+        "input_frame_hashes_sha256": input_frame_hashes_sha256,
+    }
     output = {
         "schema_version": 1,
         "source": {
             "frames_metadata": str(metadata_path),
-            "frames_metadata_sha256": _sha256(metadata_path),
+            "frames_metadata_sha256": frames_metadata_sha256,
             "selected_frames": len(selected_frames),
             "frame_start": int(args.frame_start),
             "frame_end": (
                 int(args.frame_end) if args.frame_end is not None else None
             ),
             "frame_stride": max(1, int(args.frame_stride)),
+            "max_frames": (
+                int(args.max_frames) if args.max_frames is not None else None
+            ),
+            "selected_frame_indices_sha256": _canonical_sha256(
+                {"frame_indices": selected_frame_indices}
+            ),
+            "input_frame_hashes": input_frame_hashes,
+            "input_frame_hashes_sha256": input_frame_hashes_sha256,
         },
         "algorithm_contract": algorithm_contract,
         "algorithm_sha256": _canonical_sha256(algorithm_contract),
+        "run_contract": run_contract,
+        "run_contract_sha256": _canonical_sha256(run_contract),
         "resources": {
             "inference_ms": timing,
+            "inference_ms_by_frame": inference_records,
+            "steady_state_excluding_first_frame": (
+                _distribution(inference_ms[1:])
+                if len(inference_ms) > 1
+                else None
+            ),
             "peak_cuda_memory_gb": _peak_cuda_memory_gb(),
         },
         "num_tracks": len(tracks),
@@ -315,6 +391,32 @@ def _model_artifact_manifest(model_id: str) -> dict[str, Any]:
         "files": files,
         "manifest_sha256": _canonical_sha256({"files": files}),
     }
+
+
+def _implementation_artifact_manifest(
+    paths: list[Path],
+) -> dict[str, Any]:
+    files = []
+    for path in paths:
+        resolved = path.resolve()
+        files.append(
+            {
+                "path": resolved.relative_to(ROOT.resolve()).as_posix(),
+                "size_bytes": resolved.stat().st_size,
+                "sha256": _sha256(resolved),
+            }
+        )
+    return {
+        "files": files,
+        "manifest_sha256": _canonical_sha256({"files": files}),
+    }
+
+
+def _package_version(name: str) -> str | None:
+    try:
+        return importlib.metadata.version(name)
+    except importlib.metadata.PackageNotFoundError:
+        return None
 
 
 def _distribution(values: list[float]) -> dict[str, float]:

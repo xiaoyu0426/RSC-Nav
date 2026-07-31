@@ -1541,6 +1541,607 @@ def _canonical_payload_sha256(payload: Mapping[str, Any]) -> str:
     return hashlib.sha256(serialized).hexdigest()
 
 
+def _required_sha256(
+    payload: Mapping[str, Any],
+    key: str,
+    context: str,
+) -> str:
+    value = payload.get(key)
+    if not isinstance(value, str) or len(value) != 64:
+        raise ValueError(f"{context}.{key} must be a SHA-256 hex digest")
+    try:
+        int(value, 16)
+    except ValueError as error:
+        raise ValueError(
+            f"{context}.{key} must be a SHA-256 hex digest"
+        ) from error
+    return value.lower()
+
+
+def _validate_semantic_gt_integrity(
+    payload: Mapping[str, Any],
+) -> dict[str, Any]:
+    frames = payload.get("frames")
+    source = payload.get("source")
+    selection = payload.get("selection")
+    if not isinstance(frames, list):
+        raise ValueError("semantic GT frames must be a list")
+    if not isinstance(source, Mapping):
+        raise ValueError("semantic GT source must be an object")
+    if not isinstance(selection, Mapping):
+        raise ValueError("semantic GT selection must be an object")
+    frame_count = len(frames)
+    if selection.get("selected_num_frames") != frame_count:
+        raise ValueError(
+            "semantic GT selected_num_frames does not match frames length"
+        )
+    frame_indices = []
+    input_frame_hashes = []
+    for frame in frames:
+        if not isinstance(frame, Mapping):
+            raise ValueError("semantic GT frame must be an object")
+        frame_index = _frame_index(frame.get("frame_index"))
+        if frame_index is None:
+            raise ValueError("semantic GT frame_index is invalid")
+        frame_indices.append(frame_index)
+        input_frame_hashes.append(
+            {
+                "frame_index": frame_index,
+                "rgb_sha256": _required_sha256(
+                    frame,
+                    "source_rgb_sha256",
+                    f"semantic GT frame {frame_index}",
+                ),
+                "depth_sha256": _required_sha256(
+                    frame,
+                    "source_depth_sha256",
+                    f"semantic GT frame {frame_index}",
+                ),
+            }
+        )
+    if len(set(frame_indices)) != len(frame_indices):
+        raise ValueError("semantic GT frame_index values must be unique")
+    selected_indices_sha256 = _canonical_payload_sha256(
+        {"frame_indices": frame_indices}
+    )
+    if (
+        _required_sha256(
+            selection,
+            "selected_frame_indices_sha256",
+            "semantic GT selection",
+        )
+        != selected_indices_sha256
+    ):
+        raise ValueError("semantic GT selected frame index hash mismatch")
+    input_frame_hashes_sha256 = _canonical_payload_sha256(
+        {"frames": input_frame_hashes}
+    )
+    if (
+        _required_sha256(
+            source,
+            "input_frame_hashes_sha256",
+            "semantic GT source",
+        )
+        != input_frame_hashes_sha256
+    ):
+        raise ValueError("semantic GT input frame hash manifest mismatch")
+
+    integrity_contract: dict[str, Any] = {
+        "contract": "full_frame_rgb_depth_replay_v1",
+        "frame_count": frame_count,
+    }
+    for name in ("rgb", "depth"):
+        checks = payload.get(f"{name}_replay_checks")
+        if not isinstance(checks, list):
+            raise ValueError(
+                f"semantic GT {name}_replay_checks must be a list"
+            )
+        if len(checks) != frame_count:
+            raise ValueError(
+                f"semantic GT {name} replay checks are not full-frame"
+            )
+        checked_frame_indices = []
+        for check in checks:
+            if not isinstance(check, Mapping):
+                raise ValueError(
+                    f"semantic GT {name} replay check must be an object"
+                )
+            check_frame_index = _frame_index(check.get("frame_index"))
+            if check_frame_index is None:
+                raise ValueError(
+                    f"semantic GT {name} replay check frame_index is invalid"
+                )
+            if check.get("available") is not True:
+                raise ValueError(
+                    f"semantic GT {name} replay check is unavailable for "
+                    f"frame {check_frame_index}"
+                )
+            checked_frame_indices.append(check_frame_index)
+        if checked_frame_indices != frame_indices:
+            raise ValueError(
+                f"semantic GT {name} replay checks do not match selected "
+                "frame order"
+            )
+        report = payload.get(f"{name}_replay_integrity")
+        if not isinstance(report, Mapping):
+            raise ValueError(
+                f"semantic GT {name}_replay_integrity must be an object"
+            )
+        if report.get("enabled") is not True:
+            raise ValueError(
+                f"semantic GT {name} replay integrity was not enabled"
+            )
+        if report.get("passed") is not True:
+            raise ValueError(
+                f"semantic GT {name} replay integrity did not pass"
+            )
+        if report.get("required_checks") != frame_count:
+            raise ValueError(
+                f"semantic GT {name} integrity is not full-frame"
+            )
+        if report.get("available_checks") != frame_count:
+            raise ValueError(
+                f"semantic GT {name} integrity has unavailable checks"
+            )
+        integrity_contract[f"{name}_integrity"] = dict(report)
+    integrity_contract.update(
+        {
+            "generator_sha256": _required_sha256(
+                source,
+                "generator_sha256",
+                "semantic GT source",
+            ),
+            "scene_id": str(source.get("scene_id", "")).strip(),
+            "scene_sha256": _required_sha256(
+                source,
+                "scene_sha256",
+                "semantic GT source",
+            ),
+            "frames_metadata_sha256": _required_sha256(
+                source,
+                "frames_metadata_sha256",
+                "semantic GT source",
+            ),
+            "selected_frame_indices_sha256": selected_indices_sha256,
+            "input_frame_hashes_sha256": input_frame_hashes_sha256,
+        }
+    )
+    if not integrity_contract["scene_id"]:
+        raise ValueError("semantic GT source.scene_id is required")
+    return integrity_contract
+
+
+def _detection_contract(
+    detections_payload: Mapping[str, Any],
+    *,
+    external_contract_path: Path | None,
+    semantic_integrity: Mapping[str, Any],
+) -> tuple[Mapping[str, Any], dict[str, Any]]:
+    embedded_contract = detections_payload.get("algorithm_contract")
+    embedded_sha256 = detections_payload.get("algorithm_sha256")
+    embedded_run_contract = detections_payload.get("run_contract")
+    embedded_run_sha256 = detections_payload.get("run_contract_sha256")
+    external_payload = None
+    if external_contract_path is not None:
+        external_payload = json.loads(
+            external_contract_path.read_text(encoding="utf-8")
+        )
+        if not isinstance(external_payload, Mapping):
+            raise ValueError(
+                "detection algorithm contract JSON root must be an object"
+            )
+
+    if isinstance(embedded_contract, Mapping):
+        computed_sha256 = _canonical_payload_sha256(embedded_contract)
+        if not isinstance(embedded_sha256, str) or (
+            embedded_sha256.lower() != computed_sha256
+        ):
+            raise ValueError(
+                "detections embedded algorithm_sha256 does not match "
+                "algorithm_contract"
+            )
+        contract = embedded_contract
+        run_contract = embedded_run_contract
+        if not isinstance(run_contract, Mapping):
+            raise ValueError("detections must embed a run_contract object")
+        computed_run_sha256 = _canonical_payload_sha256(run_contract)
+        if not isinstance(embedded_run_sha256, str) or (
+            embedded_run_sha256.lower() != computed_run_sha256
+        ):
+            raise ValueError(
+                "detections embedded run_contract_sha256 does not match "
+                "run_contract"
+            )
+        _validate_embedded_detection_output(
+            detections_payload,
+            algorithm_contract=contract,
+            run_contract=run_contract,
+        )
+        if external_payload is not None:
+            external_algorithm = external_payload.get("algorithm_contract")
+            external_run = external_payload.get("run_contract")
+            if not isinstance(external_algorithm, Mapping) or (
+                _canonical_payload_sha256(external_algorithm)
+                != computed_sha256
+            ):
+                raise ValueError(
+                    "external detection algorithm contract does not match "
+                    "embedded contract"
+                )
+            if not isinstance(external_run, Mapping) or (
+                _canonical_payload_sha256(external_run)
+                != computed_run_sha256
+            ):
+                raise ValueError(
+                    "external detection run contract does not match embedded "
+                    "contract"
+                )
+        source_type = "embedded"
+    elif external_payload is not None:
+        contract = external_payload.get("algorithm_contract")
+        run_contract = external_payload.get("run_contract")
+        if not isinstance(contract, Mapping):
+            raise ValueError(
+                "external detection contract must contain algorithm_contract"
+            )
+        if not isinstance(run_contract, Mapping):
+            raise ValueError(
+                "external detection contract must contain run_contract"
+            )
+        computed_sha256 = _canonical_payload_sha256(contract)
+        computed_run_sha256 = _canonical_payload_sha256(run_contract)
+        source_type = "external_legacy"
+    else:
+        raise ValueError(
+            "detections must embed an algorithm contract or provide "
+            "--detection-algorithm-contract-json"
+        )
+
+    paired_fields = (
+        "frames_metadata_sha256",
+        "selected_frame_indices_sha256",
+        "input_frame_hashes_sha256",
+    )
+    for field in paired_fields:
+        if (
+            _required_sha256(
+                run_contract,
+                field,
+                "detection run_contract",
+            )
+            != semantic_integrity[field]
+        ):
+            raise ValueError(
+                f"detection run_contract.{field} does not match "
+                "semantic GT"
+            )
+    if run_contract.get("selected_frames") != semantic_integrity[
+        "frame_count"
+    ]:
+        raise ValueError(
+            "detection replay selected_frames does not match semantic GT"
+        )
+    return contract, {
+        "source": source_type,
+        "canonical_sha256": computed_sha256,
+        "run_contract": dict(run_contract),
+        "run_contract_sha256": computed_run_sha256,
+        "external_json": (
+            str(external_contract_path)
+            if external_contract_path is not None
+            else None
+        ),
+        "external_file_sha256": (
+            _sha256(external_contract_path)
+            if external_contract_path is not None
+            else None
+        ),
+        "formal_eligible": source_type == "embedded",
+    }
+
+
+def _validate_embedded_detection_output(
+    payload: Mapping[str, Any],
+    *,
+    algorithm_contract: Mapping[str, Any],
+    run_contract: Mapping[str, Any],
+) -> None:
+    generator_sha256 = _required_sha256(
+        algorithm_contract,
+        "generator_sha256",
+        "detection algorithm_contract",
+    )
+    if algorithm_contract.get("semantic_oracle_access") is not False:
+        raise ValueError(
+            "embedded detection algorithm must declare "
+            "semantic_oracle_access=false"
+        )
+    labels = algorithm_contract.get("labels")
+    if (
+        not isinstance(labels, list)
+        or not labels
+        or not all(isinstance(item, str) and item.strip() for item in labels)
+        or len(set(labels)) != len(labels)
+    ):
+        raise ValueError(
+            "embedded detection algorithm labels must be unique non-empty "
+            "strings"
+        )
+    _validate_model_artifact_manifest(
+        algorithm_contract.get("model_artifacts")
+    )
+    implementation_hashes = _validate_implementation_artifact_manifest(
+        algorithm_contract.get("implementation_artifacts")
+    )
+    if implementation_hashes["scripts/grounding_detector_replay.py"] != (
+        generator_sha256
+    ):
+        raise ValueError(
+            "embedded detection generator hash does not match its "
+            "implementation artifact"
+        )
+    runtime = algorithm_contract.get("runtime")
+    if not isinstance(runtime, Mapping) or not str(
+        runtime.get("python", "")
+    ).strip():
+        raise ValueError(
+            "embedded detection algorithm runtime.python is required"
+        )
+    packages = runtime.get("packages")
+    required_packages = ("numpy", "Pillow", "torch", "transformers")
+    if not isinstance(packages, Mapping) or not all(
+        isinstance(packages.get(name), str) and packages[name].strip()
+        for name in required_packages
+    ):
+        raise ValueError(
+            "embedded detection algorithm runtime package versions are "
+            "incomplete"
+        )
+
+    source = payload.get("source")
+    if not isinstance(source, Mapping):
+        raise ValueError("embedded detections must contain a source object")
+    paired_sha_fields = (
+        "frames_metadata_sha256",
+        "selected_frame_indices_sha256",
+        "input_frame_hashes_sha256",
+    )
+    for field in paired_sha_fields:
+        source_value = _required_sha256(
+            source,
+            field,
+            "detection source",
+        )
+        run_value = _required_sha256(
+            run_contract,
+            field,
+            "detection run_contract",
+        )
+        if source_value != run_value:
+            raise ValueError(
+                f"detection source.{field} does not match run_contract"
+            )
+    for field in (
+        "selected_frames",
+        "frame_start",
+        "frame_end",
+        "frame_stride",
+        "max_frames",
+    ):
+        if source.get(field) != run_contract.get(field):
+            raise ValueError(
+                f"detection source.{field} does not match run_contract"
+            )
+
+    selected_frames = run_contract.get("selected_frames")
+    if (
+        not isinstance(selected_frames, int)
+        or isinstance(selected_frames, bool)
+        or selected_frames <= 0
+    ):
+        raise ValueError(
+            "detection run_contract.selected_frames must be a positive integer"
+        )
+    input_hashes = source.get("input_frame_hashes")
+    if not isinstance(input_hashes, list) or (
+        len(input_hashes) != selected_frames
+    ):
+        raise ValueError(
+            "embedded detection input frame hashes are not full-frame"
+        )
+    canonical_records = []
+    frame_indices = []
+    for record in input_hashes:
+        if not isinstance(record, Mapping):
+            raise ValueError(
+                "embedded detection input frame hash record must be an object"
+            )
+        frame_index = _frame_index(record.get("frame_index"))
+        if frame_index is None:
+            raise ValueError(
+                "embedded detection input frame hash frame_index is invalid"
+            )
+        frame_indices.append(frame_index)
+        canonical_records.append(
+            {
+                "frame_index": frame_index,
+                "rgb_sha256": _required_sha256(
+                    record,
+                    "rgb_sha256",
+                    f"detection input frame {frame_index}",
+                ),
+                "depth_sha256": _required_sha256(
+                    record,
+                    "depth_sha256",
+                    f"detection input frame {frame_index}",
+                ),
+            }
+        )
+    if len(set(frame_indices)) != len(frame_indices):
+        raise ValueError(
+            "embedded detection input frame indices must be unique"
+        )
+    if _canonical_payload_sha256(
+        {"frame_indices": frame_indices}
+    ) != run_contract["selected_frame_indices_sha256"]:
+        raise ValueError(
+            "embedded detection selected frame index hash does not match "
+            "input records"
+        )
+    if _canonical_payload_sha256(
+        {"frames": canonical_records}
+    ) != run_contract["input_frame_hashes_sha256"]:
+        raise ValueError(
+            "embedded detection input frame hash manifest does not match "
+            "input records"
+        )
+
+    detections = payload.get("detections")
+    if not isinstance(detections, list):
+        raise ValueError("embedded detections.detections must be a list")
+    selected_index_set = set(frame_indices)
+    for detection in detections:
+        if not isinstance(detection, Mapping):
+            raise ValueError("embedded detection record must be an object")
+        frame_index = _frame_index(detection.get("frame_index"))
+        if frame_index not in selected_index_set:
+            raise ValueError(
+                "embedded detection references a frame outside the frozen "
+                "selection"
+            )
+
+
+def _validate_model_artifact_manifest(value: Any) -> None:
+    if not isinstance(value, Mapping):
+        raise ValueError(
+            "embedded detection algorithm model_artifacts must be an object"
+        )
+    local_directory = value.get("local_directory")
+    if not isinstance(local_directory, bool):
+        raise ValueError(
+            "embedded detection model_artifacts.local_directory must be "
+            "boolean"
+        )
+    if not local_directory:
+        if not str(value.get("identifier", "")).strip():
+            raise ValueError(
+                "embedded detection remote model identifier is required"
+            )
+        return
+    files = value.get("files")
+    if not isinstance(files, list) or not files:
+        raise ValueError(
+            "embedded detection local model artifact list must be non-empty"
+        )
+    canonical_files = []
+    for index, record in enumerate(files):
+        if not isinstance(record, Mapping):
+            raise ValueError(
+                "embedded detection model artifact record must be an object"
+            )
+        path = str(record.get("path", "")).strip()
+        size_bytes = record.get("size_bytes")
+        if not path:
+            raise ValueError(
+                "embedded detection model artifact path is required"
+            )
+        if (
+            not isinstance(size_bytes, int)
+            or isinstance(size_bytes, bool)
+            or size_bytes < 0
+        ):
+            raise ValueError(
+                "embedded detection model artifact size_bytes is invalid"
+            )
+        canonical_files.append(
+            {
+                "path": path,
+                "size_bytes": size_bytes,
+                "sha256": _required_sha256(
+                    record,
+                    "sha256",
+                    f"detection model artifact {index}",
+                ),
+            }
+        )
+    if _required_sha256(
+        value,
+        "manifest_sha256",
+        "detection model_artifacts",
+    ) != _canonical_payload_sha256({"files": canonical_files}):
+        raise ValueError(
+            "embedded detection model artifact manifest hash mismatch"
+        )
+
+
+def _validate_implementation_artifact_manifest(
+    value: Any,
+) -> dict[str, str]:
+    if not isinstance(value, Mapping):
+        raise ValueError(
+            "embedded detection implementation_artifacts must be an object"
+        )
+    files = value.get("files")
+    if not isinstance(files, list):
+        raise ValueError(
+            "embedded detection implementation artifact files must be a list"
+        )
+    required_paths = {
+        "scripts/grounding_detector_replay.py",
+        "scripts/m25_groundingdino_export.py",
+        "src/semantic_task_profile.py",
+    }
+    canonical_files = []
+    hashes: dict[str, str] = {}
+    for index, record in enumerate(files):
+        if not isinstance(record, Mapping):
+            raise ValueError(
+                "embedded detection implementation artifact must be an object"
+            )
+        path = str(record.get("path", "")).strip()
+        size_bytes = record.get("size_bytes")
+        if not path or path in hashes:
+            raise ValueError(
+                "embedded detection implementation artifact paths must be "
+                "unique and non-empty"
+            )
+        if (
+            not isinstance(size_bytes, int)
+            or isinstance(size_bytes, bool)
+            or size_bytes < 0
+        ):
+            raise ValueError(
+                "embedded detection implementation artifact size is invalid"
+            )
+        sha256 = _required_sha256(
+            record,
+            "sha256",
+            f"detection implementation artifact {index}",
+        )
+        hashes[path] = sha256
+        canonical_files.append(
+            {
+                "path": path,
+                "size_bytes": size_bytes,
+                "sha256": sha256,
+            }
+        )
+    if set(hashes) != required_paths:
+        raise ValueError(
+            "embedded detection implementation artifact set is incomplete"
+        )
+    if _required_sha256(
+        value,
+        "manifest_sha256",
+        "detection implementation_artifacts",
+    ) != _canonical_payload_sha256({"files": canonical_files}):
+        raise ValueError(
+            "embedded detection implementation artifact manifest hash "
+            "mismatch"
+        )
+    return hashes
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--detections-json", required=True)
@@ -1581,6 +2182,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     output_path = Path(args.output_json).expanduser().resolve()
     detections_payload = json.loads(detections_path.read_text(encoding="utf-8"))
     semantic_gt_payload = json.loads(semantic_gt_path.read_text(encoding="utf-8"))
+    semantic_integrity = _validate_semantic_gt_integrity(
+        semantic_gt_payload
+    )
     result = audit_payloads(
         detections_payload,
         semantic_gt_payload,
@@ -1593,44 +2197,58 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.detection_algorithm_contract_json
         else None
     )
-    detector_contract = None
-    if detector_contract_path is not None:
-        detector_contract = json.loads(
-            detector_contract_path.read_text(encoding="utf-8")
+    detector_contract, detector_contract_provenance = _detection_contract(
+        detections_payload,
+        external_contract_path=detector_contract_path,
+        semantic_integrity=semantic_integrity,
+    )
+    for algorithm_record in result["variant_algorithms"].values():
+        variant_contract = algorithm_record["contract"]
+        composite_contract = {
+            "detection_algorithm": detector_contract,
+            "evaluation_variant": variant_contract,
+        }
+        algorithm_record["contract"] = composite_contract
+        algorithm_record["sha256"] = _canonical_payload_sha256(
+            composite_contract
         )
-        if not isinstance(detector_contract, Mapping):
-            raise ValueError(
-                "detection algorithm contract JSON root must be an object"
-            )
-        for algorithm_record in result["variant_algorithms"].values():
-            variant_contract = algorithm_record["contract"]
-            composite_contract = {
-                "detection_algorithm": detector_contract,
-                "evaluation_variant": variant_contract,
-            }
-            algorithm_record["contract"] = composite_contract
-            algorithm_record["sha256"] = _canonical_payload_sha256(
-                composite_contract
-            )
     result["inputs"] = {
         "detections_json": str(detections_path),
         "detections_sha256": _sha256(detections_path),
         "semantic_gt_json": str(semantic_gt_path),
         "semantic_gt_sha256": _sha256(semantic_gt_path),
         "semantic_gt_generator_sha256": (
-            semantic_gt_payload.get("source", {}).get("generator_sha256")
-            if isinstance(semantic_gt_payload.get("source"), Mapping)
-            else None
+            semantic_integrity["generator_sha256"]
+        ),
+        "scene_id": semantic_integrity["scene_id"],
+        "scene_sha256": semantic_integrity["scene_sha256"],
+        "frames_metadata_sha256": semantic_integrity[
+            "frames_metadata_sha256"
+        ],
+        "selected_frame_indices_sha256": semantic_integrity[
+            "selected_frame_indices_sha256"
+        ],
+        "input_frame_hashes_sha256": semantic_integrity[
+            "input_frame_hashes_sha256"
+        ],
+        "semantic_gt_integrity_contract": semantic_integrity,
+        "semantic_gt_integrity_sha256": _canonical_payload_sha256(
+            semantic_integrity
         ),
         "detection_algorithm_contract_json": (
             str(detector_contract_path)
             if detector_contract_path is not None
             else None
         ),
-        "detection_algorithm_contract_sha256": (
-            _sha256(detector_contract_path)
-            if detector_contract_path is not None
-            else None
+        "detection_algorithm_contract": detector_contract_provenance,
+        "detection_run_contract_sha256": (
+            detector_contract_provenance["run_contract_sha256"]
+        ),
+        "detection_contract_source": (
+            detector_contract_provenance["source"]
+        ),
+        "formal_detection_contract_eligible": (
+            detector_contract_provenance["formal_eligible"]
         ),
         "evaluator_script": str(Path(__file__).resolve()),
         "evaluator_sha256": _sha256(Path(__file__).resolve()),

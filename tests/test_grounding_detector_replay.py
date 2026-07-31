@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -23,6 +24,40 @@ SPEC.loader.exec_module(MODULE)
 
 
 class GroundingDetectorReplayTest(unittest.TestCase):
+    def test_cli_help_runs_without_manual_pythonpath(self) -> None:
+        completed = subprocess.run(
+            [sys.executable, str(SCRIPT), "--help"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("--frames-metadata", completed.stdout)
+
+    def test_implementation_manifest_covers_runtime_dependencies(self) -> None:
+        manifest = MODULE._implementation_artifact_manifest(
+            [
+                SCRIPT,
+                ROOT / "scripts" / "m25_groundingdino_export.py",
+                ROOT / "src" / "semantic_task_profile.py",
+            ]
+        )
+
+        self.assertEqual(
+            {record["path"] for record in manifest["files"]},
+            {
+                "scripts/grounding_detector_replay.py",
+                "scripts/m25_groundingdino_export.py",
+                "src/semantic_task_profile.py",
+            },
+        )
+        self.assertEqual(
+            manifest["manifest_sha256"],
+            MODULE._canonical_sha256({"files": manifest["files"]}),
+        )
+
     def test_track_assignment_matches_nearest_same_label(self) -> None:
         tracks = []
         first = {

@@ -32,7 +32,7 @@ def main() -> None:
     parser.add_argument(
         "--verify-rgb-every",
         type=int,
-        default=25,
+        default=1,
         help="Compare replayed RGB with the saved JPEG every N selected frames.",
     )
     parser.add_argument(
@@ -219,6 +219,14 @@ def main() -> None:
         large_error_m=float(args.large_depth_error_m),
     )
     generator_path = Path(__file__).resolve()
+    input_frame_hashes = [
+        {
+            "frame_index": int(frame["frame_index"]),
+            "rgb_sha256": frame["source_rgb_sha256"],
+            "depth_sha256": frame["source_depth_sha256"],
+        }
+        for frame in frames
+    ]
     output = {
         "schema_version": 1,
         "source": {
@@ -227,11 +235,21 @@ def main() -> None:
             "frames_metadata": str(metadata_path),
             "frames_metadata_sha256": _sha256(metadata_path),
             "scene": str(scene),
+            "scene_id": scene.parent.name,
+            "scene_sha256": _sha256(scene),
             "scene_dataset_config": (
                 str(dataset_config) if dataset_config is not None else None
             ),
+            "scene_dataset_config_sha256": (
+                _sha256(dataset_config)
+                if dataset_config is not None
+                else None
+            ),
             "resolution": resolution,
             "source_num_frames": int(metadata.get("num_frames", 0)),
+            "input_frame_hashes_sha256": _canonical_sha256(
+                {"frames": input_frame_hashes}
+            ),
         },
         "selection": {
             "frame_start": int(args.frame_start),
@@ -243,6 +261,13 @@ def main() -> None:
                 int(args.max_frames) if args.max_frames is not None else None
             ),
             "selected_num_frames": len(frames),
+            "selected_frame_indices_sha256": _canonical_sha256(
+                {
+                    "frame_indices": [
+                        int(frame["frame_index"]) for frame in frames
+                    ]
+                }
+            ),
             "min_instance_area_px": max(
                 1,
                 int(args.min_instance_area_px),
@@ -901,6 +926,17 @@ def _sha256(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _canonical_sha256(payload: dict[str, Any]) -> str:
+    serialized = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(serialized).hexdigest()
 
 
 def _optional_file_sha256(path_value: Any) -> str | None:

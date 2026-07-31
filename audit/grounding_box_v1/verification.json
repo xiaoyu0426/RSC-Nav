@@ -7,7 +7,7 @@
     "git diff --check"
   ],
   "results": {
-    "unit_tests_run": 81,
+    "unit_tests_run": 86,
     "unit_tests_failed": 0,
     "python_compile_passed": true,
     "strict_json_parse_passed": true,

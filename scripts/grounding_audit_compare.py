@@ -7,11 +7,14 @@ The manifest schema is::
       "schema_version": "grounding_audit_compare_manifest_v1",
       "role": "formal_unseen_replay",
       "formal_acceptance_eligible": true,
+      "allowed_algorithm_contract_differences": ["detection_algorithm.labels"],
       "clusters": [
         {
           "cluster_id": "scene_a/trajectory_01",
           "scene_id": "scene_a",
+          "scene_sha256": "<scene asset hash>",
           "trajectory_id": "trajectory_01",
+          "trajectory_sha256": "<paired input-frame hash>",
           "baseline": {
             "audit_json": "baseline/audit.json",
             "audit_json_sha256": "<64 hex characters>",
@@ -188,6 +191,27 @@ def compare_manifest_payload(
         raise ValueError(
             "manifest formal_acceptance_eligible must be a boolean"
         )
+    allowed_algorithm_differences = manifest.get(
+        "allowed_algorithm_contract_differences"
+    )
+    if not isinstance(allowed_algorithm_differences, list) or not all(
+        isinstance(item, str) and item.strip()
+        for item in allowed_algorithm_differences
+    ):
+        raise ValueError(
+            "manifest allowed_algorithm_contract_differences must be a "
+            "list of non-empty dotted paths"
+        )
+    allowed_algorithm_differences = [
+        item.strip() for item in allowed_algorithm_differences
+    ]
+    if len(set(allowed_algorithm_differences)) != len(
+        allowed_algorithm_differences
+    ):
+        raise ValueError(
+            "manifest allowed_algorithm_contract_differences has duplicates"
+        )
+    _validate_allowed_difference_paths(allowed_algorithm_differences)
 
     manifest_dir = manifest_dir.expanduser().resolve()
     audit_cache: dict[Path, tuple[Mapping[str, Any], str]] = {}
@@ -201,9 +225,19 @@ def compare_manifest_payload(
             raise ValueError(f"{context} must be an object")
         cluster_id = _required_string(raw_cluster, "cluster_id", context)
         scene_id = _required_string(raw_cluster, "scene_id", context)
+        scene_sha256 = _required_sha256(
+            raw_cluster,
+            "scene_sha256",
+            context,
+        )
         trajectory_id = _required_string(
             raw_cluster,
             "trajectory_id",
+            context,
+        )
+        trajectory_sha256 = _required_sha256(
+            raw_cluster,
+            "trajectory_sha256",
             context,
         )
         if cluster_id in seen_cluster_ids:
@@ -244,6 +278,20 @@ def compare_manifest_payload(
                 f"cluster {cluster_id!r} ground_truth_generator_sha256 "
                 "mismatch"
             )
+        _validate_paired_input_identity(
+            baseline,
+            candidate,
+            cluster_id=cluster_id,
+            manifest_scene_id=scene_id,
+            manifest_scene_sha256=scene_sha256,
+            manifest_trajectory_sha256=trajectory_sha256,
+        )
+        _validate_algorithm_difference_scope(
+            baseline["algorithm_contract"],
+            candidate["algorithm_contract"],
+            allowed_paths=allowed_algorithm_differences,
+            cluster_id=cluster_id,
+        )
 
         metric_results: dict[str, Any] = {}
         for spec in METRIC_SPECS:
@@ -288,7 +336,9 @@ def compare_manifest_payload(
             {
                 "cluster_id": cluster_id,
                 "scene_id": scene_id,
+                "scene_sha256": scene_sha256,
                 "trajectory_id": trajectory_id,
+                "trajectory_sha256": trajectory_sha256,
                 "parameters_sha256": baseline["parameters_sha256"],
                 "ground_truth_sha256": baseline["ground_truth_sha256"],
                 "baseline": _side_provenance(baseline),
@@ -354,6 +404,9 @@ def compare_manifest_payload(
         "primary_metric": PRIMARY_METRIC,
         "role": role,
         "formal_acceptance_eligible": formal_acceptance_eligible,
+        "allowed_algorithm_contract_differences": (
+            allowed_algorithm_differences
+        ),
         "cluster_count": len(cluster_results),
         "bootstrap": {
             "unit": "scene_trajectory_cluster_pair",
@@ -484,6 +537,63 @@ def _load_side(
             f"{context} manifest ground_truth_generator_sha256 does not "
             "match audit inputs.semantic_gt_generator_sha256"
         )
+    audit_scene_id = _required_string(
+        inputs,
+        "scene_id",
+        f"{context} audit JSON inputs",
+    )
+    audit_scene_sha256 = _required_sha256(
+        inputs,
+        "scene_sha256",
+        f"{context} audit JSON inputs",
+    )
+    audit_frames_metadata_sha256 = _required_sha256(
+        inputs,
+        "frames_metadata_sha256",
+        f"{context} audit JSON inputs",
+    )
+    audit_selected_frame_indices_sha256 = _required_sha256(
+        inputs,
+        "selected_frame_indices_sha256",
+        f"{context} audit JSON inputs",
+    )
+    audit_input_frame_hashes_sha256 = _required_sha256(
+        inputs,
+        "input_frame_hashes_sha256",
+        f"{context} audit JSON inputs",
+    )
+    audit_detection_run_contract_sha256 = _required_sha256(
+        inputs,
+        "detection_run_contract_sha256",
+        f"{context} audit JSON inputs",
+    )
+    semantic_integrity = inputs.get("semantic_gt_integrity_contract")
+    if not isinstance(semantic_integrity, Mapping):
+        raise ValueError(
+            f"{context} audit inputs must contain semantic GT integrity"
+        )
+    semantic_integrity_sha256 = _required_sha256(
+        inputs,
+        "semantic_gt_integrity_sha256",
+        f"{context} audit JSON inputs",
+    )
+    if semantic_integrity_sha256 != _canonical_sha256(semantic_integrity):
+        raise ValueError(
+            f"{context} semantic GT integrity hash does not match contract"
+        )
+    if semantic_integrity.get("contract") != (
+        "full_frame_rgb_depth_replay_v1"
+    ):
+        raise ValueError(
+            f"{context} semantic GT integrity contract is not full-frame"
+        )
+    formal_detection_contract_eligible = inputs.get(
+        "formal_detection_contract_eligible"
+    )
+    if not isinstance(formal_detection_contract_eligible, bool):
+        raise ValueError(
+            f"{context} formal_detection_contract_eligible must be boolean"
+        )
 
     variants = audit_payload.get("variants")
     if not isinstance(variants, Mapping):
@@ -531,6 +641,7 @@ def _load_side(
         "audit_json_sha256": audit_sha256,
         "variant": variant_name,
         "variant_payload": variant_payload,
+        "algorithm_contract": algorithm_contract,
         "algorithm_sha256": audit_algorithm_sha256,
         "parameters_sha256": audit_parameters_sha256,
         "detections_sha256": audit_detections_sha256,
@@ -538,10 +649,24 @@ def _load_side(
         "ground_truth_generator_sha256": (
             audit_ground_truth_generator_sha256
         ),
+        "scene_id": audit_scene_id,
+        "scene_sha256": audit_scene_sha256,
+        "frames_metadata_sha256": audit_frames_metadata_sha256,
+        "selected_frame_indices_sha256": (
+            audit_selected_frame_indices_sha256
+        ),
+        "input_frame_hashes_sha256": audit_input_frame_hashes_sha256,
+        "detection_run_contract_sha256": (
+            audit_detection_run_contract_sha256
+        ),
+        "semantic_gt_integrity_sha256": semantic_integrity_sha256,
+        "formal_detection_contract_eligible": (
+            formal_detection_contract_eligible
+        ),
     }
 
 
-def _side_provenance(side: Mapping[str, Any]) -> dict[str, str]:
+def _side_provenance(side: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "audit_json": str(side["audit_json"]),
         "audit_json_sha256": str(side["audit_json_sha256"]),
@@ -550,6 +675,12 @@ def _side_provenance(side: Mapping[str, Any]) -> dict[str, str]:
         "detections_sha256": str(side["detections_sha256"]),
         "ground_truth_generator_sha256": str(
             side["ground_truth_generator_sha256"]
+        ),
+        "detection_run_contract_sha256": str(
+            side["detection_run_contract_sha256"]
+        ),
+        "formal_detection_contract_eligible": bool(
+            side["formal_detection_contract_eligible"]
         ),
     }
 
@@ -715,7 +846,48 @@ def _paired_bootstrap_ci(
 def _validate_formal_cluster_minimum(
     clusters: Sequence[Mapping[str, Any]],
 ) -> None:
-    by_scene = Counter(str(item["scene_id"]) for item in clusters)
+    by_scene: Counter[str] = Counter()
+    scene_hash_by_id: dict[str, str] = {}
+    scene_id_by_hash: dict[str, str] = {}
+    seen_scene_trajectories: set[tuple[str, str]] = set()
+    seen_trajectory_sha256: set[str] = set()
+    for item in clusters:
+        scene_id = str(item["scene_id"])
+        scene_sha256 = str(item["scene_sha256"])
+        trajectory_id = str(item["trajectory_id"])
+        trajectory_sha256 = str(item["trajectory_sha256"])
+        existing_scene_hash = scene_hash_by_id.setdefault(
+            scene_id,
+            scene_sha256,
+        )
+        if existing_scene_hash != scene_sha256:
+            raise ValueError(
+                "formal comparison maps one scene_id to multiple scene asset "
+                f"hashes: {scene_id}"
+            )
+        existing_scene_id = scene_id_by_hash.setdefault(
+            scene_sha256,
+            scene_id,
+        )
+        if existing_scene_id != scene_id:
+            raise ValueError(
+                "formal comparison aliases one scene asset hash under "
+                f"multiple scene IDs: {existing_scene_id}, {scene_id}"
+            )
+        pair = (scene_id, trajectory_id)
+        if pair in seen_scene_trajectories:
+            raise ValueError(
+                "formal comparison has duplicate scene/trajectory identity: "
+                f"{scene_id}/{trajectory_id}"
+            )
+        if trajectory_sha256 in seen_trajectory_sha256:
+            raise ValueError(
+                "formal comparison reuses an input trajectory fingerprint: "
+                f"{trajectory_sha256}"
+            )
+        seen_scene_trajectories.add(pair)
+        seen_trajectory_sha256.add(trajectory_sha256)
+        by_scene[scene_id] += 1
     if len(clusters) < 6:
         raise ValueError(
             "formal comparison requires at least 6 scene-trajectory clusters"
@@ -723,6 +895,10 @@ def _validate_formal_cluster_minimum(
     if len(by_scene) < 3:
         raise ValueError(
             "formal comparison requires at least 3 distinct scenes"
+        )
+    if len(scene_id_by_hash) < 3:
+        raise ValueError(
+            "formal comparison requires at least 3 distinct scene asset hashes"
         )
     underrepresented = sorted(
         scene_id for scene_id, count in by_scene.items() if count < 2
@@ -733,6 +909,163 @@ def _validate_formal_cluster_minimum(
             "underrepresented: "
             + ", ".join(underrepresented)
         )
+    for side_name in ("baseline", "candidate"):
+        if not all(
+            bool(item[side_name]["formal_detection_contract_eligible"])
+            for item in clusters
+        ):
+            raise ValueError(
+                f"formal comparison requires embedded {side_name} detector "
+                "contracts for every cluster"
+            )
+    frozen_values = (
+        (
+            {
+                str(item["parameters_sha256"])
+                for item in clusters
+            },
+            "evaluation parameters",
+        ),
+        (
+            {
+                str(item["baseline"]["ground_truth_generator_sha256"])
+                for item in clusters
+            },
+            "ground-truth generator",
+        ),
+        (
+            {
+                str(item["baseline"]["algorithm_sha256"])
+                for item in clusters
+            },
+            "baseline algorithm",
+        ),
+    )
+    for values, label in frozen_values:
+        if len(values) != 1:
+            raise ValueError(
+                f"formal comparison requires one frozen {label} hash"
+            )
+    candidate_algorithms = {
+        str(item["candidate"]["algorithm_sha256"]) for item in clusters
+    }
+    if len(candidate_algorithms) != 1:
+        raise ValueError(
+            "formal comparison requires one frozen candidate algorithm hash"
+        )
+
+
+def _validate_paired_input_identity(
+    baseline: Mapping[str, Any],
+    candidate: Mapping[str, Any],
+    *,
+    cluster_id: str,
+    manifest_scene_id: str,
+    manifest_scene_sha256: str,
+    manifest_trajectory_sha256: str,
+) -> None:
+    paired_fields = (
+        "scene_id",
+        "scene_sha256",
+        "frames_metadata_sha256",
+        "selected_frame_indices_sha256",
+        "input_frame_hashes_sha256",
+        "detection_run_contract_sha256",
+        "semantic_gt_integrity_sha256",
+    )
+    for field in paired_fields:
+        if baseline[field] != candidate[field]:
+            raise ValueError(
+                f"cluster {cluster_id!r} paired input {field} mismatch"
+            )
+    if baseline["scene_id"] != manifest_scene_id:
+        raise ValueError(
+            f"cluster {cluster_id!r} manifest scene_id does not match audit"
+        )
+    if baseline["scene_sha256"] != manifest_scene_sha256:
+        raise ValueError(
+            f"cluster {cluster_id!r} manifest scene_sha256 does not match audit"
+        )
+    if baseline["input_frame_hashes_sha256"] != manifest_trajectory_sha256:
+        raise ValueError(
+            f"cluster {cluster_id!r} manifest trajectory_sha256 does not "
+            "match paired input frames"
+        )
+
+
+def _validate_algorithm_difference_scope(
+    baseline: Mapping[str, Any],
+    candidate: Mapping[str, Any],
+    *,
+    allowed_paths: Sequence[str],
+    cluster_id: str,
+) -> None:
+    actual_paths = _algorithm_difference_paths(baseline, candidate)
+    allowed_path_set = set(allowed_paths)
+    undeclared = sorted(actual_paths - allowed_path_set)
+    unchanged_declared = sorted(allowed_path_set - actual_paths)
+    if undeclared or unchanged_declared:
+        details = []
+        if undeclared:
+            details.append("undeclared=" + ",".join(undeclared))
+        if unchanged_declared:
+            details.append(
+                "declared_but_unchanged=" + ",".join(unchanged_declared)
+            )
+        raise ValueError(
+            f"cluster {cluster_id!r} algorithm contract difference paths "
+            "do not exactly match the preregistered paths: "
+            + "; ".join(details)
+        )
+
+
+def _validate_allowed_difference_paths(paths: Sequence[str]) -> None:
+    split_paths: list[tuple[str, ...]] = []
+    for path in paths:
+        parts = tuple(path.split("."))
+        if any(not part for part in parts):
+            raise ValueError(
+                f"invalid allowed algorithm difference path {path!r}"
+            )
+        split_paths.append(parts)
+    for index, parts in enumerate(split_paths):
+        for other_index, other in enumerate(split_paths):
+            if index == other_index:
+                continue
+            if len(parts) < len(other) and other[: len(parts)] == parts:
+                raise ValueError(
+                    "allowed algorithm difference paths cannot contain "
+                    f"ancestor/descendant pairs: {'.'.join(parts)!r}, "
+                    f"{'.'.join(other)!r}"
+                )
+
+
+def _algorithm_difference_paths(
+    baseline: Any,
+    candidate: Any,
+    *,
+    prefix: str = "",
+) -> set[str]:
+    if isinstance(baseline, Mapping) and isinstance(candidate, Mapping):
+        differences: set[str] = set()
+        for key in sorted(set(baseline) | set(candidate)):
+            child_path = f"{prefix}.{key}" if prefix else str(key)
+            if key not in baseline or key not in candidate:
+                differences.add(child_path)
+                continue
+            differences.update(
+                _algorithm_difference_paths(
+                    baseline[key],
+                    candidate[key],
+                    prefix=child_path,
+                )
+            )
+        return differences
+    if baseline != candidate:
+        if not prefix:
+            raise ValueError("algorithm contracts must be objects")
+        return {prefix}
+    return set()
 
 
 def _extract_numeric_metric(
