@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "replay_id": "door-api-ad62206b-20260730",
+  "role": "development_only",
+  "formal_acceptance_eligible": false,
+  "reason_not_formal": "Single scene used during evaluator and candidate development.",
+  "source_run": {
+    "commit": "ad62206b8ed1d4c597330ac452703f3f3c90e2ac",
+    "scene_id": "00861-GLAQ4DNUx5U",
+    "task_profile": "door",
+    "task_text": "Find and report all doors in the room.",
+    "frame_start": 0,
+    "frame_end": 872,
+    "num_frames": 873,
+    "num_detections": 7557,
+    "num_door_detections": 2561,
+    "num_window_detections": 1531
+  },
+  "inputs": {
+    "detections.json": {
+      "sha256": "b6ac93677db50e76ba7eedb74cc452959d7d7b1e30e99438bab45b3aeb9579ed"
+    },
+    "frames_metadata.json": {
+      "sha256": "9ad8ef2623b117dd2a67ed57005768a39c0264974720f6cfeb031873ed3041ac"
+    },
+    "online_trace.jsonl": {
+      "sha256": "3a7f3d1cab2cd39b72e82c3d3c6c3e574dbf210c4f1fd9c1068442c1657871d0"
+    },
+    "online_tracks.json": {
+      "sha256": "bce727f57e963b4dabe35b2faa4f64812fa3fa56cde5d4bce58a9c5e061fb26c"
+    },
+    "online_summary.json": {
+      "sha256": "57b789699a8989ff87851c73413ebd709c4d00e14110b68582925d1aaa02155c"
+    }
+  },
+  "scene_assets": {
+    "hm3d_annotated_basis.scene_dataset_config.json": {
+      "sha256": "c16fa23b09e36d528c3f12c9799eaa9cf0d733dcd22c9f329c0508d551b640a4"
+    },
+    "GLAQ4DNUx5U.basis.glb": {
+      "sha256": "d2271f8fbf57aad34a2d1e03565d5bb9e85503e05eb5f8b9fd47fa66d8983577"
+    },
+    "GLAQ4DNUx5U.basis.navmesh": {
+      "sha256": "924b0d1cb33ae5d91b3fab84aa17f43f9293baccd2571b8b840441cd88a4f87f"
+    },
+    "GLAQ4DNUx5U.semantic.glb": {
+      "sha256": "9cf5e954d7ecc7b9c41cbb66b7f4200f0965885fe940130bce3c3e1bb221a79f"
+    },
+    "GLAQ4DNUx5U.semantic.txt": {
+      "sha256": "ef072ebe35073f3da4d319837046d76ce7aa7ccedc5aa2de2fd1e4d9c96766d3"
+    }
+  },
+  "comparison": {
+    "baseline": "raw detections at score threshold 0.22",
+    "candidate": "canonical-label classwise greedy NMS",
+    "nms_iou_threshold": 0.5,
+    "match_iou_threshold": 0.5,
+    "all_other_inputs_identical": true
+  },
+  "generated_outputs": {
+    "semantic_gt.json": {
+      "sha256": "ab1001ebd2f76ea27cafa959f8d27d532fb8543e2e3350dabffd114154952ff9",
+      "selected_frames": 873,
+      "target_visible_events": 929,
+      "target_visible_surface_centers": 841,
+      "target_visible_surface_center_coverage": 0.905274488697524,
+      "rgb_integrity_checks": 36,
+      "rgb_integrity_passed": true,
+      "observed_unknown_semantic_ids": [
+        908
+      ]
+    },
+    "dev_grounding_audit.json": {
+      "sha256": "ffa02925b6ef7a9957f517ef1f100b823c2feb3760a4b7b870a665fe54590ba4",
+      "evaluator_sha256": "ae3bcf98c940e8ffbf6b0668509b6bd55939261b90008587a918773e3b805840",
+      "evaluation_parameters_sha256": "0f3493166e6518be2a97cf2d2d846741c4a59118ac63d9af07ce232e740a1ad2",
+      "baseline_door_xz_median_m": 0.04041590186989825,
+      "baseline_door_xz_p90_m": 0.16461678519679962,
+      "baseline_door_xz_usable_tp_pairs": 304,
+      "candidate_hard_negative_fp_relative_reduction": 0.22797927461139897,
+      "candidate_status": "evidence_insufficient"
+    }
+  },
+  "oracle_policy": {
+    "online_rgb_used": true,
+    "online_depth_source": "Habitat-Sim depth sensor",
+    "online_pose_source": "Habitat-Sim exact agent and sensor pose",
+    "online_semantic_sensor_enabled": false,
+    "semantic_sensor_used_posthoc_only": true,
+    "online_policy_access": false,
+    "vlm_verdict_used_as_ground_truth": false,
+    "scope_limit": "This audit does not validate learned odometry, SLAM, or relocalization."
+  }
+}

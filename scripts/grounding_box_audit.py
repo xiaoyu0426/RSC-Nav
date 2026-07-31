@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 from collections import Counter, defaultdict
@@ -163,6 +164,7 @@ def audit_payloads(
             evaluated_frame_count=len(evaluated_frames),
             score_threshold=score_threshold,
             match_iou=match_iou,
+            online_tracks_causal=True,
         )
     }
     nms_enabled = nms_iou < 1.0
@@ -191,6 +193,7 @@ def audit_payloads(
             evaluated_frame_count=len(evaluated_frames),
             score_threshold=score_threshold,
             match_iou=match_iou,
+            online_tracks_causal=False,
         )
         suppressed_counts = Counter(
             str(item["canonical_label"]) for item in nms_suppressed
@@ -231,9 +234,7 @@ def audit_payloads(
         detection_issues=detection_issues,
         gt_issues=gt_issues,
     )
-    return {
-        "schema_version": "grounding_box_audit_v1",
-        "parameters": {
+    parameters = {
             "target_classes": list(TARGET_CLASSES),
             "box_format": "xyxy",
             "score_threshold": score_threshold,
@@ -283,7 +284,10 @@ def audit_payloads(
             ),
             "xz_error_policy": (
                 "Euclidean XZ distance for fixed-operating-point TP matches "
-                "with valid detection position_3d and GT world_center_xyz"
+                "with valid detection position_3d and GT "
+                "world_visible_center_xyz; legacy object-AABB centers are "
+                "never used because merged semantic meshes can make them "
+                "geometrically misleading"
             ),
             "hard_negative_policy": {
                 "door_fp_only": True,
@@ -298,7 +302,26 @@ def audit_payloads(
                 ),
                 "raw_category_never_creates_target_gt": True,
             },
-        },
+            "variant_causality": {
+                "baseline": "recorded online detections and track IDs",
+                "class_nms": (
+                    "posthoc detector-only counterfactual; track IDs were "
+                    "assigned by the baseline before NMS and are not scored"
+                ),
+            },
+        }
+    evaluation_contract = {
+        key: value
+        for key, value in parameters.items()
+        if key not in {"nms", "variant_causality"}
+    }
+    return {
+        "schema_version": "grounding_box_audit_v1",
+        "parameters": parameters,
+        "evaluation_contract": evaluation_contract,
+        "evaluation_parameters_sha256": _canonical_payload_sha256(
+            evaluation_contract
+        ),
         "coverage": coverage,
         "variants": variants,
         "unavailable_metrics": unavailable_metrics,
@@ -313,6 +336,7 @@ def _evaluate_variant(
     evaluated_frame_count: int,
     score_threshold: float,
     match_iou: float,
+    online_tracks_causal: bool,
 ) -> dict[str, Any]:
     per_class: dict[str, Any] = {}
     unavailable: list[dict[str, str]] = []
@@ -495,9 +519,14 @@ def _evaluate_variant(
         metric_path="overall_operating_point.physical_instance_recall",
         unavailable=unavailable,
     )
-    track_association = _track_association_report(
-        fixed_matches, ground_truth, unavailable
-    )
+    if online_tracks_causal:
+        track_association = _track_association_report(
+            fixed_matches,
+            ground_truth,
+            unavailable,
+        )
+    else:
+        track_association = _noncausal_track_report(unavailable)
     xz_error = _xz_error_report(fixed_matches, unavailable)
     hard_negative_door_fp = _hard_negative_door_fp_report(
         door_fp_decisions,
@@ -553,6 +582,28 @@ def _evaluate_variant(
         "xz_error_m": xz_error,
         "unavailable_metrics": unavailable,
     }
+
+
+def _noncausal_track_report(
+    unavailable: list[dict[str, str]],
+) -> dict[str, Any]:
+    reason = (
+        "posthoc NMS reuses baseline online_track_id values; rerun the "
+        "online detector-to-tracker pipeline for causal track metrics"
+    )
+    report = {}
+    for scope in (*TARGET_CLASSES, "overall"):
+        report[scope] = {
+            "available": False,
+            "reason": reason,
+        }
+        unavailable.append(
+            {
+                "metric": f"track_association.{scope}",
+                "reason": reason,
+            }
+        )
+    return report
 
 
 def _tp_iou_report(matches: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
@@ -920,7 +971,7 @@ def _xz_error_report(
         values: list[float] = []
         for match in scope_matches:
             position = match["detection"].get("position_3d")
-            center = match["ground_truth"].get("world_center_xyz")
+            center = match["ground_truth"].get("world_visible_center_xyz")
             if position is None or center is None:
                 continue
             values.append(
@@ -943,7 +994,7 @@ def _xz_error_report(
                     "metric": f"xz_error_m.{scope}",
                     "reason": (
                         "no fixed-operating-point TP match has both valid "
-                        "position_3d and world_center_xyz"
+                        "position_3d and a GT visible-surface world center"
                     ),
                 }
             )
@@ -1086,6 +1137,9 @@ def _normalize_ground_truth(
                     "semantic_id": raw.get("semantic_id"),
                     "object_id": raw.get("object_id"),
                     "raw_category": raw.get("raw_category"),
+                    "world_visible_center_xyz": _valid_xyz(
+                        raw.get("world_visible_center_xyz")
+                    ),
                     "world_center_xyz": _valid_xyz(
                         raw.get("world_center_xyz")
                     ),
@@ -1143,6 +1197,7 @@ def _coverage_report(
             "raw_category",
             "canonical_label",
             "box",
+            "world_visible_center_xyz",
             "world_center_xyz",
             "area_px",
         ),
@@ -1231,9 +1286,9 @@ def _hard_negative_category(raw_category: Any) -> str | None:
     words = set(normalized.split())
     if "window" in words:
         return "window"
-    if ({"refrigerator", "door"} <= words) or ({"fridge", "door"} <= words):
+    if "refrigerator" in words or "fridge" in words:
         return "refrigerator door"
-    if {"cabinet", "door"} <= words:
+    if "cabinet" in words or "cupboard" in words:
         return "cabinet door"
     if "mirror" in words:
         return "mirror"
@@ -1297,6 +1352,25 @@ def _validate_threshold(
         raise ValueError(f"{name} must be in [{lower}, {upper}]")
 
 
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _canonical_payload_sha256(payload: Mapping[str, Any]) -> str:
+    serialized = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(serialized).hexdigest()
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--detections-json", required=True)
@@ -1339,7 +1413,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     result["inputs"] = {
         "detections_json": str(detections_path),
+        "detections_sha256": _sha256(detections_path),
         "semantic_gt_json": str(semantic_gt_path),
+        "semantic_gt_sha256": _sha256(semantic_gt_path),
+        "evaluator_script": str(Path(__file__).resolve()),
+        "evaluator_sha256": _sha256(Path(__file__).resolve()),
     }
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(

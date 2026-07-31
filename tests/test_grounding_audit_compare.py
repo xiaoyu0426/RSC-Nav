@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import tempfile
 import unittest
@@ -16,7 +17,16 @@ from scripts.grounding_audit_compare import (
 )
 
 
-PARAMETERS_HASH = "a" * 64
+EVALUATION_CONTRACT = {"contract_version": "test_v1"}
+PARAMETERS_HASH = hashlib.sha256(
+    json.dumps(
+        EVALUATION_CONTRACT,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
+    ).encode("utf-8")
+).hexdigest()
 GROUND_TRUTH_HASH = "b" * 64
 
 
@@ -118,7 +128,7 @@ class GroundingAuditCompareTests(unittest.TestCase):
                 (
                     "parameters mismatch",
                     parameters_mismatch,
-                    "parameters_sha256 mismatch",
+                    "parameters_sha256",
                 )
             )
 
@@ -130,7 +140,7 @@ class GroundingAuditCompareTests(unittest.TestCase):
                 (
                     "ground truth mismatch",
                     ground_truth_mismatch,
-                    "ground_truth_sha256 mismatch",
+                    "ground_truth_sha256",
                 )
             )
 
@@ -155,6 +165,63 @@ class GroundingAuditCompareTests(unittest.TestCase):
                             invalid_manifest,
                             manifest_dir=root,
                         )
+
+    def test_rejects_audit_contract_and_ground_truth_provenance_tampering(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            baseline_path = self._write_audit(
+                root / "baseline.json",
+                {"baseline": self._variant()},
+            )
+            candidate_path = self._write_audit(
+                root / "candidate.json",
+                {"candidate": self._variant()},
+            )
+            manifest = self._manifest(
+                [
+                    self._cluster(
+                        "scene/trajectory",
+                        baseline_path.name,
+                        candidate_path.name,
+                    )
+                ]
+            )
+
+            tampered_contract = json.loads(
+                baseline_path.read_text(encoding="utf-8")
+            )
+            tampered_contract["evaluation_contract"]["contract_version"] = (
+                "tampered"
+            )
+            baseline_path.write_text(
+                json.dumps(tampered_contract, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(
+                ValueError,
+                "does not match its evaluation_contract",
+            ):
+                compare_manifest_payload(manifest, manifest_dir=root)
+
+            self._write_audit(
+                baseline_path,
+                {"baseline": self._variant()},
+            )
+            tampered_gt = json.loads(
+                candidate_path.read_text(encoding="utf-8")
+            )
+            tampered_gt["inputs"]["semantic_gt_sha256"] = "c" * 64
+            candidate_path.write_text(
+                json.dumps(tampered_gt, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(
+                ValueError,
+                "manifest ground_truth_sha256 does not match audit",
+            ):
+                compare_manifest_payload(manifest, manifest_dir=root)
 
     def test_output_is_byte_deterministic_and_strict_json(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -440,6 +507,11 @@ class GroundingAuditCompareTests(unittest.TestCase):
             json.dumps(
                 {
                     "schema_version": "grounding_box_audit_v1",
+                    "evaluation_contract": EVALUATION_CONTRACT,
+                    "evaluation_parameters_sha256": PARAMETERS_HASH,
+                    "inputs": {
+                        "semantic_gt_sha256": GROUND_TRUTH_HASH,
+                    },
                     "variants": variants,
                 },
                 sort_keys=True,

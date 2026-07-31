@@ -24,9 +24,10 @@ The manifest schema is::
       ]
     }
 
-Audit paths are resolved relative to the manifest. The comparator reads only
-the named variants and preregistered numeric metric paths; it never reads VLM
-verdicts or frame-level records.
+Audit paths are resolved relative to the manifest. Every declared parameter
+and ground-truth hash is verified against the referenced audit before metrics
+are read. The comparator reads only the named variants and preregistered
+numeric metric paths; it never reads VLM verdicts or frame-level records.
 """
 
 from __future__ import annotations
@@ -362,6 +363,42 @@ def _load_side(
         audit_cache[audit_path] = (payload, _file_sha256(audit_path))
     audit_payload, audit_sha256 = audit_cache[audit_path]
 
+    evaluation_contract = audit_payload.get("evaluation_contract")
+    if not isinstance(evaluation_contract, Mapping):
+        raise ValueError(
+            f"{context} audit JSON must contain an evaluation_contract object"
+        )
+    audit_parameters_sha256 = _required_sha256(
+        audit_payload,
+        "evaluation_parameters_sha256",
+        f"{context} audit JSON",
+    )
+    computed_parameters_sha256 = _canonical_sha256(evaluation_contract)
+    if audit_parameters_sha256 != computed_parameters_sha256:
+        raise ValueError(
+            f"{context} audit evaluation_parameters_sha256 does not match "
+            "its evaluation_contract"
+        )
+    if parameters_sha256 != audit_parameters_sha256:
+        raise ValueError(
+            f"{context} manifest parameters_sha256 does not match audit "
+            "evaluation_parameters_sha256"
+        )
+
+    inputs = audit_payload.get("inputs")
+    if not isinstance(inputs, Mapping):
+        raise ValueError(f"{context} audit JSON must contain an inputs object")
+    audit_ground_truth_sha256 = _required_sha256(
+        inputs,
+        "semantic_gt_sha256",
+        f"{context} audit JSON inputs",
+    )
+    if ground_truth_sha256 != audit_ground_truth_sha256:
+        raise ValueError(
+            f"{context} manifest ground_truth_sha256 does not match audit "
+            "inputs.semantic_gt_sha256"
+        )
+
     variants = audit_payload.get("variants")
     if not isinstance(variants, Mapping):
         raise ValueError(f"{context} audit JSON must contain a variants object")
@@ -379,8 +416,8 @@ def _load_side(
         "audit_json_sha256": audit_sha256,
         "variant": variant_name,
         "variant_payload": variant_payload,
-        "parameters_sha256": parameters_sha256,
-        "ground_truth_sha256": ground_truth_sha256,
+        "parameters_sha256": audit_parameters_sha256,
+        "ground_truth_sha256": audit_ground_truth_sha256,
     }
 
 

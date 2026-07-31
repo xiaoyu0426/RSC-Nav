@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "protocol_id": "grounding-box-audit-v1",
+  "frozen_date": "2026-07-31",
+  "baseline": {
+    "commit": "5b63d8a5f395819a3721384bca6e9a82545a8543",
+    "detector": "GroundingDINO-Tiny",
+    "resolution": 384,
+    "box_threshold": 0.22,
+    "text_threshold": 0.22,
+    "max_detections": 32
+  },
+  "first_candidate": {
+    "variable_family": "box_postprocessing",
+    "description": "Canonical-label classwise greedy NMS",
+    "nms_iou_threshold": 0.5,
+    "all_other_settings": "identical_to_baseline",
+    "threshold_tuning_after_audit_starts": false
+  },
+  "data_policy": {
+    "current_door_demo_role": "development_only",
+    "formal_replay_minimum": {
+      "unseen_scenes": 3,
+      "fixed_trajectories_per_scene": 2,
+      "annotated_frames": 300,
+      "physical_door_instances": 12,
+      "hard_negative_visible_events": 100
+    },
+    "formal_live_pairs": 6,
+    "repeat_count_if_nondeterministic": 3,
+    "freeze_input_sha256_before_candidate_inference": true,
+    "oracle_semantics_available_to_online_policy": false
+  },
+  "statistics": {
+    "unit": "scene_trajectory",
+    "method": "paired_cluster_bootstrap",
+    "iterations": 10000,
+    "seed": 20260731,
+    "continuous_frames_are_independent_samples": false
+  },
+  "hard_gates": {
+    "detection": {
+      "recall_iou50_min": 0.75,
+      "recall_iou50_max_drop_from_baseline": 0.02,
+      "physical_instance_recall_min": 0.8,
+      "physical_instance_recall_max_drop_from_baseline": 0.02,
+      "true_positive_median_iou_min": 0.55,
+      "true_positive_median_iou_max_drop_from_baseline": 0.03
+    },
+    "track": {
+      "instance_recall_max_drop": 0.03,
+      "wrong_merge_rate_max": 0.05,
+      "wrong_merge_rate_must_not_exceed_baseline": true,
+      "fragmentation_max_increase_tracks_per_gt": 0.1
+    },
+    "semantic_bev": {
+      "center_error_median_m_max": 0.35,
+      "center_error_p90_m_max": 0.75,
+      "stable_radial_drift_median_m_max": 0.2,
+      "stable_radial_drift_p90_m_max": 0.5
+    },
+    "occupancy_bev": {
+      "free_f1_max_drop": 0.02,
+      "occupied_f1_max_drop": 0.02,
+      "boundary_chamfer_max_increase_m": 0.05
+    },
+    "task": {
+      "wrong_final_confirmations_max": 0,
+      "confirmed_door_recall_max_drop": 0.05,
+      "all_causal_invariants_required": true,
+      "crashes_max": 0
+    },
+    "resources": {
+      "oom_allowed": false,
+      "grounding_p95_ms_max": 750,
+      "grounding_p95_max_baseline_ratio": 1.5,
+      "non_api_loop_p95_max_baseline_ratio": 1.25,
+      "detector_peak_vram_gb_max": 16
+    }
+  },
+  "primary_improvement": {
+    "metric": "hard_negative_false_positives_per_100_frames",
+    "minimum_relative_reduction": 0.25,
+    "paired_bootstrap_95ci_must_exclude_no_improvement": true
+  },
+  "acceptance": {
+    "all_hard_gates_required": true,
+    "minimum_false_or_duplicate_track_reduction": 0.15,
+    "or_minimum_invalid_vlm_call_reduction": 0.15,
+    "maximum_instance_recall_drop_in_any_scene": 0.1,
+    "full_tests_live_loop_and_resource_checks_required": true
+  },
+  "rejection": {
+    "reject_on_any_hard_gate_failure": true,
+    "reject_on_wrong_door_confirmation": true,
+    "reject_on_cross_door_wrong_merge": true,
+    "reject_on_new_crash_or_oom": true,
+    "reject_if_hard_negative_fp_reduction_below": 0.1,
+    "posthoc_threshold_or_sample_changes_forbidden": true
+  },
+  "evidence_insufficient": {
+    "hard_negative_fp_reduction_range": [
+      0.1,
+      0.25
+    ],
+    "confidence_interval_includes_no_improvement": true,
+    "minimum_data_not_met": true,
+    "missing_raw_outputs_provenance_gt_review_or_resource_logs": true,
+    "single_demo_only": true
+  },
+  "ground_truth_contract": {
+    "door_positive": "human-passable room-level door or doorway",
+    "hard_negatives": [
+      "cabinet door",
+      "refrigerator door",
+      "window",
+      "mirror",
+      "wall panel"
+    ],
+    "semantic_replay_detector_proxy": "Only exact door semantic pixels count as detector-only positive; passable openings without door pixels require a separate human-audited task label.",
+    "candidate_detector_or_vlm_must_not_generate_ground_truth": true
+  },
+  "independent_final_audit_required": true
+}

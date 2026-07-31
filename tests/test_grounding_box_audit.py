@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from scripts.grounding_box_audit import (
+    _hard_negative_category,
     audit_payloads,
     box_iou,
     classwise_nms,
@@ -15,6 +16,28 @@ from scripts.grounding_box_audit import (
 
 
 class GroundingBoxAuditTests(unittest.TestCase):
+    def test_hard_negative_taxonomy_covers_hm3d_aliases(self) -> None:
+        self.assertEqual(
+            _hard_negative_category("kitchen cabinet"),
+            "cabinet door",
+        )
+        self.assertEqual(
+            _hard_negative_category("storage cabinet"),
+            "cabinet door",
+        )
+        self.assertEqual(
+            _hard_negative_category("bath cupboard"),
+            "cabinet door",
+        )
+        self.assertEqual(
+            _hard_negative_category("refrigerator"),
+            "refrigerator door",
+        )
+        self.assertEqual(
+            _hard_negative_category("refrigerator cabinet"),
+            "refrigerator door",
+        )
+
     def test_box_iou_and_interpolated_ap_are_exact_and_deterministic(self) -> None:
         self.assertAlmostEqual(
             box_iou([0, 0, 10, 10], [5, 0, 15, 10]),
@@ -136,6 +159,11 @@ class GroundingBoxAuditTests(unittest.TestCase):
         self.assertEqual(
             result["parameters"]["nms"]["suppressed_target_detections"], 1
         )
+        self.assertFalse(nms["track_association"]["door"]["available"])
+        self.assertIn(
+            "posthoc",
+            nms["track_association"]["door"]["reason"],
+        )
         self.assertEqual(
             result["coverage"]["target_frame_coverage"]["overlap_frame_count"], 3
         )
@@ -207,6 +235,78 @@ class GroundingBoxAuditTests(unittest.TestCase):
             ],
             1,
         )
+
+    def test_xz_error_prefers_visible_mask_center_over_object_aabb(self) -> None:
+        detections = {
+            "detections": [
+                self._detection(
+                    0,
+                    "door",
+                    0.9,
+                    [0, 0, 10, 10],
+                    "track",
+                    [0.1, 0.0, 0.0],
+                )
+            ]
+        }
+        instance = self._instance(
+            "door-1",
+            "door",
+            [0, 0, 10, 10],
+            [99.0, 0.0, 99.0],
+        )
+        instance["world_visible_center_xyz"] = [0.0, 0.0, 0.0]
+        semantic_gt = {
+            "frames": [{"frame_index": 0, "instances": [instance]}]
+        }
+
+        result = audit_payloads(detections, semantic_gt)
+
+        self.assertAlmostEqual(
+            result["variants"]["baseline"]["xz_error_m"]["door"][
+                "distribution"
+            ]["median"],
+            0.1,
+        )
+
+    def test_xz_error_does_not_fall_back_to_object_aabb_center(self) -> None:
+        detections = {
+            "detections": [
+                self._detection(
+                    0,
+                    "door",
+                    0.9,
+                    [0, 0, 10, 10],
+                    "track",
+                    [0.1, 0.0, 0.0],
+                )
+            ]
+        }
+        semantic_gt = {
+            "frames": [
+                {
+                    "frame_index": 0,
+                    "instances": [
+                        {
+                            "semantic_id": "door-1",
+                            "object_id": "object-door-1",
+                            "raw_category": "door",
+                            "canonical_label": "door",
+                            "box": [0, 0, 10, 10],
+                            "world_center_xyz": [0.0, 0.0, 0.0],
+                            "area_px": 100,
+                        }
+                    ],
+                }
+            ]
+        }
+
+        result = audit_payloads(detections, semantic_gt)
+        xz = result["variants"]["baseline"]["xz_error_m"]["door"]
+
+        self.assertFalse(xz["available"])
+        self.assertEqual(xz["usable_position_pairs"], 0)
+        self.assertEqual(xz["missing_position_pairs"], 1)
 
     def test_door_fp_attribution_uses_raw_non_target_categories(self) -> None:
         raw_categories = [
@@ -482,6 +582,9 @@ class GroundingBoxAuditTests(unittest.TestCase):
             self.assertEqual(set(written["variants"]), {"baseline"})
             self.assertFalse(written["parameters"]["nms"]["enabled"])
             self.assertEqual(written["variants"]["baseline"]["per_class"]["door"]["ap50"], 1.0)
+            self.assertEqual(len(written["inputs"]["detections_sha256"]), 64)
+            self.assertEqual(len(written["inputs"]["semantic_gt_sha256"]), 64)
+            self.assertEqual(len(written["inputs"]["evaluator_sha256"]), 64)
 
     @staticmethod
     def _detection(
@@ -515,6 +618,7 @@ class GroundingBoxAuditTests(unittest.TestCase):
             "canonical_label": label,
             "box": box,
             "world_center_xyz": center,
+            "world_visible_center_xyz": center,
             "area_px": (box[2] - box[0]) * (box[3] - box[1]),
         }
 

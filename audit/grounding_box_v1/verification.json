@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "verified_date": "2026-07-31",
+  "commands": [
+    "python -m unittest discover -s tests -p \"test_*.py\"",
+    "python -m py_compile scripts/grounding_box_audit.py scripts/grounding_audit_compare.py scripts/grounding_semantic_replay_gt.py tests/test_grounding_box_audit.py tests/test_grounding_audit_compare.py tests/test_grounding_semantic_replay_gt.py",
+    "git diff --check"
+  ],
+  "results": {
+    "unit_tests_run": 77,
+    "unit_tests_failed": 0,
+    "python_compile_passed": true,
+    "strict_json_parse_passed": true,
+    "diff_check_passed": true
+  },
+  "scope": "Development replay evaluator and evidence-chain verification only; this is not formal candidate acceptance."
+}
