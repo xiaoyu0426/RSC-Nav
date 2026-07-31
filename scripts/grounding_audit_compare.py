@@ -60,9 +60,15 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 try:
-    from scripts.grounding_box_audit import build_audit_report
+    from scripts.grounding_box_audit import (
+        FROZEN_REPLAY_INTEGRITY_THRESHOLDS,
+        build_audit_report,
+    )
 except ModuleNotFoundError:
-    from grounding_box_audit import build_audit_report
+    from grounding_box_audit import (
+        FROZEN_REPLAY_INTEGRITY_THRESHOLDS,
+        build_audit_report,
+    )
 
 
 SCHEMA_VERSION = "grounding_audit_compare_v1"
@@ -74,7 +80,7 @@ FORMAL_EVIDENCE_CONTRACT_PROTOCOL = (
     "grounding-box-contrastive-prompt-v1-evidence-amendment"
 )
 FORMAL_EVIDENCE_CONTRACT_SHA256 = (
-    "77cb1274b31c5391703ed95b908af88f3f733150906c78117bfa0413a3015a00"
+    "a1d5111427164d93fe2a5b461a2468bda59b6f740c723706d066fae5baf6135c"
 )
 FORMAL_ALLOWED_ALGORITHM_DIFFERENCES = (
     "detection_algorithm.labels",
@@ -540,6 +546,13 @@ def _load_evidence_contract(
     ):
         raise ValueError(
             "formal comparison allowed algorithm differences are not frozen"
+        )
+    if payload.get("semantic_replay_integrity_thresholds") != (
+        FROZEN_REPLAY_INTEGRITY_THRESHOLDS
+    ):
+        raise ValueError(
+            "evidence contract semantic replay thresholds do not match the "
+            "audited implementation"
         )
     baseline_labels = single_variable.get("baseline_labels")
     candidate_labels = single_variable.get("candidate_labels")

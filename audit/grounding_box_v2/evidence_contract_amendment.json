@@ -37,6 +37,19 @@
     "full_frame_rgb_integrity_required": true,
     "full_frame_depth_integrity_required": true
   },
+  "semantic_replay_integrity_thresholds": {
+    "rgb": {
+      "max_mae_allowed": 3.0,
+      "max_p95_abs_error_allowed": 12.0
+    },
+    "depth": {
+      "max_mae_m_allowed": 0.0001,
+      "max_p95_abs_error_m_allowed": 0.0001,
+      "max_validity_disagreement_ratio_allowed": 0.00001,
+      "large_error_threshold_m": 0.01,
+      "max_large_error_ratio_allowed": 0.0001
+    }
+  },
   "single_variable_contract": {
     "allowed_algorithm_contract_differences": [
       "detection_algorithm.labels"

@@ -15,6 +15,19 @@ from typing import Any, Iterable, Mapping, Sequence
 
 
 ROOT = Path(__file__).resolve().parents[1]
+FROZEN_REPLAY_INTEGRITY_THRESHOLDS = {
+    "rgb": {
+        "max_mae_allowed": 3.0,
+        "max_p95_abs_error_allowed": 12.0,
+    },
+    "depth": {
+        "max_mae_m_allowed": 0.0001,
+        "max_p95_abs_error_m_allowed": 0.0001,
+        "max_validity_disagreement_ratio_allowed": 0.00001,
+        "large_error_threshold_m": 0.01,
+        "max_large_error_ratio_allowed": 0.0001,
+    },
+}
 TARGET_CLASSES = ("door", "window")
 AP_IOU_THRESHOLDS = (0.50, 0.75)
 HARD_NEGATIVE_CATEGORIES = (
@@ -1743,6 +1756,17 @@ def _validate_semantic_gt_integrity(
     )
     if not integrity_contract["scene_id"]:
         raise ValueError("semantic GT source.scene_id is required")
+    scene_path = Path(str(source.get("scene", "")))
+    expected_scene_id = scene_path.parent.name
+    expected_scene_key = _scene_key_from_filename(scene_path.name)
+    if (
+        integrity_contract["scene_id"] != expected_scene_id
+        or scene_asset_bundle.get("scene_id") != expected_scene_id
+        or scene_asset_bundle.get("scene_key") != expected_scene_key
+    ):
+        raise ValueError(
+            "semantic GT scene identity does not match the declared scene path"
+        )
     return integrity_contract
 
 
@@ -1864,6 +1888,14 @@ def _recompute_replay_integrity(
     else:
         raise ValueError(f"unsupported replay integrity type {name!r}")
 
+    for key, frozen_value in FROZEN_REPLAY_INTEGRITY_THRESHOLDS[
+        name
+    ].items():
+        _require_same_float(
+            allowed[key],
+            frozen_value,
+            f"{name} integrity frozen threshold {key}",
+        )
     for key, computed in observed.items():
         _require_same_float(
             _finite_nonnegative(
@@ -1991,11 +2023,16 @@ def _validate_scene_asset_bundle(bundle: Mapping[str, Any]) -> str:
         )
     canonical_bundle = {
         "schema_version": 1,
-        "scene_id": scene_id,
-        "scene_key": scene_key,
         "files": canonical_files,
     }
     return _canonical_payload_sha256(canonical_bundle)
+
+
+def _scene_key_from_filename(filename: str) -> str:
+    for suffix in (".basis.glb", ".semantic.glb", ".glb"):
+        if filename.endswith(suffix):
+            return filename[: -len(suffix)]
+    return Path(filename).stem
 
 
 def _detection_contract(
@@ -2621,6 +2658,15 @@ def _verify_frozen_source_files(
     )
     scene_bundle = semantic_source.get("scene_asset_bundle")
     assert isinstance(scene_bundle, Mapping)
+    if (
+        semantic_source.get("scene_id") != scene_path.parent.name
+        or scene_bundle.get("scene_id") != scene_path.parent.name
+        or scene_bundle.get("scene_key")
+        != _scene_key_from_filename(scene_path.name)
+    ):
+        raise ValueError(
+            "actual scene path identity does not match scene source contract"
+        )
     verified_scene_files = []
     for record in scene_bundle["files"]:
         role = record["role"]
@@ -2652,7 +2698,10 @@ def _verify_frozen_source_files(
         "files": verified_scene_files,
     }
     verified_scene_sha256 = _canonical_payload_sha256(
-        verified_scene_bundle
+        {
+            "schema_version": verified_scene_bundle["schema_version"],
+            "files": verified_scene_bundle["files"],
+        }
     )
     if verified_scene_sha256 != semantic_integrity["scene_sha256"]:
         raise ValueError("actual scene asset bundle hash mismatch")

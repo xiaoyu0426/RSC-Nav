@@ -44,7 +44,13 @@ class GroundingSemanticReplayGroundTruthTest(unittest.TestCase):
             self.assertEqual(manifest["scene_id"], "00861-test")
             self.assertEqual(manifest["scene_key"], "test")
             self.assertEqual(len(manifest["files"]), 6)
-            first_hash = MODULE._canonical_sha256(manifest)
+            first_hash = MODULE._scene_asset_identity_sha256(manifest)
+            aliased_manifest = dict(manifest)
+            aliased_manifest["scene_id"] = "fake-scene"
+            self.assertEqual(
+                first_hash,
+                MODULE._scene_asset_identity_sha256(aliased_manifest),
+            )
             (scene_dir / "test.semantic.txt").write_bytes(b"new-labels")
             changed_manifest = MODULE._scene_asset_manifest(
                 scene_dir / "test.basis.glb",
@@ -52,7 +58,7 @@ class GroundingSemanticReplayGroundTruthTest(unittest.TestCase):
             )
             self.assertNotEqual(
                 first_hash,
-                MODULE._canonical_sha256(changed_manifest),
+                MODULE._scene_asset_identity_sha256(changed_manifest),
             )
 
             (scene_dir / "test.semantic.txt").unlink()

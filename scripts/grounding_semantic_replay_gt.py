@@ -242,7 +242,7 @@ def main() -> None:
             "scene_id": scene.parent.name,
             "scene_sha256": _sha256(scene),
             "scene_asset_bundle": scene_asset_bundle,
-            "scene_asset_bundle_sha256": _canonical_sha256(
+            "scene_asset_bundle_sha256": _scene_asset_identity_sha256(
                 scene_asset_bundle
             ),
             "scene_dataset_config": (
@@ -1017,6 +1017,15 @@ def _scene_asset_manifest(
         "scene_key": scene_key,
         "files": files,
     }
+
+
+def _scene_asset_identity_sha256(bundle: dict[str, Any]) -> str:
+    return _canonical_sha256(
+        {
+            "schema_version": bundle["schema_version"],
+            "files": bundle["files"],
+        }
+    )
 
 
 def _optional_file_sha256(path_value: Any) -> str | None:

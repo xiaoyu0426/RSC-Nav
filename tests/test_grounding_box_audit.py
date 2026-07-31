@@ -116,7 +116,12 @@ class GroundingBoxAuditTests(unittest.TestCase):
                     ),
                     "scene_asset_bundle": scene_bundle,
                     "scene_asset_bundle_sha256": (
-                        _canonical_payload_sha256(scene_bundle)
+                        _canonical_payload_sha256(
+                            {
+                                "schema_version": 1,
+                                "files": scene_files,
+                            }
+                        )
                     ),
                     "scene_dataset_config": str(dataset_config),
                     "scene_dataset_config_sha256": _sha256(dataset_config),
@@ -959,11 +964,17 @@ class GroundingBoxAuditTests(unittest.TestCase):
             },
             "source": {
                 "generator_sha256": "c" * 64,
+                "scene": "/tmp/test-scene/test.basis.glb",
                 "scene_id": "test-scene",
                 "scene_sha256": "d" * 64,
                 "scene_asset_bundle": scene_asset_bundle,
                 "scene_asset_bundle_sha256": (
-                    _canonical_payload_sha256(scene_asset_bundle)
+                    _canonical_payload_sha256(
+                        {
+                            "schema_version": 1,
+                            "files": scene_asset_files,
+                        }
+                    )
                 ),
                 "frames_metadata_sha256": "e" * 64,
                 "input_frame_hashes_sha256": input_hashes_sha,
@@ -1070,6 +1081,29 @@ class GroundingBoxAuditTests(unittest.TestCase):
             "passed flag does not match recomputed metrics",
         ):
             _validate_semantic_gt_integrity(coordinated_fake)
+        raised_threshold = copy.deepcopy(semantic_gt)
+        raised_threshold["rgb_replay_checks"][0]["mae"] = 999.0
+        raised_threshold["rgb_replay_integrity"][
+            "observed_max_mae"
+        ] = 999.0
+        raised_threshold["rgb_replay_integrity"][
+            "max_mae_allowed"
+        ] = 1000.0
+        with self.assertRaisesRegex(
+            ValueError,
+            "frozen threshold max_mae_allowed",
+        ):
+            _validate_semantic_gt_integrity(raised_threshold)
+        coordinated_scene_alias = copy.deepcopy(semantic_gt)
+        coordinated_scene_alias["source"]["scene_id"] = "fake-scene"
+        coordinated_scene_alias["source"]["scene_asset_bundle"][
+            "scene_id"
+        ] = "fake-scene"
+        with self.assertRaisesRegex(
+            ValueError,
+            "scene identity does not match",
+        ):
+            _validate_semantic_gt_integrity(coordinated_scene_alias)
 
         embedded = copy.deepcopy(detections)
         implementation_files = [
