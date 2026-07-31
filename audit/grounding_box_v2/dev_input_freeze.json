@@ -1,0 +1,157 @@
+{
+  "schema_version": 1,
+  "protocol_id": "grounding-box-contrastive-prompt-v1-dev-input-freeze",
+  "frozen_date": "2026-07-31",
+  "role": "development_only",
+  "formal_acceptance_eligible": false,
+  "freeze_timing": {
+    "baseline_smoke_completed": true,
+    "baseline_full_replay_started": false,
+    "candidate_full_replay_started": false,
+    "posthoc_parameter_changes_allowed": false
+  },
+  "implementation": {
+    "run_commit": "448367aebf7eae2fe61f5f9bb187f40066a5d1c2",
+    "evidence_contract_sha256": "a1d5111427164d93fe2a5b461a2468bda59b6f740c723706d066fae5baf6135c",
+    "generator_sha256": "3115efc753cda98fed0a25efd55ce6ccb576b0c1280a74e51c1d692b83928781",
+    "implementation_manifest_sha256": "eea34585bb781357eb17be990e7e5acb8dabab3f8d705b51e64e652a15c3f9e3",
+    "implementation_artifacts": [
+      {
+        "path": "scripts/grounding_detector_replay.py",
+        "sha256": "3115efc753cda98fed0a25efd55ce6ccb576b0c1280a74e51c1d692b83928781",
+        "size_bytes": 15459
+      },
+      {
+        "path": "scripts/m25_groundingdino_export.py",
+        "sha256": "b979dae255fb97f97ffcdb334025b89b44e84d5d6af8c4d868a21c6765fda1d5",
+        "size_bytes": 23694
+      },
+      {
+        "path": "src/semantic_task_profile.py",
+        "sha256": "e4a10a4a8046d0b64e9ac0f0dbdb181c222abda860e632cae7556bec1b37bb89",
+        "size_bytes": 3853
+      }
+    ],
+    "runtime": {
+      "python": "3.10.13",
+      "packages": {
+        "Pillow": "12.2.0",
+        "numpy": "2.2.6",
+        "torch": "2.4.1",
+        "transformers": "5.6.2"
+      }
+    }
+  },
+  "model_artifacts": {
+    "model_id": "/tmp/yujiexiao_hf_models/grounding-dino-tiny",
+    "manifest_sha256": "73b85477068a1ce4e32149548725ca90ccd9769d6ee415a5166f8d479de1e70b",
+    "files": [
+      {
+        "path": "added_tokens.json",
+        "sha256": "909e96cb32d92ce728a01bc99850cbba26196d74115c17ebeb019275412588f2",
+        "size_bytes": 82
+      },
+      {
+        "path": "config.json",
+        "sha256": "eec82c5ab66e16df12a9a212e68ac011779927c2536cf9078658e35d85f0c67a",
+        "size_bytes": 1644
+      },
+      {
+        "path": "model.safetensors",
+        "sha256": "1a2412ef99bd74bcd3c2a246fa1e48581f8889a1300c9051974741314fc042f3",
+        "size_bytes": 689359096
+      },
+      {
+        "path": "preprocessor_config.json",
+        "sha256": "8454179ba95e2ad22947835aad7b45862a601fc0055ab88bf1ee70892d3aea60",
+        "size_bytes": 457
+      },
+      {
+        "path": "special_tokens_map.json",
+        "sha256": "b6d346be366a7d1d48332dbc9fdf3bf8960b5d879522b7799ddba59e76237ee3",
+        "size_bytes": 125
+      },
+      {
+        "path": "tokenizer.json",
+        "sha256": "d241a60d5e8f04cc1b2b3e9ef7a4921b27bf526d9f6050ab90f9267a1f9e5c66",
+        "size_bytes": 711396
+      },
+      {
+        "path": "tokenizer_config.json",
+        "sha256": "d40ab645b68211910b9170d22433d43186a6ec8ee6fd10ba170524b25bf4fb56",
+        "size_bytes": 1237
+      },
+      {
+        "path": "vocab.txt",
+        "sha256": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3",
+        "size_bytes": 231508
+      }
+    ]
+  },
+  "frozen_input": {
+    "scene_id": "00861-GLAQ4DNUx5U",
+    "scene_asset_bundle_sha256": "c069c857cb447f658f552563b8e2c1acfba1e01e4fb08aca89599e0a31b8970b",
+    "frames_metadata_sha256": "9ad8ef2623b117dd2a67ed57005768a39c0264974720f6cfeb031873ed3041ac",
+    "selected_frame_indices_sha256": "98736aeaca209b0b5a8dbb7a15fba0814181715a3166d3fd279dbbfc31d4672b",
+    "input_frame_hashes_sha256": "7becac019a5e7c730f87a9fc42e5e90f5d0384ea935d3c6c35efab30f5f192af",
+    "selected_frames": 873,
+    "semantic_gt_sha256": "c72c8ebac6cbeb90957f0a494047c3d4095b8ee18bb6bf3e06015b0da622b431",
+    "semantic_gt_generator_sha256": "147ec6cd142895dec0df7864fe0ac831b44c34b194b4fd57699f176be576e50e"
+  },
+  "full_run_contract": {
+    "contract": {
+      "frames_metadata_sha256": "9ad8ef2623b117dd2a67ed57005768a39c0264974720f6cfeb031873ed3041ac",
+      "frame_start": 0,
+      "frame_end": null,
+      "frame_stride": 1,
+      "max_frames": null,
+      "selected_frames": 873,
+      "selected_frame_indices_sha256": "98736aeaca209b0b5a8dbb7a15fba0814181715a3166d3fd279dbbfc31d4672b",
+      "input_frame_hashes_sha256": "7becac019a5e7c730f87a9fc42e5e90f5d0384ea935d3c6c35efab30f5f192af"
+    },
+    "sha256": "7ecbb8dd47f2ac0635c171a5f2ab201b162d5105da5c50c252445d6776ee9c02"
+  },
+  "baseline": {
+    "labels": [
+      "door",
+      "doorway",
+      "window",
+      "table",
+      "chair",
+      "sofa",
+      "bed",
+      "sink",
+      "counter",
+      "toilet"
+    ],
+    "algorithm_sha256": "8ee867292483bf60c2d067b0355ee4875bbedb3ea118641f36fc82cb2bee1427"
+  },
+  "candidate": {
+    "single_changed_variable": "detection_algorithm.labels",
+    "labels": [
+      "door",
+      "doorway",
+      "window",
+      "table",
+      "chair",
+      "sofa",
+      "bed",
+      "sink",
+      "counter",
+      "toilet",
+      "cabinet door",
+      "refrigerator door",
+      "mirror",
+      "wall panel"
+    ],
+    "algorithm_sha256": "b86f73700e8de4c22fb43b7ad58964eab9b66f90085fb86925f53aba03ff80b2"
+  },
+  "baseline_smoke": {
+    "output_sha256": "cb4e667d2e811cb2ee5e4af83a6ec0407d6dae95a0f968e589020d4e0ba2c51d",
+    "selected_frames": 1,
+    "detections": 13,
+    "tracks": 8,
+    "first_frame_inference_ms": 1341.2010490137618,
+    "peak_cuda_memory_gb": 1.4566106796264648
+  }
+}
