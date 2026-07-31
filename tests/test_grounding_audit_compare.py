@@ -28,6 +28,24 @@ PARAMETERS_HASH = hashlib.sha256(
     ).encode("utf-8")
 ).hexdigest()
 GROUND_TRUTH_HASH = "b" * 64
+DETECTIONS_HASH = "c" * 64
+GROUND_TRUTH_GENERATOR_HASH = "d" * 64
+
+
+def _canonical_hash(payload: dict) -> str:
+    return hashlib.sha256(
+        json.dumps(
+            payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+            allow_nan=False,
+        ).encode("utf-8")
+    ).hexdigest()
+
+
+def _file_hash(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 class GroundingAuditCompareTests(unittest.TestCase):
@@ -104,8 +122,8 @@ class GroundingAuditCompareTests(unittest.TestCase):
                 [
                     self._cluster(
                         "scene/trajectory",
-                        baseline_path.name,
-                        candidate_path.name,
+                        baseline_path,
+                        candidate_path,
                     )
                 ]
             )
@@ -152,6 +170,54 @@ class GroundingAuditCompareTests(unittest.TestCase):
                 ("invalid hash", invalid_hash, "64 hex characters")
             )
 
+            audit_hash_mismatch = copy.deepcopy(manifest)
+            audit_hash_mismatch["clusters"][0]["baseline"][
+                "audit_json_sha256"
+            ] = "e" * 64
+            cases.append(
+                (
+                    "audit hash mismatch",
+                    audit_hash_mismatch,
+                    "audit_json_sha256 does not match",
+                )
+            )
+
+            algorithm_mismatch = copy.deepcopy(manifest)
+            algorithm_mismatch["clusters"][0]["candidate"][
+                "algorithm_sha256"
+            ] = "e" * 64
+            cases.append(
+                (
+                    "algorithm mismatch",
+                    algorithm_mismatch,
+                    "algorithm_sha256 does not match",
+                )
+            )
+
+            detections_mismatch = copy.deepcopy(manifest)
+            detections_mismatch["clusters"][0]["candidate"][
+                "detections_sha256"
+            ] = "e" * 64
+            cases.append(
+                (
+                    "detections mismatch",
+                    detections_mismatch,
+                    "detections_sha256 does not match",
+                )
+            )
+
+            generator_mismatch = copy.deepcopy(manifest)
+            generator_mismatch["clusters"][0]["candidate"][
+                "ground_truth_generator_sha256"
+            ] = "e" * 64
+            cases.append(
+                (
+                    "generator mismatch",
+                    generator_mismatch,
+                    "ground_truth_generator_sha256 does not match",
+                )
+            )
+
             missing_variant = copy.deepcopy(manifest)
             missing_variant["clusters"][0]["candidate"]["variant"] = "absent"
             cases.append(
@@ -183,8 +249,8 @@ class GroundingAuditCompareTests(unittest.TestCase):
                 [
                     self._cluster(
                         "scene/trajectory",
-                        baseline_path.name,
-                        candidate_path.name,
+                        baseline_path,
+                        candidate_path,
                     )
                 ]
             )
@@ -199,6 +265,9 @@ class GroundingAuditCompareTests(unittest.TestCase):
                 json.dumps(tampered_contract, sort_keys=True) + "\n",
                 encoding="utf-8",
             )
+            manifest["clusters"][0]["baseline"]["audit_json_sha256"] = (
+                _file_hash(baseline_path)
+            )
             with self.assertRaisesRegex(
                 ValueError,
                 "does not match its evaluation_contract",
@@ -209,6 +278,9 @@ class GroundingAuditCompareTests(unittest.TestCase):
                 baseline_path,
                 {"baseline": self._variant()},
             )
+            manifest["clusters"][0]["baseline"]["audit_json_sha256"] = (
+                _file_hash(baseline_path)
+            )
             tampered_gt = json.loads(
                 candidate_path.read_text(encoding="utf-8")
             )
@@ -216,6 +288,9 @@ class GroundingAuditCompareTests(unittest.TestCase):
             candidate_path.write_text(
                 json.dumps(tampered_gt, sort_keys=True) + "\n",
                 encoding="utf-8",
+            )
+            manifest["clusters"][0]["candidate"]["audit_json_sha256"] = (
+                _file_hash(candidate_path)
             )
             with self.assertRaisesRegex(
                 ValueError,
@@ -292,8 +367,8 @@ class GroundingAuditCompareTests(unittest.TestCase):
                 [
                     self._cluster(
                         "scene/trajectory",
-                        baseline_path.name,
-                        candidate_path.name,
+                        baseline_path,
+                        candidate_path,
                     )
                 ]
             )
@@ -355,8 +430,8 @@ class GroundingAuditCompareTests(unittest.TestCase):
                 clusters.append(
                     self._cluster(
                         f"scene-{index}/trajectory",
-                        baseline_path.name,
-                        candidate_path.name,
+                        baseline_path,
+                        candidate_path,
                     )
                 )
 
@@ -415,8 +490,8 @@ class GroundingAuditCompareTests(unittest.TestCase):
                 [
                     self._cluster(
                         "scene/trajectory",
-                        baseline_path.name,
-                        candidate_path.name,
+                        baseline_path,
+                        candidate_path,
                     )
                 ]
             )
@@ -432,32 +507,84 @@ class GroundingAuditCompareTests(unittest.TestCase):
                 primary["relative_reduction"]["unavailable_cluster_ids"],
             )
 
+    def test_formal_manifest_enforces_scene_trajectory_minimum(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            baseline_path = self._write_audit(
+                root / "baseline.json",
+                {"baseline": self._variant()},
+            )
+            candidate_path = self._write_audit(
+                root / "candidate.json",
+                {"candidate": self._variant()},
+            )
+            manifest = self._manifest(
+                [
+                    self._cluster(
+                        "scene/trajectory",
+                        baseline_path,
+                        candidate_path,
+                    )
+                ]
+            )
+            manifest["formal_acceptance_eligible"] = True
+
+            with self.assertRaisesRegex(ValueError, "at least 6"):
+                compare_manifest_payload(manifest, manifest_dir=root)
+
     @staticmethod
     def _manifest(clusters: list[dict]) -> dict:
         return {
             "schema_version": MANIFEST_SCHEMA_VERSION,
+            "role": "unit_test",
+            "formal_acceptance_eligible": False,
             "clusters": clusters,
         }
 
     @staticmethod
     def _cluster(
         cluster_id: str,
-        baseline_path: str,
-        candidate_path: str,
+        baseline_path: Path,
+        candidate_path: Path,
     ) -> dict:
+        baseline_payload = json.loads(
+            baseline_path.read_text(encoding="utf-8")
+        )
+        candidate_payload = json.loads(
+            candidate_path.read_text(encoding="utf-8")
+        )
+        scene_id, trajectory_id = cluster_id.split("/", 1)
         return {
             "cluster_id": cluster_id,
+            "scene_id": scene_id,
+            "trajectory_id": trajectory_id,
             "baseline": {
-                "audit_json": baseline_path,
+                "audit_json": baseline_path.name,
+                "audit_json_sha256": _file_hash(baseline_path),
                 "variant": "baseline",
+                "algorithm_sha256": baseline_payload[
+                    "variant_algorithms"
+                ]["baseline"]["sha256"],
                 "parameters_sha256": PARAMETERS_HASH,
+                "detections_sha256": DETECTIONS_HASH,
                 "ground_truth_sha256": GROUND_TRUTH_HASH,
+                "ground_truth_generator_sha256": (
+                    GROUND_TRUTH_GENERATOR_HASH
+                ),
             },
             "candidate": {
-                "audit_json": candidate_path,
+                "audit_json": candidate_path.name,
+                "audit_json_sha256": _file_hash(candidate_path),
                 "variant": "candidate",
+                "algorithm_sha256": candidate_payload[
+                    "variant_algorithms"
+                ]["candidate"]["sha256"],
                 "parameters_sha256": PARAMETERS_HASH,
+                "detections_sha256": DETECTIONS_HASH,
                 "ground_truth_sha256": GROUND_TRUTH_HASH,
+                "ground_truth_generator_sha256": (
+                    GROUND_TRUTH_GENERATOR_HASH
+                ),
             },
         }
 
@@ -495,14 +622,21 @@ class GroundingAuditCompareTests(unittest.TestCase):
             clusters.append(
                 self._cluster(
                     f"scene-{index}/trajectory-{index}",
-                    baseline_path.name,
-                    candidate_path.name,
+                    baseline_path,
+                    candidate_path,
                 )
             )
         return self._manifest(clusters)
 
     @staticmethod
     def _write_audit(path: Path, variants: dict) -> Path:
+        variant_algorithms = {}
+        for name in variants:
+            contract = {"operation": name}
+            variant_algorithms[name] = {
+                "contract": contract,
+                "sha256": _canonical_hash(contract),
+            }
         path.write_text(
             json.dumps(
                 {
@@ -510,8 +644,13 @@ class GroundingAuditCompareTests(unittest.TestCase):
                     "evaluation_contract": EVALUATION_CONTRACT,
                     "evaluation_parameters_sha256": PARAMETERS_HASH,
                     "inputs": {
+                        "detections_sha256": DETECTIONS_HASH,
                         "semantic_gt_sha256": GROUND_TRUTH_HASH,
+                        "semantic_gt_generator_sha256": (
+                            GROUND_TRUTH_GENERATOR_HASH
+                        ),
                     },
+                    "variant_algorithms": variant_algorithms,
                     "variants": variants,
                 },
                 sort_keys=True,

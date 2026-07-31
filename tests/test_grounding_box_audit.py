@@ -256,16 +256,32 @@ class GroundingBoxAuditTests(unittest.TestCase):
             [99.0, 0.0, 99.0],
         )
         instance["world_visible_center_xyz"] = [0.0, 0.0, 0.0]
+        instance["visible_depth_median"] = 2.5
         semantic_gt = {
             "frames": [{"frame_index": 0, "instances": [instance]}]
         }
 
         result = audit_payloads(detections, semantic_gt)
+        xz = result["variants"]["baseline"]["xz_error_m"]["door"]
 
         self.assertAlmostEqual(
-            result["variants"]["baseline"]["xz_error_m"]["door"][
-                "distribution"
-            ]["median"],
+            xz["distribution"]["median"],
+            0.1,
+        )
+        self.assertEqual(
+            xz["stratification"]["by_semantic_id"][0][
+                "usable_position_pairs"
+            ],
+            1,
+        )
+        depth_stratum = next(
+            item
+            for item in xz["stratification"]["by_visible_depth_m"]
+            if item["lower_inclusive_m"] == 2.0
+        )
+        self.assertEqual(depth_stratum["matched_tp_pairs"], 1)
+        self.assertAlmostEqual(
+            depth_stratum["distribution"]["median"],
             0.1,
         )
 
@@ -307,6 +323,14 @@ class GroundingBoxAuditTests(unittest.TestCase):
         self.assertFalse(xz["available"])
         self.assertEqual(xz["usable_position_pairs"], 0)
         self.assertEqual(xz["missing_position_pairs"], 1)
+        self.assertEqual(
+            xz["missing_reason_counts"],
+            {"missing_gt_visible_center": 1},
+        )
+        self.assertEqual(
+            xz["missing_pairs"][0]["semantic_id"],
+            "door-1",
+        )
 
     def test_door_fp_attribution_uses_raw_non_target_categories(self) -> None:
         raw_categories = [

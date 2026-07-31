@@ -5,20 +5,32 @@ The manifest schema is::
 
     {
       "schema_version": "grounding_audit_compare_manifest_v1",
+      "role": "formal_unseen_replay",
+      "formal_acceptance_eligible": true,
       "clusters": [
         {
           "cluster_id": "scene_a/trajectory_01",
+          "scene_id": "scene_a",
+          "trajectory_id": "trajectory_01",
           "baseline": {
             "audit_json": "baseline/audit.json",
+            "audit_json_sha256": "<64 hex characters>",
             "variant": "baseline",
+            "algorithm_sha256": "<64 hex characters>",
             "parameters_sha256": "<64 hex characters>",
-            "ground_truth_sha256": "<64 hex characters>"
+            "detections_sha256": "<64 hex characters>",
+            "ground_truth_sha256": "<64 hex characters>",
+            "ground_truth_generator_sha256": "<64 hex characters>"
           },
           "candidate": {
             "audit_json": "candidate/audit.json",
+            "audit_json_sha256": "<64 hex characters>",
             "variant": "candidate",
+            "algorithm_sha256": "<candidate algorithm hash>",
             "parameters_sha256": "<same parameters hash>",
-            "ground_truth_sha256": "<same ground-truth hash>"
+            "detections_sha256": "<candidate detections hash>",
+            "ground_truth_sha256": "<same ground-truth hash>",
+            "ground_truth_generator_sha256": "<same generator hash>"
           }
         }
       ]
@@ -38,6 +50,7 @@ import json
 import math
 import random
 import re
+from collections import Counter
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -167,6 +180,14 @@ def compare_manifest_payload(
     raw_clusters = manifest.get("clusters")
     if not isinstance(raw_clusters, list) or not raw_clusters:
         raise ValueError("manifest clusters must be a non-empty list")
+    role = _required_string(manifest, "role", "manifest")
+    formal_acceptance_eligible = manifest.get(
+        "formal_acceptance_eligible"
+    )
+    if not isinstance(formal_acceptance_eligible, bool):
+        raise ValueError(
+            "manifest formal_acceptance_eligible must be a boolean"
+        )
 
     manifest_dir = manifest_dir.expanduser().resolve()
     audit_cache: dict[Path, tuple[Mapping[str, Any], str]] = {}
@@ -179,6 +200,12 @@ def compare_manifest_payload(
         if not isinstance(raw_cluster, Mapping):
             raise ValueError(f"{context} must be an object")
         cluster_id = _required_string(raw_cluster, "cluster_id", context)
+        scene_id = _required_string(raw_cluster, "scene_id", context)
+        trajectory_id = _required_string(
+            raw_cluster,
+            "trajectory_id",
+            context,
+        )
         if cluster_id in seen_cluster_ids:
             raise ValueError(f"duplicate cluster_id: {cluster_id!r}")
         seen_cluster_ids.add(cluster_id)
@@ -208,6 +235,14 @@ def compare_manifest_payload(
                 f"cluster {cluster_id!r} ground_truth_sha256 mismatch: "
                 f"baseline={baseline['ground_truth_sha256']} "
                 f"candidate={candidate['ground_truth_sha256']}"
+            )
+        if (
+            baseline["ground_truth_generator_sha256"]
+            != candidate["ground_truth_generator_sha256"]
+        ):
+            raise ValueError(
+                f"cluster {cluster_id!r} ground_truth_generator_sha256 "
+                "mismatch"
             )
 
         metric_results: dict[str, Any] = {}
@@ -252,6 +287,8 @@ def compare_manifest_payload(
         cluster_results.append(
             {
                 "cluster_id": cluster_id,
+                "scene_id": scene_id,
+                "trajectory_id": trajectory_id,
                 "parameters_sha256": baseline["parameters_sha256"],
                 "ground_truth_sha256": baseline["ground_truth_sha256"],
                 "baseline": _side_provenance(baseline),
@@ -259,6 +296,9 @@ def compare_manifest_payload(
                 "metrics": metric_results,
             }
         )
+
+    if formal_acceptance_eligible:
+        _validate_formal_cluster_minimum(cluster_results)
 
     comparisons = {
         str(spec["name"]): _aggregate_metric(
@@ -312,6 +352,8 @@ def compare_manifest_payload(
         "manifest_schema_version": MANIFEST_SCHEMA_VERSION,
         "manifest_canonical_sha256": _canonical_sha256(manifest),
         "primary_metric": PRIMARY_METRIC,
+        "role": role,
+        "formal_acceptance_eligible": formal_acceptance_eligible,
         "cluster_count": len(cluster_results),
         "bootstrap": {
             "unit": "scene_trajectory_cluster_pair",
@@ -321,6 +363,7 @@ def compare_manifest_payload(
             "confidence_level": 0.95,
             "interval": "percentile",
             "percentile_method": "linear_interpolation",
+            "minimum_clusters_for_interval": 2,
         },
         "metric_definitions": metric_definitions,
         "clusters": cluster_results,
@@ -344,10 +387,26 @@ def _load_side(
 
     audit_json = _required_string(side, "audit_json", context)
     variant_name = _required_string(side, "variant", context)
+    declared_audit_sha256 = _required_sha256(
+        side,
+        "audit_json_sha256",
+        context,
+    )
+    algorithm_sha256 = _required_sha256(side, "algorithm_sha256", context)
     parameters_sha256 = _required_sha256(side, "parameters_sha256", context)
+    detections_sha256 = _required_sha256(
+        side,
+        "detections_sha256",
+        context,
+    )
     ground_truth_sha256 = _required_sha256(
         side,
         "ground_truth_sha256",
+        context,
+    )
+    ground_truth_generator_sha256 = _required_sha256(
+        side,
+        "ground_truth_generator_sha256",
         context,
     )
     audit_path = Path(audit_json).expanduser()
@@ -362,6 +421,10 @@ def _load_side(
             raise ValueError(f"{context} audit JSON root must be an object")
         audit_cache[audit_path] = (payload, _file_sha256(audit_path))
     audit_payload, audit_sha256 = audit_cache[audit_path]
+    if declared_audit_sha256 != audit_sha256:
+        raise ValueError(
+            f"{context} manifest audit_json_sha256 does not match audit file"
+        )
 
     evaluation_contract = audit_payload.get("evaluation_contract")
     if not isinstance(evaluation_contract, Mapping):
@@ -398,6 +461,29 @@ def _load_side(
             f"{context} manifest ground_truth_sha256 does not match audit "
             "inputs.semantic_gt_sha256"
         )
+    audit_detections_sha256 = _required_sha256(
+        inputs,
+        "detections_sha256",
+        f"{context} audit JSON inputs",
+    )
+    if detections_sha256 != audit_detections_sha256:
+        raise ValueError(
+            f"{context} manifest detections_sha256 does not match audit "
+            "inputs.detections_sha256"
+        )
+    audit_ground_truth_generator_sha256 = _required_sha256(
+        inputs,
+        "semantic_gt_generator_sha256",
+        f"{context} audit JSON inputs",
+    )
+    if (
+        ground_truth_generator_sha256
+        != audit_ground_truth_generator_sha256
+    ):
+        raise ValueError(
+            f"{context} manifest ground_truth_generator_sha256 does not "
+            "match audit inputs.semantic_gt_generator_sha256"
+        )
 
     variants = audit_payload.get("variants")
     if not isinstance(variants, Mapping):
@@ -411,13 +497,47 @@ def _load_side(
         raise ValueError(
             f"{context} variant {variant_name!r} must be an object"
         )
+    variant_algorithms = audit_payload.get("variant_algorithms")
+    if not isinstance(variant_algorithms, Mapping):
+        raise ValueError(
+            f"{context} audit JSON must contain a variant_algorithms object"
+        )
+    algorithm_record = variant_algorithms.get(variant_name)
+    if not isinstance(algorithm_record, Mapping):
+        raise ValueError(
+            f"{context} variant algorithm {variant_name!r} does not exist"
+        )
+    algorithm_contract = algorithm_record.get("contract")
+    if not isinstance(algorithm_contract, Mapping):
+        raise ValueError(
+            f"{context} variant algorithm must contain a contract object"
+        )
+    audit_algorithm_sha256 = _required_sha256(
+        algorithm_record,
+        "sha256",
+        f"{context} variant algorithm",
+    )
+    if audit_algorithm_sha256 != _canonical_sha256(algorithm_contract):
+        raise ValueError(
+            f"{context} variant algorithm sha256 does not match its contract"
+        )
+    if algorithm_sha256 != audit_algorithm_sha256:
+        raise ValueError(
+            f"{context} manifest algorithm_sha256 does not match audit "
+            "variant algorithm"
+        )
     return {
         "audit_json": audit_json,
         "audit_json_sha256": audit_sha256,
         "variant": variant_name,
         "variant_payload": variant_payload,
+        "algorithm_sha256": audit_algorithm_sha256,
         "parameters_sha256": audit_parameters_sha256,
+        "detections_sha256": audit_detections_sha256,
         "ground_truth_sha256": audit_ground_truth_sha256,
+        "ground_truth_generator_sha256": (
+            audit_ground_truth_generator_sha256
+        ),
     }
 
 
@@ -426,6 +546,11 @@ def _side_provenance(side: Mapping[str, Any]) -> dict[str, str]:
         "audit_json": str(side["audit_json"]),
         "audit_json_sha256": str(side["audit_json_sha256"]),
         "variant": str(side["variant"]),
+        "algorithm_sha256": str(side["algorithm_sha256"]),
+        "detections_sha256": str(side["detections_sha256"]),
+        "ground_truth_generator_sha256": str(
+            side["ground_truth_generator_sha256"]
+        ),
     }
 
 
@@ -565,9 +690,13 @@ def _aggregate_metric(
     return result
 
 
-def _paired_bootstrap_ci(cluster_values: Sequence[float]) -> dict[str, float]:
+def _paired_bootstrap_ci(
+    cluster_values: Sequence[float],
+) -> dict[str, float] | None:
     if not cluster_values:
         raise ValueError("paired bootstrap requires at least one cluster")
+    if len(cluster_values) < 2:
+        return None
     rng = random.Random(BOOTSTRAP_SEED)
     count = len(cluster_values)
     bootstrap_means = []
@@ -581,6 +710,29 @@ def _paired_bootstrap_ci(cluster_values: Sequence[float]) -> dict[str, float]:
         "lower": _quantile(bootstrap_means, 0.025),
         "upper": _quantile(bootstrap_means, 0.975),
     }
+
+
+def _validate_formal_cluster_minimum(
+    clusters: Sequence[Mapping[str, Any]],
+) -> None:
+    by_scene = Counter(str(item["scene_id"]) for item in clusters)
+    if len(clusters) < 6:
+        raise ValueError(
+            "formal comparison requires at least 6 scene-trajectory clusters"
+        )
+    if len(by_scene) < 3:
+        raise ValueError(
+            "formal comparison requires at least 3 distinct scenes"
+        )
+    underrepresented = sorted(
+        scene_id for scene_id, count in by_scene.items() if count < 2
+    )
+    if underrepresented:
+        raise ValueError(
+            "formal comparison requires at least 2 trajectories per scene; "
+            "underrepresented: "
+            + ", ".join(underrepresented)
+        )
 
 
 def _extract_numeric_metric(

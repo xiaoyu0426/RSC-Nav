@@ -1,0 +1,32 @@
+{
+  "schema_version": "grounding_audit_compare_manifest_v1",
+  "role": "development_only",
+  "formal_acceptance_eligible": false,
+  "clusters": [
+    {
+      "cluster_id": "00861-GLAQ4DNUx5U/door-api-ad62206b-20260730",
+      "scene_id": "00861-GLAQ4DNUx5U",
+      "trajectory_id": "door-api-ad62206b-20260730",
+      "baseline": {
+        "audit_json": "../../outputs/grounding_audit_v1/dev_grounding_audit.json",
+        "audit_json_sha256": "48c9ee484d0c95ffa4b73b305936b96ce7bd7b7fa86567f84d998902be44d18c",
+        "variant": "baseline",
+        "algorithm_sha256": "8f574569ac699b6a85007e4f95fb0081c8954508c447d9fae517f74503cba7ae",
+        "parameters_sha256": "0f3493166e6518be2a97cf2d2d846741c4a59118ac63d9af07ce232e740a1ad2",
+        "detections_sha256": "b6ac93677db50e76ba7eedb74cc452959d7d7b1e30e99438bab45b3aeb9579ed",
+        "ground_truth_sha256": "7a68c23627f6e5afcfe60cac6013a702ae87915a91b223e5ff5c071126bf6e04",
+        "ground_truth_generator_sha256": "3537aa6f2f51a3a7e0ccd5ac9dd4c77fbee34e013fa40a8c70a21d3e3e61dea7"
+      },
+      "candidate": {
+        "audit_json": "../../outputs/grounding_audit_v1/dev_grounding_audit.json",
+        "audit_json_sha256": "48c9ee484d0c95ffa4b73b305936b96ce7bd7b7fa86567f84d998902be44d18c",
+        "variant": "class_nms",
+        "algorithm_sha256": "acb0ce2bfe89aeab713e4b8fbf57a83915f38d474895bf1e9d9b0e7356ff0a21",
+        "parameters_sha256": "0f3493166e6518be2a97cf2d2d846741c4a59118ac63d9af07ce232e740a1ad2",
+        "detections_sha256": "b6ac93677db50e76ba7eedb74cc452959d7d7b1e30e99438bab45b3aeb9579ed",
+        "ground_truth_sha256": "7a68c23627f6e5afcfe60cac6013a702ae87915a91b223e5ff5c071126bf6e04",
+        "ground_truth_generator_sha256": "3537aa6f2f51a3a7e0ccd5ac9dd4c77fbee34e013fa40a8c70a21d3e3e61dea7"
+      }
+    }
+  ]
+}

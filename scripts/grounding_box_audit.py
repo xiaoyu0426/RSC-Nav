@@ -22,6 +22,7 @@ HARD_NEGATIVE_CATEGORIES = (
     "wall panel",
 )
 XZ_HISTOGRAM_EDGES_M = (0.0, 0.1, 0.25, 0.5, 1.0, 2.0, math.inf)
+XZ_DEPTH_STRATUM_EDGES_M = (0.0, 1.0, 2.0, 4.0, 6.0, math.inf)
 
 
 def box_iou(left: Sequence[float], right: Sequence[float]) -> float:
@@ -315,6 +316,29 @@ def audit_payloads(
         for key, value in parameters.items()
         if key not in {"nms", "variant_causality"}
     }
+    variant_algorithm_contracts: dict[str, dict[str, Any]] = {
+        "baseline": {
+            "operation": "identity",
+            "input": "recorded online detections and track IDs",
+            "causal_track_metrics": True,
+        }
+    }
+    if "class_nms" in variants:
+        variant_algorithm_contracts["class_nms"] = {
+            "operation": "canonical_label_classwise_greedy_nms",
+            "nms_iou": float(nms_iou),
+            "scope": "within_frame_and_canonical_class",
+            "suppression_rule": "IoU strictly greater than nms_iou",
+            "input_order": "descending_score_then_original_index",
+            "causal_track_metrics": False,
+        }
+    variant_algorithms = {
+        name: {
+            "contract": contract,
+            "sha256": _canonical_payload_sha256(contract),
+        }
+        for name, contract in variant_algorithm_contracts.items()
+    }
     return {
         "schema_version": "grounding_box_audit_v1",
         "parameters": parameters,
@@ -322,6 +346,7 @@ def audit_payloads(
         "evaluation_parameters_sha256": _canonical_payload_sha256(
             evaluation_contract
         ),
+        "variant_algorithms": variant_algorithms,
         "coverage": coverage,
         "variants": variants,
         "unavailable_metrics": unavailable_metrics,
@@ -968,18 +993,57 @@ def _xz_error_report(
             if scope == "overall"
             or item["ground_truth"]["canonical_label"] == scope
         ]
-        values: list[float] = []
+        pair_rows: list[dict[str, Any]] = []
         for match in scope_matches:
             position = match["detection"].get("position_3d")
             center = match["ground_truth"].get("world_visible_center_xyz")
-            if position is None or center is None:
-                continue
-            values.append(
-                math.hypot(
+            missing_reasons = []
+            if position is None:
+                missing_reasons.append("missing_detection_position")
+            if center is None:
+                missing_reasons.append("missing_gt_visible_center")
+            error = (
+                None
+                if missing_reasons
+                else math.hypot(
                     float(position[0]) - float(center[0]),
                     float(position[2]) - float(center[2]),
                 )
             )
+            pair_rows.append(
+                {
+                    "frame_index": int(
+                        match["ground_truth"]["frame_index"]
+                    ),
+                    "semantic_id": match["ground_truth"].get("semantic_id"),
+                    "visible_depth_median": match["ground_truth"].get(
+                        "visible_depth_median"
+                    ),
+                    "error_m": error,
+                    "missing_reasons": missing_reasons,
+                }
+            )
+        values = sorted(
+            float(item["error_m"])
+            for item in pair_rows
+            if item["error_m"] is not None
+        )
+        missing_reason_counts = Counter(
+            reason
+            for item in pair_rows
+            for reason in item["missing_reasons"]
+        )
+        stratification = _xz_stratification(pair_rows)
+        missing_pairs = [
+            {
+                "frame_index": item["frame_index"],
+                "semantic_id": item["semantic_id"],
+                "visible_depth_median": item["visible_depth_median"],
+                "reasons": item["missing_reasons"],
+            }
+            for item in pair_rows
+            if item["error_m"] is None
+        ]
         values.sort()
         if not values:
             report[scope] = {
@@ -987,6 +1051,12 @@ def _xz_error_report(
                 "matched_tp_pairs": len(scope_matches),
                 "usable_position_pairs": 0,
                 "missing_position_pairs": len(scope_matches),
+                "usable_position_pair_rate": 0.0,
+                "missing_reason_counts": dict(
+                    sorted(missing_reason_counts.items())
+                ),
+                "missing_pairs": missing_pairs,
+                "stratification": stratification,
                 "distribution": None,
             }
             unavailable.append(
@@ -1004,20 +1074,108 @@ def _xz_error_report(
             "matched_tp_pairs": len(scope_matches),
             "usable_position_pairs": len(values),
             "missing_position_pairs": len(scope_matches) - len(values),
-            "distribution": {
-                "count": len(values),
-                "values_m": values,
-                "min": values[0],
-                "mean": sum(values) / len(values),
-                "median": _quantile(values, 0.50),
-                "p90": _quantile(values, 0.90),
-                "p95": _quantile(values, 0.95),
-                "max": values[-1],
-                "quantile_method": "linear_interpolation",
-                "histogram": _histogram(values),
-            },
+            "usable_position_pair_rate": (
+                len(values) / len(scope_matches) if scope_matches else None
+            ),
+            "missing_reason_counts": dict(
+                sorted(missing_reason_counts.items())
+            ),
+            "missing_pairs": missing_pairs,
+            "stratification": stratification,
+            "distribution": _xz_distribution(values),
         }
     return report
+
+
+def _xz_stratification(
+    pair_rows: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    by_semantic_id: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
+    for item in pair_rows:
+        token = _id_token(item.get("semantic_id")) or "missing"
+        by_semantic_id[token].append(item)
+
+    depth_rows = []
+    for lower, upper in zip(
+        XZ_DEPTH_STRATUM_EDGES_M[:-1],
+        XZ_DEPTH_STRATUM_EDGES_M[1:],
+    ):
+        rows = [
+            item
+            for item in pair_rows
+            if isinstance(item.get("visible_depth_median"), (int, float))
+            and not isinstance(item.get("visible_depth_median"), bool)
+            and math.isfinite(float(item["visible_depth_median"]))
+            and float(item["visible_depth_median"]) >= lower
+            and (
+                float(item["visible_depth_median"]) < upper
+                or math.isinf(upper)
+            )
+        ]
+        depth_rows.append(
+            {
+                "lower_inclusive_m": lower,
+                "upper_exclusive_m": None if math.isinf(upper) else upper,
+                **_xz_stratum_report(rows),
+            }
+        )
+    unknown_depth = [
+        item
+        for item in pair_rows
+        if not isinstance(item.get("visible_depth_median"), (int, float))
+        or isinstance(item.get("visible_depth_median"), bool)
+        or not math.isfinite(float(item["visible_depth_median"]))
+    ]
+    return {
+        "by_semantic_id": [
+            {
+                "semantic_id_token": token,
+                "semantic_id": rows[0].get("semantic_id"),
+                **_xz_stratum_report(rows),
+            }
+            for token, rows in sorted(by_semantic_id.items())
+        ],
+        "by_visible_depth_m": depth_rows,
+        "unknown_visible_depth": _xz_stratum_report(unknown_depth),
+    }
+
+
+def _xz_stratum_report(
+    pair_rows: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    values = sorted(
+        float(item["error_m"])
+        for item in pair_rows
+        if item.get("error_m") is not None
+    )
+    missing_reason_counts = Counter(
+        reason
+        for item in pair_rows
+        for reason in item.get("missing_reasons", [])
+    )
+    return {
+        "matched_tp_pairs": len(pair_rows),
+        "usable_position_pairs": len(values),
+        "missing_position_pairs": len(pair_rows) - len(values),
+        "missing_reason_counts": dict(sorted(missing_reason_counts.items())),
+        "distribution": _xz_distribution(values) if values else None,
+    }
+
+
+def _xz_distribution(values: Sequence[float]) -> dict[str, Any]:
+    values = sorted(float(value) for value in values)
+    return {
+        "count": len(values),
+        "values_m": values,
+        "min": values[0],
+        "mean": sum(values) / len(values),
+        "median": _quantile(values, 0.50),
+        "p90": _quantile(values, 0.90),
+        "p95": _quantile(values, 0.95),
+        "max": values[-1],
+        "quantile_method": "linear_interpolation",
+        "histogram": _histogram(values),
+    }
 
 
 def _histogram(values: Sequence[float]) -> list[dict[str, Any]]:
@@ -1143,6 +1301,15 @@ def _normalize_ground_truth(
                     "world_center_xyz": _valid_xyz(
                         raw.get("world_center_xyz")
                     ),
+                    "visible_depth_median": _finite_number(
+                        raw.get("visible_depth_median")
+                    ),
+                    "visible_depth_valid_ratio": _finite_number(
+                        raw.get("visible_depth_valid_ratio")
+                    ),
+                    "visible_projected_points": _frame_index(
+                        raw.get("visible_projected_points")
+                    ),
                     "area_px": _finite_number(raw.get("area_px")),
                 }
             )
@@ -1199,6 +1366,9 @@ def _coverage_report(
             "box",
             "world_visible_center_xyz",
             "world_center_xyz",
+            "visible_depth_median",
+            "visible_depth_valid_ratio",
+            "visible_projected_points",
             "area_px",
         ),
     )
@@ -1377,6 +1547,13 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--semantic-gt-json", required=True)
     parser.add_argument("--output-json", required=True)
     parser.add_argument(
+        "--detection-algorithm-contract-json",
+        help=(
+            "Optional frozen detector/inference contract composed into every "
+            "variant algorithm hash."
+        ),
+    )
+    parser.add_argument(
         "--score-threshold",
         type=float,
         default=0.0,
@@ -1411,11 +1588,50 @@ def main(argv: Sequence[str] | None = None) -> int:
         match_iou=args.match_iou,
         nms_iou=args.nms_iou,
     )
+    detector_contract_path = (
+        Path(args.detection_algorithm_contract_json).expanduser().resolve()
+        if args.detection_algorithm_contract_json
+        else None
+    )
+    detector_contract = None
+    if detector_contract_path is not None:
+        detector_contract = json.loads(
+            detector_contract_path.read_text(encoding="utf-8")
+        )
+        if not isinstance(detector_contract, Mapping):
+            raise ValueError(
+                "detection algorithm contract JSON root must be an object"
+            )
+        for algorithm_record in result["variant_algorithms"].values():
+            variant_contract = algorithm_record["contract"]
+            composite_contract = {
+                "detection_algorithm": detector_contract,
+                "evaluation_variant": variant_contract,
+            }
+            algorithm_record["contract"] = composite_contract
+            algorithm_record["sha256"] = _canonical_payload_sha256(
+                composite_contract
+            )
     result["inputs"] = {
         "detections_json": str(detections_path),
         "detections_sha256": _sha256(detections_path),
         "semantic_gt_json": str(semantic_gt_path),
         "semantic_gt_sha256": _sha256(semantic_gt_path),
+        "semantic_gt_generator_sha256": (
+            semantic_gt_payload.get("source", {}).get("generator_sha256")
+            if isinstance(semantic_gt_payload.get("source"), Mapping)
+            else None
+        ),
+        "detection_algorithm_contract_json": (
+            str(detector_contract_path)
+            if detector_contract_path is not None
+            else None
+        ),
+        "detection_algorithm_contract_sha256": (
+            _sha256(detector_contract_path)
+            if detector_contract_path is not None
+            else None
+        ),
         "evaluator_script": str(Path(__file__).resolve()),
         "evaluator_sha256": _sha256(Path(__file__).resolve()),
     }

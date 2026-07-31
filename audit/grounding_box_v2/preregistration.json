@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "protocol_id": "grounding-box-contrastive-prompt-v1",
+  "frozen_date": "2026-07-31",
+  "development_data": {
+    "replay_id": "door-api-ad62206b-20260730",
+    "role": "development_only",
+    "formal_acceptance_eligible": false
+  },
+  "baseline": {
+    "detector_contract": "../grounding_box_v1/detector_contract.json",
+    "labels": [
+      "door",
+      "doorway",
+      "window",
+      "table",
+      "chair",
+      "sofa",
+      "bed",
+      "sink",
+      "counter",
+      "toilet"
+    ]
+  },
+  "candidate": {
+    "single_changed_variable": "grounding_prompt_labels",
+    "labels": [
+      "door",
+      "doorway",
+      "window",
+      "table",
+      "chair",
+      "sofa",
+      "bed",
+      "sink",
+      "counter",
+      "toilet",
+      "cabinet door",
+      "refrigerator door",
+      "mirror",
+      "wall panel"
+    ],
+    "added_hard_negative_labels": [
+      "cabinet door",
+      "refrigerator door",
+      "mirror",
+      "wall panel"
+    ],
+    "all_other_detector_projection_and_tracking_settings": "identical_to_baseline",
+    "nms_enabled": false,
+    "threshold_tuning_after_replay_starts": false
+  },
+  "development_gate": {
+    "hard_negative_door_fp_relative_reduction_min": 0.25,
+    "door_recall_max_drop": 0.02,
+    "physical_door_recall_max_drop": 0.02,
+    "true_positive_median_iou_max_drop": 0.03,
+    "wrong_merge_rate_must_not_increase": true,
+    "crashes_or_oom_max": 0
+  },
+  "formal_gate": {
+    "reuse_grounding_box_audit_v1_hard_gates": true,
+    "unseen_scenes": 3,
+    "fixed_trajectories_per_scene": 2,
+    "physical_doors_min": 12,
+    "paired_live_episodes": 6,
+    "paired_cluster_bootstrap_required": true,
+    "independent_final_audit_required": true
+  },
+  "decision_policy": {
+    "development_failure": "Do not advance this prompt candidate.",
+    "development_pass": "Freeze the exact prompt order and run formal unseen replay plus live A/B.",
+    "formal_pass_only": "Eligible for isolated live feature flag; still not a default until task and resource gates pass."
+  }
+}

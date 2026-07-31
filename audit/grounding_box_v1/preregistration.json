@@ -54,8 +54,12 @@
       "fragmentation_max_increase_tracks_per_gt": 0.1
     },
     "semantic_bev": {
+      "scope": "Detector box-depth projection relative to a posthoc semantic-mask center using the same saved depth and exact Habitat pose; not an absolute localization or SLAM metric.",
       "center_error_median_m_max": 0.35,
       "center_error_p90_m_max": 0.75,
+      "usable_tp_pair_rate_min": 0.95,
+      "per_physical_instance_and_depth_strata_required": true,
+      "missing_pair_reasons_required": true,
       "stable_radial_drift_median_m_max": 0.2,
       "stable_radial_drift_p90_m_max": 0.5
     },
@@ -119,6 +123,17 @@
     ],
     "semantic_replay_detector_proxy": "Only exact door semantic pixels count as detector-only positive; passable openings without door pixels require a separate human-audited task label.",
     "candidate_detector_or_vlm_must_not_generate_ground_truth": true
+  },
+  "absolute_localization_contract": {
+    "current_status": "not_validated",
+    "exact_habitat_pose_is_not_real_world_localization_evidence": true,
+    "required_future_inputs": [
+      "estimated visual odometry or SLAM pose",
+      "independent reference trajectory",
+      "relocalization and loop-closure episodes",
+      "pose perturbation robustness"
+    ],
+    "must_pass_before_claiming_real_world_bev_accuracy": true
   },
   "independent_final_audit_required": true
 }

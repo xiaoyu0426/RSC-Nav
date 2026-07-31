@@ -132,6 +132,54 @@ class GroundingSemanticReplayGroundTruthTest(unittest.TestCase):
         self.assertFalse(missing["passed"])
         self.assertFalse(excessive["passed"])
 
+    def test_depth_replay_integrity_checks_values_and_validity(self) -> None:
+        source = np.asarray(
+            [[1.0, 2.0], [0.0, 4.0]],
+            dtype=np.float32,
+        )
+        exact = MODULE._depth_replay_check(
+            source.copy(),
+            source,
+            source_path_value="depth.npy",
+            frame_index=7,
+            large_error_m=0.01,
+        )
+        shifted = MODULE._depth_replay_check(
+            np.asarray([[1.1, 2.0], [3.0, 4.0]], dtype=np.float32),
+            source,
+            source_path_value="depth.npy",
+            frame_index=7,
+            large_error_m=0.01,
+        )
+
+        self.assertTrue(exact["available"])
+        self.assertEqual(exact["mae_m"], 0.0)
+        self.assertEqual(exact["validity_disagreement_ratio"], 0.0)
+        self.assertGreater(shifted["mae_m"], 0.0)
+        self.assertEqual(shifted["validity_disagreement_ratio"], 0.25)
+
+        passed = MODULE._depth_integrity_report(
+            [exact],
+            enabled=True,
+            max_mae_m=1e-4,
+            max_p95_abs_error_m=1e-4,
+            max_validity_disagreement_ratio=0.0,
+            max_large_error_ratio=1e-4,
+            large_error_m=0.01,
+        )
+        failed = MODULE._depth_integrity_report(
+            [shifted],
+            enabled=True,
+            max_mae_m=1e-4,
+            max_p95_abs_error_m=1e-4,
+            max_validity_disagreement_ratio=0.0,
+            max_large_error_ratio=1e-4,
+            large_error_m=0.01,
+        )
+
+        self.assertTrue(passed["passed"])
+        self.assertFalse(failed["passed"])
+
     def test_rotation_matrix_conversion_matches_yaw_quaternion(self) -> None:
         angle = np.deg2rad(30.0)
         matrix = [

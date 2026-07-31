@@ -59,26 +59,48 @@
   },
   "generated_outputs": {
     "semantic_gt.json": {
-      "sha256": "ab1001ebd2f76ea27cafa959f8d27d532fb8543e2e3350dabffd114154952ff9",
+      "sha256": "7a68c23627f6e5afcfe60cac6013a702ae87915a91b223e5ff5c071126bf6e04",
+      "generator_sha256": "3537aa6f2f51a3a7e0ccd5ac9dd4c77fbee34e013fa40a8c70a21d3e3e61dea7",
       "selected_frames": 873,
       "target_visible_events": 929,
       "target_visible_surface_centers": 841,
       "target_visible_surface_center_coverage": 0.905274488697524,
-      "rgb_integrity_checks": 36,
+      "source_rgb_depth_hash_pairs": 873,
+      "rgb_integrity_checks": 873,
       "rgb_integrity_passed": true,
+      "rgb_observed_max_mae": 2.3469057083129883,
+      "rgb_observed_max_p95_abs_error": 7.0,
+      "depth_integrity_checks": 873,
+      "depth_integrity_passed": true,
+      "depth_observed_max_mae_m": 0.000020284309357521124,
+      "depth_observed_max_p95_abs_error_m": 0.00008702278137207031,
+      "depth_observed_max_validity_disagreement_ratio": 0.000006781684027777777,
+      "depth_observed_max_large_error_ratio": 0.000020345052083333332,
       "observed_unknown_semantic_ids": [
         908
       ]
     },
     "dev_grounding_audit.json": {
-      "sha256": "ffa02925b6ef7a9957f517ef1f100b823c2feb3760a4b7b870a665fe54590ba4",
-      "evaluator_sha256": "ae3bcf98c940e8ffbf6b0668509b6bd55939261b90008587a918773e3b805840",
+      "sha256": "48c9ee484d0c95ffa4b73b305936b96ce7bd7b7fa86567f84d998902be44d18c",
+      "evaluator_sha256": "dace49c8f5ea60a74626e4dc6ad62e00c08d0f178f280b37dcafed58fe29b06b",
       "evaluation_parameters_sha256": "0f3493166e6518be2a97cf2d2d846741c4a59118ac63d9af07ce232e740a1ad2",
+      "detector_contract_sha256": "ff116398a7789bb7bc366c0552771bf95875cfd423770880b9f37b56f7ef1434",
+      "baseline_algorithm_sha256": "8f574569ac699b6a85007e4f95fb0081c8954508c447d9fae517f74503cba7ae",
+      "candidate_algorithm_sha256": "acb0ce2bfe89aeab713e4b8fbf57a83915f38d474895bf1e9d9b0e7356ff0a21",
       "baseline_door_xz_median_m": 0.04041590186989825,
       "baseline_door_xz_p90_m": 0.16461678519679962,
       "baseline_door_xz_usable_tp_pairs": 304,
+      "baseline_door_xz_usable_tp_pair_rate": 0.9620253164556962,
       "candidate_hard_negative_fp_relative_reduction": 0.22797927461139897,
       "candidate_status": "evidence_insufficient"
+    },
+    "dev_grounding_comparison.json": {
+      "sha256": "42023db604643aa11912822e537ffe831d314ff2f069c05b9ff1ebacea2cc1eb",
+      "comparator_sha256": "1e1c19407e063314d49cc68fc9f90e02b6a42e48c04dd034293f4a9b2a80c8d1",
+      "role": "development_only",
+      "formal_acceptance_eligible": false,
+      "cluster_count": 1,
+      "bootstrap_interval_available": false
     }
   },
   "oracle_policy": {

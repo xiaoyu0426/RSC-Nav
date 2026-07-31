@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "source_commit": "ad62206b8ed1d4c597330ac452703f3f3c90e2ac",
+  "detector": {
+    "backend": "GroundingDINO",
+    "model": "grounding-dino-tiny",
+    "resolution": 384,
+    "labels": [
+      "door",
+      "doorway",
+      "window",
+      "table",
+      "chair",
+      "sofa",
+      "bed",
+      "sink",
+      "counter",
+      "toilet"
+    ],
+    "box_threshold": 0.22,
+    "text_threshold": 0.22,
+    "max_detections": 32
+  },
+  "projection": {
+    "geometry_source": "Habitat-Sim depth sensor",
+    "pose_source": "Habitat-Sim exact sensor pose",
+    "hfov_deg": 90.0,
+    "depth_min_m": 0.05,
+    "depth_max_m": 6.0
+  },
+  "canonicalization": {
+    "target_label": "door",
+    "target_aliases": [
+      "door",
+      "doorway",
+      "open door",
+      "closed door"
+    ]
+  },
+  "tracking": {
+    "method": "nearest same-label online centroid merge",
+    "merge_radius_m": 0.75
+  },
+  "online_semantic_sensor_enabled": false
+}

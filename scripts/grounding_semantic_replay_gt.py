@@ -35,8 +35,27 @@ def main() -> None:
         default=25,
         help="Compare replayed RGB with the saved JPEG every N selected frames.",
     )
+    parser.add_argument(
+        "--verify-depth-every",
+        type=int,
+        default=1,
+        help="Compare replayed Habitat depth with saved online depth every N selected frames.",
+    )
     parser.add_argument("--max-rgb-mae", type=float, default=3.0)
     parser.add_argument("--max-rgb-p95-error", type=float, default=12.0)
+    parser.add_argument("--max-depth-mae-m", type=float, default=1e-4)
+    parser.add_argument("--max-depth-p95-error-m", type=float, default=1e-4)
+    parser.add_argument(
+        "--max-depth-validity-disagreement-ratio",
+        type=float,
+        default=1e-5,
+    )
+    parser.add_argument("--large-depth-error-m", type=float, default=0.01)
+    parser.add_argument(
+        "--max-large-depth-error-ratio",
+        type=float,
+        default=1e-4,
+    )
     parser.add_argument("--save-semantic-png-dir")
     args = parser.parse_args()
 
@@ -80,6 +99,7 @@ def main() -> None:
     _progress("habitat_session_ready")
     frames: list[dict[str, Any]] = []
     rgb_checks: list[dict[str, Any]] = []
+    depth_checks: list[dict[str, Any]] = []
     observed_unknown_ids: set[int] = set()
     try:
         object_index = _semantic_object_index(session.sim.semantic_scene)
@@ -120,6 +140,12 @@ def main() -> None:
             )
             frame_record: dict[str, Any] = {
                 "frame_index": int(frame["frame_index"]),
+                "source_rgb_sha256": _optional_file_sha256(
+                    frame.get("rgb_path")
+                ),
+                "source_depth_sha256": _optional_file_sha256(
+                    frame.get("depth_npy")
+                ),
                 "instances": instances,
                 "num_instances": len(instances),
                 "num_target_instances": sum(
@@ -153,6 +179,25 @@ def main() -> None:
                         frame_index=int(frame["frame_index"]),
                     )
                 )
+            verify_depth_every = max(0, int(args.verify_depth_every))
+            should_verify_depth = (
+                verify_depth_every > 0
+                and (
+                    selected_index == 0
+                    or selected_index == len(selected_frames) - 1
+                    or selected_index % verify_depth_every == 0
+                )
+            )
+            if should_verify_depth:
+                depth_checks.append(
+                    _depth_replay_check(
+                        observations.get("depth"),
+                        saved_depth,
+                        source_path_value=frame.get("depth_npy"),
+                        frame_index=int(frame["frame_index"]),
+                        large_error_m=float(args.large_depth_error_m),
+                    )
+                )
     finally:
         session.close()
 
@@ -162,9 +207,23 @@ def main() -> None:
         max_mae=float(args.max_rgb_mae),
         max_p95_abs_error=float(args.max_rgb_p95_error),
     )
+    depth_integrity = _depth_integrity_report(
+        depth_checks,
+        enabled=max(0, int(args.verify_depth_every)) > 0,
+        max_mae_m=float(args.max_depth_mae_m),
+        max_p95_abs_error_m=float(args.max_depth_p95_error_m),
+        max_validity_disagreement_ratio=float(
+            args.max_depth_validity_disagreement_ratio
+        ),
+        max_large_error_ratio=float(args.max_large_depth_error_ratio),
+        large_error_m=float(args.large_depth_error_m),
+    )
+    generator_path = Path(__file__).resolve()
     output = {
         "schema_version": 1,
         "source": {
+            "generator_script": str(generator_path),
+            "generator_sha256": _sha256(generator_path),
             "frames_metadata": str(metadata_path),
             "frames_metadata_sha256": _sha256(metadata_path),
             "scene": str(scene),
@@ -207,6 +266,8 @@ def main() -> None:
         "observed_unknown_semantic_ids": sorted(observed_unknown_ids),
         "rgb_replay_checks": rgb_checks,
         "rgb_replay_integrity": rgb_integrity,
+        "depth_replay_checks": depth_checks,
+        "depth_replay_integrity": depth_integrity,
         "frames": frames,
     }
     out_path = Path(args.out_json).expanduser().resolve()
@@ -227,6 +288,7 @@ def main() -> None:
                     frame["num_target_instances"] for frame in frames
                 ),
                 "rgb_checks": len(rgb_checks),
+                "depth_checks": len(depth_checks),
                 "unknown_semantic_ids": len(observed_unknown_ids),
             },
             indent=2,
@@ -235,6 +297,10 @@ def main() -> None:
     if rgb_integrity["enabled"] and not rgb_integrity["passed"]:
         raise RuntimeError(
             "RGB replay integrity gate failed; inspect rgb_replay_integrity"
+        )
+    if depth_integrity["enabled"] and not depth_integrity["passed"]:
+        raise RuntimeError(
+            "Depth replay integrity gate failed; inspect depth_replay_integrity"
         )
 
 
@@ -261,6 +327,7 @@ def _create_session(
     sensor_specs = []
     for uuid, sensor_type in (
         ("rgb", SensorType.COLOR),
+        ("depth", SensorType.DEPTH),
         ("semantic", SensorType.SEMANTIC),
     ):
         spec = habitat_sim.CameraSensorSpec()
@@ -511,16 +578,19 @@ def _saved_depth(
     path_value: Any,
     *,
     expected_shape: tuple[int, int],
-) -> np.ndarray | None:
+) -> np.ndarray:
     if path_value is None:
-        return None
+        raise ValueError("Selected frame has no depth_npy path")
     path = Path(str(path_value))
     if not path.exists():
-        return None
+        raise FileNotFoundError(f"Saved online depth does not exist: {path}")
     depth = np.asarray(np.load(path), dtype=np.float32)
     depth = np.squeeze(depth)
     if depth.shape != expected_shape:
-        return None
+        raise ValueError(
+            f"Saved online depth shape {depth.shape} does not match "
+            f"semantic shape {expected_shape}: {path}"
+        )
     return depth
 
 
@@ -644,6 +714,62 @@ def _rgb_replay_check(
     return result
 
 
+def _depth_replay_check(
+    replay_value: Any,
+    source_depth: np.ndarray,
+    *,
+    source_path_value: Any,
+    frame_index: int,
+    large_error_m: float,
+) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "frame_index": int(frame_index),
+        "source_depth_path": (
+            str(source_path_value) if source_path_value is not None else None
+        ),
+        "available": False,
+    }
+    if replay_value is None:
+        return result
+    replay = np.squeeze(np.asarray(replay_value, dtype=np.float32))
+    source = np.squeeze(np.asarray(source_depth, dtype=np.float32))
+    if replay.shape != source.shape:
+        result["shape_mismatch"] = {
+            "replay": list(replay.shape),
+            "source": list(source.shape),
+        }
+        return result
+    replay_valid = np.isfinite(replay) & (replay > 0.0)
+    source_valid = np.isfinite(source) & (source > 0.0)
+    validity_disagreement = replay_valid != source_valid
+    shared_valid = replay_valid & source_valid
+    if not shared_valid.any():
+        result["validity_disagreement_ratio"] = float(
+            validity_disagreement.mean()
+        )
+        return result
+    delta = np.abs(replay[shared_valid] - source[shared_valid])
+    large_error_count = int((delta > float(large_error_m)).sum())
+    result.update(
+        {
+            "available": True,
+            "shared_valid_pixels": int(shared_valid.sum()),
+            "validity_disagreement_ratio": float(
+                validity_disagreement.mean()
+            ),
+            "mae_m": float(delta.mean()),
+            "p95_abs_error_m": float(np.percentile(delta, 95)),
+            "max_abs_error_m": float(delta.max()),
+            "large_error_threshold_m": float(large_error_m),
+            "large_error_pixels": large_error_count,
+            "large_error_ratio": float(
+                large_error_count / int(shared_valid.sum())
+            ),
+        }
+    )
+    return result
+
+
 def _rgb_integrity_report(
     checks: list[dict[str, Any]],
     *,
@@ -683,6 +809,79 @@ def _rgb_integrity_report(
     }
 
 
+def _depth_integrity_report(
+    checks: list[dict[str, Any]],
+    *,
+    enabled: bool,
+    max_mae_m: float,
+    max_p95_abs_error_m: float,
+    max_validity_disagreement_ratio: float,
+    max_large_error_ratio: float,
+    large_error_m: float,
+) -> dict[str, Any]:
+    available = [item for item in checks if item.get("available")]
+    observed_max_mae = (
+        max(float(item["mae_m"]) for item in available)
+        if available
+        else None
+    )
+    observed_max_p95 = (
+        max(float(item["p95_abs_error_m"]) for item in available)
+        if available
+        else None
+    )
+    observed_max_validity_disagreement = (
+        max(
+            float(item["validity_disagreement_ratio"])
+            for item in available
+        )
+        if available
+        else None
+    )
+    observed_max_large_error_ratio = (
+        max(float(item["large_error_ratio"]) for item in available)
+        if available
+        else None
+    )
+    passed = (
+        not enabled
+        or (
+            bool(checks)
+            and len(available) == len(checks)
+            and observed_max_mae is not None
+            and observed_max_mae <= max_mae_m
+            and observed_max_p95 is not None
+            and observed_max_p95 <= max_p95_abs_error_m
+            and observed_max_validity_disagreement is not None
+            and observed_max_validity_disagreement
+            <= max_validity_disagreement_ratio
+            and observed_max_large_error_ratio is not None
+            and observed_max_large_error_ratio <= max_large_error_ratio
+        )
+    )
+    return {
+        "enabled": enabled,
+        "required_checks": len(checks),
+        "available_checks": len(available),
+        "max_mae_m_allowed": max_mae_m,
+        "max_p95_abs_error_m_allowed": max_p95_abs_error_m,
+        "max_validity_disagreement_ratio_allowed": (
+            max_validity_disagreement_ratio
+        ),
+        "large_error_threshold_m": large_error_m,
+        "max_large_error_ratio_allowed": max_large_error_ratio,
+        "observed_max_mae_m": observed_max_mae,
+        "observed_max_p95_abs_error_m": observed_max_p95,
+        "observed_max_validity_disagreement_ratio": (
+            observed_max_validity_disagreement
+        ),
+        "observed_max_large_error_ratio": (
+            observed_max_large_error_ratio
+        ),
+        "passed": passed,
+    }
+
+
 def _semantic_preview(semantic: np.ndarray) -> Image.Image:
     ids = semantic.astype(np.uint32)
     rgb = np.stack(
@@ -702,6 +901,15 @@ def _sha256(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _optional_file_sha256(path_value: Any) -> str | None:
+    if path_value is None:
+        return None
+    path = Path(str(path_value))
+    if not path.is_file():
+        return None
+    return _sha256(path)
 
 
 def _read_json(path: Path) -> dict[str, Any]:
