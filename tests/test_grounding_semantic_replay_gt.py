@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -19,6 +20,48 @@ SPEC.loader.exec_module(MODULE)
 
 
 class GroundingSemanticReplayGroundTruthTest(unittest.TestCase):
+    def test_scene_asset_manifest_hashes_complete_semantic_bundle(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            scene_dir = root / "00861-test"
+            scene_dir.mkdir()
+            for name, content in (
+                ("test.basis.glb", b"render"),
+                ("test.glb", b"source"),
+                ("test.basis.navmesh", b"navmesh"),
+                ("test.semantic.glb", b"semantic"),
+                ("test.semantic.txt", b"labels"),
+            ):
+                (scene_dir / name).write_bytes(content)
+            dataset_config = root / "dataset.scene_dataset_config.json"
+            dataset_config.write_text("{}", encoding="utf-8")
+
+            manifest = MODULE._scene_asset_manifest(
+                scene_dir / "test.basis.glb",
+                dataset_config=dataset_config,
+            )
+
+            self.assertEqual(manifest["scene_id"], "00861-test")
+            self.assertEqual(manifest["scene_key"], "test")
+            self.assertEqual(len(manifest["files"]), 6)
+            first_hash = MODULE._canonical_sha256(manifest)
+            (scene_dir / "test.semantic.txt").write_bytes(b"new-labels")
+            changed_manifest = MODULE._scene_asset_manifest(
+                scene_dir / "test.basis.glb",
+                dataset_config=dataset_config,
+            )
+            self.assertNotEqual(
+                first_hash,
+                MODULE._canonical_sha256(changed_manifest),
+            )
+
+            (scene_dir / "test.semantic.txt").unlink()
+            with self.assertRaisesRegex(ValueError, "semantic.txt"):
+                MODULE._scene_asset_manifest(
+                    scene_dir / "test.basis.glb",
+                    dataset_config=dataset_config,
+                )
+
     def test_visible_instances_extracts_exclusive_box(self) -> None:
         semantic = np.asarray(
             [

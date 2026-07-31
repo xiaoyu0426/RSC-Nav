@@ -219,6 +219,10 @@ def main() -> None:
         large_error_m=float(args.large_depth_error_m),
     )
     generator_path = Path(__file__).resolve()
+    scene_asset_bundle = _scene_asset_manifest(
+        scene,
+        dataset_config=dataset_config,
+    )
     input_frame_hashes = [
         {
             "frame_index": int(frame["frame_index"]),
@@ -237,6 +241,10 @@ def main() -> None:
             "scene": str(scene),
             "scene_id": scene.parent.name,
             "scene_sha256": _sha256(scene),
+            "scene_asset_bundle": scene_asset_bundle,
+            "scene_asset_bundle_sha256": _canonical_sha256(
+                scene_asset_bundle
+            ),
             "scene_dataset_config": (
                 str(dataset_config) if dataset_config is not None else None
             ),
@@ -937,6 +945,78 @@ def _canonical_sha256(payload: dict[str, Any]) -> str:
         allow_nan=False,
     ).encode("utf-8")
     return hashlib.sha256(serialized).hexdigest()
+
+
+def _scene_asset_manifest(
+    scene: Path,
+    *,
+    dataset_config: Path | None,
+) -> dict[str, Any]:
+    scene = scene.expanduser().resolve()
+    if not scene.is_file():
+        raise FileNotFoundError(scene)
+    scene_name = scene.name
+    for suffix in (".basis.glb", ".semantic.glb", ".glb"):
+        if scene_name.endswith(suffix):
+            scene_key = scene_name[: -len(suffix)]
+            break
+    else:
+        scene_key = scene.stem
+    scene_files = sorted(
+        (
+            path.resolve()
+            for path in scene.parent.iterdir()
+            if path.is_file() and path.name.startswith(f"{scene_key}.")
+        ),
+        key=lambda path: path.name,
+    )
+    names = {path.name for path in scene_files}
+    required_suffixes = (
+        ".basis.glb",
+        ".basis.navmesh",
+        ".semantic.glb",
+        ".semantic.txt",
+    )
+    missing = [
+        suffix
+        for suffix in required_suffixes
+        if f"{scene_key}{suffix}" not in names
+    ]
+    if missing:
+        raise ValueError(
+            "scene asset bundle is incomplete; missing "
+            + ", ".join(missing)
+        )
+    files = [
+        {
+            "role": "scene_asset",
+            "path": path.name,
+            "size_bytes": path.stat().st_size,
+            "sha256": _sha256(path),
+        }
+        for path in scene_files
+    ]
+    if dataset_config is None:
+        raise ValueError(
+            "scene dataset config is required for auditable semantic replay"
+        )
+    dataset_config = dataset_config.expanduser().resolve()
+    if not dataset_config.is_file():
+        raise FileNotFoundError(dataset_config)
+    files.append(
+        {
+            "role": "scene_dataset_config",
+            "path": dataset_config.name,
+            "size_bytes": dataset_config.stat().st_size,
+            "sha256": _sha256(dataset_config),
+        }
+    )
+    return {
+        "schema_version": 1,
+        "scene_id": scene.parent.name,
+        "scene_key": scene_key,
+        "files": files,
+    }
 
 
 def _optional_file_sha256(path_value: Any) -> str | None:

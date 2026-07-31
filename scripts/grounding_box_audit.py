@@ -5,13 +5,16 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.metadata
 import json
 import math
+import platform
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 
+ROOT = Path(__file__).resolve().parents[1]
 TARGET_CLASSES = ("door", "window")
 AP_IOU_THRESHOLDS = (0.50, 0.75)
 HARD_NEGATIVE_CATEGORIES = (
@@ -1570,7 +1573,17 @@ def _validate_semantic_gt_integrity(
         raise ValueError("semantic GT source must be an object")
     if not isinstance(selection, Mapping):
         raise ValueError("semantic GT selection must be an object")
+    ground_truth_contract = payload.get("ground_truth_contract")
+    if (
+        not isinstance(ground_truth_contract, Mapping)
+        or ground_truth_contract.get("policy_access") is not False
+    ):
+        raise ValueError(
+            "semantic GT must declare posthoc-only policy_access=false"
+        )
     frame_count = len(frames)
+    if frame_count <= 0:
+        raise ValueError("semantic GT frames must be non-empty")
     if selection.get("selected_num_frames") != frame_count:
         raise ValueError(
             "semantic GT selected_num_frames does not match frames length"
@@ -1683,7 +1696,27 @@ def _validate_semantic_gt_integrity(
             raise ValueError(
                 f"semantic GT {name} integrity has unavailable checks"
             )
-        integrity_contract[f"{name}_integrity"] = dict(report)
+        integrity_contract[f"{name}_integrity"] = (
+            _recompute_replay_integrity(
+                name,
+                checks,
+                report,
+            )
+        )
+    scene_asset_bundle = source.get("scene_asset_bundle")
+    if not isinstance(scene_asset_bundle, Mapping):
+        raise ValueError(
+            "semantic GT source.scene_asset_bundle must be an object"
+        )
+    scene_asset_bundle_sha256 = _validate_scene_asset_bundle(
+        scene_asset_bundle
+    )
+    if _required_sha256(
+        source,
+        "scene_asset_bundle_sha256",
+        "semantic GT source",
+    ) != scene_asset_bundle_sha256:
+        raise ValueError("semantic GT scene asset bundle hash mismatch")
     integrity_contract.update(
         {
             "generator_sha256": _required_sha256(
@@ -1692,11 +1725,13 @@ def _validate_semantic_gt_integrity(
                 "semantic GT source",
             ),
             "scene_id": str(source.get("scene_id", "")).strip(),
-            "scene_sha256": _required_sha256(
+            "primary_scene_sha256": _required_sha256(
                 source,
                 "scene_sha256",
                 "semantic GT source",
             ),
+            "scene_sha256": scene_asset_bundle_sha256,
+            "scene_asset_bundle_sha256": scene_asset_bundle_sha256,
             "frames_metadata_sha256": _required_sha256(
                 source,
                 "frames_metadata_sha256",
@@ -1709,6 +1744,258 @@ def _validate_semantic_gt_integrity(
     if not integrity_contract["scene_id"]:
         raise ValueError("semantic GT source.scene_id is required")
     return integrity_contract
+
+
+def _recompute_replay_integrity(
+    name: str,
+    checks: Sequence[Mapping[str, Any]],
+    report: Mapping[str, Any],
+) -> dict[str, Any]:
+    if name == "rgb":
+        observed = {
+            "observed_max_mae": max(
+                _finite_nonnegative(check.get("mae"), "RGB check mae")
+                for check in checks
+            ),
+            "observed_max_p95_abs_error": max(
+                _finite_nonnegative(
+                    check.get("p95_abs_error"),
+                    "RGB check p95_abs_error",
+                )
+                for check in checks
+            ),
+        }
+        allowed = {
+            "max_mae_allowed": _finite_nonnegative(
+                report.get("max_mae_allowed"),
+                "RGB integrity max_mae_allowed",
+            ),
+            "max_p95_abs_error_allowed": _finite_nonnegative(
+                report.get("max_p95_abs_error_allowed"),
+                "RGB integrity max_p95_abs_error_allowed",
+            ),
+        }
+        expected_pass = (
+            observed["observed_max_mae"] <= allowed["max_mae_allowed"]
+            and observed["observed_max_p95_abs_error"]
+            <= allowed["max_p95_abs_error_allowed"]
+        )
+    elif name == "depth":
+        for check in checks:
+            _finite_nonnegative(
+                check.get("large_error_threshold_m"),
+                "depth check large_error_threshold_m",
+            )
+        observed = {
+            "observed_max_mae_m": max(
+                _finite_nonnegative(
+                    check.get("mae_m"),
+                    "depth check mae_m",
+                )
+                for check in checks
+            ),
+            "observed_max_p95_abs_error_m": max(
+                _finite_nonnegative(
+                    check.get("p95_abs_error_m"),
+                    "depth check p95_abs_error_m",
+                )
+                for check in checks
+            ),
+            "observed_max_validity_disagreement_ratio": max(
+                _finite_nonnegative(
+                    check.get("validity_disagreement_ratio"),
+                    "depth check validity_disagreement_ratio",
+                )
+                for check in checks
+            ),
+            "observed_max_large_error_ratio": max(
+                _finite_nonnegative(
+                    check.get("large_error_ratio"),
+                    "depth check large_error_ratio",
+                )
+                for check in checks
+            ),
+        }
+        allowed = {
+            "max_mae_m_allowed": _finite_nonnegative(
+                report.get("max_mae_m_allowed"),
+                "depth integrity max_mae_m_allowed",
+            ),
+            "max_p95_abs_error_m_allowed": _finite_nonnegative(
+                report.get("max_p95_abs_error_m_allowed"),
+                "depth integrity max_p95_abs_error_m_allowed",
+            ),
+            "max_validity_disagreement_ratio_allowed": (
+                _finite_nonnegative(
+                    report.get(
+                        "max_validity_disagreement_ratio_allowed"
+                    ),
+                    "depth integrity "
+                    "max_validity_disagreement_ratio_allowed",
+                )
+            ),
+            "max_large_error_ratio_allowed": _finite_nonnegative(
+                report.get("max_large_error_ratio_allowed"),
+                "depth integrity max_large_error_ratio_allowed",
+            ),
+            "large_error_threshold_m": _finite_nonnegative(
+                report.get("large_error_threshold_m"),
+                "depth integrity large_error_threshold_m",
+            ),
+        }
+        for check in checks:
+            _require_same_float(
+                _finite_nonnegative(
+                    check.get("large_error_threshold_m"),
+                    "depth check large_error_threshold_m",
+                ),
+                allowed["large_error_threshold_m"],
+                "depth large_error_threshold_m",
+            )
+        expected_pass = (
+            observed["observed_max_mae_m"] <= allowed["max_mae_m_allowed"]
+            and observed["observed_max_p95_abs_error_m"]
+            <= allowed["max_p95_abs_error_m_allowed"]
+            and observed["observed_max_validity_disagreement_ratio"]
+            <= allowed["max_validity_disagreement_ratio_allowed"]
+            and observed["observed_max_large_error_ratio"]
+            <= allowed["max_large_error_ratio_allowed"]
+        )
+    else:
+        raise ValueError(f"unsupported replay integrity type {name!r}")
+
+    for key, computed in observed.items():
+        _require_same_float(
+            _finite_nonnegative(
+                report.get(key),
+                f"{name} integrity {key}",
+            ),
+            computed,
+            f"{name} integrity {key}",
+        )
+    if report.get("passed") is not expected_pass:
+        raise ValueError(
+            f"semantic GT {name} replay integrity passed flag does not "
+            "match recomputed metrics"
+        )
+    if not expected_pass:
+        raise ValueError(
+            f"semantic GT {name} replay integrity exceeds its thresholds"
+        )
+    return {
+        "enabled": True,
+        "required_checks": len(checks),
+        "available_checks": len(checks),
+        **allowed,
+        **observed,
+        "passed": True,
+    }
+
+
+def _finite_nonnegative(value: Any, context: str) -> float:
+    if (
+        not isinstance(value, (int, float))
+        or isinstance(value, bool)
+        or not math.isfinite(float(value))
+        or float(value) < 0.0
+    ):
+        raise ValueError(f"{context} must be a finite non-negative number")
+    return float(value)
+
+
+def _require_same_float(
+    actual: float,
+    expected: float,
+    context: str,
+) -> None:
+    if not math.isclose(actual, expected, rel_tol=1e-12, abs_tol=1e-12):
+        raise ValueError(f"{context} does not match recomputed value")
+
+
+def _validate_scene_asset_bundle(bundle: Mapping[str, Any]) -> str:
+    if bundle.get("schema_version") != 1:
+        raise ValueError("semantic GT scene asset bundle schema is invalid")
+    scene_id = str(bundle.get("scene_id", "")).strip()
+    scene_key = str(bundle.get("scene_key", "")).strip()
+    files = bundle.get("files")
+    if not scene_id or not scene_key or not isinstance(files, list):
+        raise ValueError("semantic GT scene asset bundle is incomplete")
+    canonical_files = []
+    seen_paths = set()
+    for index, record in enumerate(files):
+        if not isinstance(record, Mapping):
+            raise ValueError(
+                "semantic GT scene asset bundle file must be an object"
+            )
+        role = str(record.get("role", "")).strip()
+        path = str(record.get("path", "")).strip()
+        size_bytes = record.get("size_bytes")
+        if role not in {"scene_asset", "scene_dataset_config"}:
+            raise ValueError(
+                "semantic GT scene asset bundle file role is invalid"
+            )
+        if not path or path in seen_paths:
+            raise ValueError(
+                "semantic GT scene asset paths must be unique and non-empty"
+            )
+        if (
+            not isinstance(size_bytes, int)
+            or isinstance(size_bytes, bool)
+            or size_bytes < 0
+        ):
+            raise ValueError(
+                "semantic GT scene asset size_bytes is invalid"
+            )
+        seen_paths.add(path)
+        canonical_files.append(
+            {
+                "role": role,
+                "path": path,
+                "size_bytes": size_bytes,
+                "sha256": _required_sha256(
+                    record,
+                    "sha256",
+                    f"semantic GT scene asset {index}",
+                ),
+            }
+        )
+    scene_paths = sorted(
+        record["path"]
+        for record in canonical_files
+        if record["role"] == "scene_asset"
+    )
+    if scene_paths != [
+        record["path"]
+        for record in canonical_files
+        if record["role"] == "scene_asset"
+    ]:
+        raise ValueError("semantic GT scene assets must be sorted by path")
+    required_scene_paths = {
+        f"{scene_key}.basis.glb",
+        f"{scene_key}.basis.navmesh",
+        f"{scene_key}.semantic.glb",
+        f"{scene_key}.semantic.txt",
+    }
+    if not required_scene_paths.issubset(set(scene_paths)):
+        raise ValueError(
+            "semantic GT scene asset bundle lacks required semantic files"
+        )
+    config_records = [
+        record
+        for record in canonical_files
+        if record["role"] == "scene_dataset_config"
+    ]
+    if len(config_records) != 1 or canonical_files[-1] != config_records[0]:
+        raise ValueError(
+            "semantic GT scene asset bundle must end with one dataset config"
+        )
+    canonical_bundle = {
+        "schema_version": 1,
+        "scene_id": scene_id,
+        "scene_key": scene_key,
+        "files": canonical_files,
+    }
+    return _canonical_payload_sha256(canonical_bundle)
 
 
 def _detection_contract(
@@ -1981,6 +2268,53 @@ def _validate_embedded_detection_output(
         raise ValueError(
             "embedded detection input frame indices must be unique"
         )
+    frame_start = run_contract.get("frame_start")
+    frame_end = run_contract.get("frame_end")
+    frame_stride = run_contract.get("frame_stride")
+    max_frames = run_contract.get("max_frames")
+    if (
+        not isinstance(frame_start, int)
+        or isinstance(frame_start, bool)
+        or frame_start < 0
+    ):
+        raise ValueError("detection run_contract.frame_start is invalid")
+    if (
+        frame_end is not None
+        and (
+            not isinstance(frame_end, int)
+            or isinstance(frame_end, bool)
+            or frame_end < frame_start
+        )
+    ):
+        raise ValueError("detection run_contract.frame_end is invalid")
+    if (
+        not isinstance(frame_stride, int)
+        or isinstance(frame_stride, bool)
+        or frame_stride <= 0
+    ):
+        raise ValueError("detection run_contract.frame_stride is invalid")
+    if (
+        max_frames is not None
+        and (
+            not isinstance(max_frames, int)
+            or isinstance(max_frames, bool)
+            or max_frames <= 0
+        )
+    ):
+        raise ValueError("detection run_contract.max_frames is invalid")
+    if any(
+        frame_index < frame_start
+        or (frame_end is not None and frame_index > frame_end)
+        or (frame_index - frame_start) % frame_stride != 0
+        for frame_index in frame_indices
+    ):
+        raise ValueError(
+            "embedded detection frame indices violate the declared selection"
+        )
+    if max_frames is not None and len(frame_indices) > max_frames:
+        raise ValueError(
+            "embedded detection frame count exceeds declared max_frames"
+        )
     if _canonical_payload_sha256(
         {"frame_indices": frame_indices}
     ) != run_contract["selected_frame_indices_sha256"]:
@@ -2142,6 +2476,365 @@ def _validate_implementation_artifact_manifest(
     return hashes
 
 
+def _verify_frozen_source_files(
+    detections_payload: Mapping[str, Any],
+    semantic_gt_payload: Mapping[str, Any],
+    *,
+    semantic_integrity: Mapping[str, Any],
+) -> dict[str, Any]:
+    semantic_source = semantic_gt_payload.get("source")
+    semantic_selection = semantic_gt_payload.get("selection")
+    semantic_frames = semantic_gt_payload.get("frames")
+    detection_source = detections_payload.get("source")
+    run_contract = detections_payload.get("run_contract")
+    if not all(
+        isinstance(value, Mapping)
+        for value in (
+            semantic_source,
+            semantic_selection,
+            detection_source,
+            run_contract,
+        )
+    ) or not isinstance(semantic_frames, list):
+        raise ValueError(
+            "source file verification requires embedded detection and "
+            "semantic source contracts"
+        )
+    assert isinstance(semantic_source, Mapping)
+    assert isinstance(semantic_selection, Mapping)
+    assert isinstance(detection_source, Mapping)
+    assert isinstance(run_contract, Mapping)
+
+    metadata_path = _required_existing_file(
+        semantic_source.get("frames_metadata"),
+        "semantic GT frames_metadata",
+    )
+    metadata_sha256 = _sha256(metadata_path)
+    if metadata_sha256 != semantic_integrity["frames_metadata_sha256"]:
+        raise ValueError(
+            "actual frames metadata hash does not match semantic GT"
+        )
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    if not isinstance(metadata, Mapping):
+        raise ValueError("frames metadata root must be an object")
+    metadata_frames = metadata.get("frames")
+    if not isinstance(metadata_frames, list):
+        raise ValueError("frames metadata frames must be a list")
+    for field in ("frame_start", "frame_end", "frame_stride", "max_frames"):
+        if semantic_selection.get(field) != run_contract.get(field):
+            raise ValueError(
+                f"semantic GT selection.{field} does not match detector run"
+            )
+    selected_metadata_frames = _select_metadata_frames(
+        metadata_frames,
+        start=run_contract["frame_start"],
+        end=run_contract["frame_end"],
+        stride=run_contract["frame_stride"],
+        max_frames=run_contract["max_frames"],
+    )
+    selected_indices = [
+        int(frame["frame_index"]) for frame in selected_metadata_frames
+    ]
+    semantic_indices = [
+        int(frame["frame_index"]) for frame in semantic_frames
+    ]
+    if selected_indices != semantic_indices:
+        raise ValueError(
+            "actual metadata frame selection does not match semantic GT"
+        )
+    if len(selected_indices) != run_contract.get("selected_frames"):
+        raise ValueError(
+            "actual metadata frame selection count does not match detector run"
+        )
+
+    detection_input_hashes = detection_source.get("input_frame_hashes")
+    if not isinstance(detection_input_hashes, list):
+        raise ValueError(
+            "detection source input_frame_hashes must be a list"
+        )
+    verified_frame_hashes = []
+    for metadata_frame, semantic_frame, detection_record in zip(
+        selected_metadata_frames,
+        semantic_frames,
+        detection_input_hashes,
+        strict=True,
+    ):
+        if not isinstance(semantic_frame, Mapping) or not isinstance(
+            detection_record,
+            Mapping,
+        ):
+            raise ValueError("paired source frame record must be an object")
+        frame_index = int(metadata_frame["frame_index"])
+        rgb_path = _resolve_metadata_source_file(
+            metadata_frame.get("rgb_path"),
+            metadata_path,
+            f"frame {frame_index} RGB",
+        )
+        depth_path = _resolve_metadata_source_file(
+            metadata_frame.get("depth_npy"),
+            metadata_path,
+            f"frame {frame_index} depth",
+        )
+        record = {
+            "frame_index": frame_index,
+            "rgb_sha256": _sha256(rgb_path),
+            "depth_sha256": _sha256(depth_path),
+        }
+        expected_semantic = {
+            "frame_index": int(semantic_frame["frame_index"]),
+            "rgb_sha256": semantic_frame["source_rgb_sha256"],
+            "depth_sha256": semantic_frame["source_depth_sha256"],
+        }
+        expected_detection = {
+            "frame_index": int(detection_record["frame_index"]),
+            "rgb_sha256": detection_record["rgb_sha256"],
+            "depth_sha256": detection_record["depth_sha256"],
+        }
+        if record != expected_semantic or record != expected_detection:
+            raise ValueError(
+                f"actual RGB-D hashes do not match contracts for frame "
+                f"{frame_index}"
+            )
+        verified_frame_hashes.append(record)
+    verified_indices_sha256 = _canonical_payload_sha256(
+        {"frame_indices": selected_indices}
+    )
+    verified_input_hashes_sha256 = _canonical_payload_sha256(
+        {"frames": verified_frame_hashes}
+    )
+    if verified_indices_sha256 != (
+        semantic_integrity["selected_frame_indices_sha256"]
+    ):
+        raise ValueError("actual selected frame index hash mismatch")
+    if verified_input_hashes_sha256 != (
+        semantic_integrity["input_frame_hashes_sha256"]
+    ):
+        raise ValueError("actual input frame hash manifest mismatch")
+
+    scene_path = _required_existing_file(
+        semantic_source.get("scene"),
+        "semantic GT scene",
+    )
+    dataset_config_path = _required_existing_file(
+        semantic_source.get("scene_dataset_config"),
+        "semantic GT scene_dataset_config",
+    )
+    scene_bundle = semantic_source.get("scene_asset_bundle")
+    assert isinstance(scene_bundle, Mapping)
+    verified_scene_files = []
+    for record in scene_bundle["files"]:
+        role = record["role"]
+        if role == "scene_dataset_config":
+            path = dataset_config_path
+            if path.name != record["path"]:
+                raise ValueError(
+                    "scene dataset config path does not match bundle"
+                )
+        else:
+            path = (scene_path.parent / record["path"]).resolve()
+        if not path.is_file():
+            raise FileNotFoundError(path)
+        verified_record = {
+            "role": role,
+            "path": record["path"],
+            "size_bytes": path.stat().st_size,
+            "sha256": _sha256(path),
+        }
+        if verified_record != dict(record):
+            raise ValueError(
+                f"actual scene asset does not match bundle: {record['path']}"
+            )
+        verified_scene_files.append(verified_record)
+    verified_scene_bundle = {
+        "schema_version": 1,
+        "scene_id": scene_bundle["scene_id"],
+        "scene_key": scene_bundle["scene_key"],
+        "files": verified_scene_files,
+    }
+    verified_scene_sha256 = _canonical_payload_sha256(
+        verified_scene_bundle
+    )
+    if verified_scene_sha256 != semantic_integrity["scene_sha256"]:
+        raise ValueError("actual scene asset bundle hash mismatch")
+
+    generator_path = _required_existing_file(
+        semantic_source.get("generator_script"),
+        "semantic GT generator_script",
+    )
+    generator_sha256 = _sha256(generator_path)
+    if generator_sha256 != semantic_integrity["generator_sha256"]:
+        raise ValueError("actual semantic GT generator hash mismatch")
+    trusted_generator_sha256 = _sha256(
+        ROOT / "scripts" / "grounding_semantic_replay_gt.py"
+    )
+    if generator_sha256 != trusted_generator_sha256:
+        raise ValueError(
+            "semantic GT generator does not match the audited implementation"
+        )
+    return {
+        "schema_version": 1,
+        "passed": True,
+        "verified_frame_count": len(verified_frame_hashes),
+        "frames_metadata_sha256": metadata_sha256,
+        "selected_frame_indices_sha256": verified_indices_sha256,
+        "input_frame_hashes_sha256": verified_input_hashes_sha256,
+        "scene_asset_bundle_sha256": verified_scene_sha256,
+        "semantic_gt_generator_sha256": generator_sha256,
+    }
+
+
+def _verify_detector_artifact_files(
+    algorithm_contract: Mapping[str, Any],
+) -> dict[str, Any]:
+    implementation = algorithm_contract["implementation_artifacts"]
+    verified_implementation_files = []
+    for record in implementation["files"]:
+        path = (ROOT / record["path"]).resolve()
+        if not path.is_file():
+            raise FileNotFoundError(path)
+        verified = {
+            "path": record["path"],
+            "size_bytes": path.stat().st_size,
+            "sha256": _sha256(path),
+        }
+        if verified != dict(record):
+            raise ValueError(
+                "actual detector implementation artifact does not match "
+                f"contract: {record['path']}"
+            )
+        verified_implementation_files.append(verified)
+    implementation_sha256 = _canonical_payload_sha256(
+        {"files": verified_implementation_files}
+    )
+    if implementation_sha256 != implementation["manifest_sha256"]:
+        raise ValueError(
+            "actual detector implementation manifest hash mismatch"
+        )
+
+    model = algorithm_contract["model_artifacts"]
+    if model.get("local_directory") is not True:
+        raise ValueError(
+            "formal detector verification requires local immutable model files"
+        )
+    model_directory = Path(str(model.get("directory", ""))).expanduser()
+    if not model_directory.is_dir():
+        raise FileNotFoundError(model_directory)
+    actual_model_files = []
+    for path in sorted(
+        candidate
+        for candidate in model_directory.rglob("*")
+        if candidate.is_file()
+    ):
+        actual_model_files.append(
+            {
+                "path": path.relative_to(model_directory).as_posix(),
+                "size_bytes": path.stat().st_size,
+                "sha256": _sha256(path),
+            }
+        )
+    model_sha256 = _canonical_payload_sha256(
+        {"files": actual_model_files}
+    )
+    if actual_model_files != model["files"] or model_sha256 != (
+        model["manifest_sha256"]
+    ):
+        raise ValueError("actual detector model files do not match contract")
+
+    runtime = algorithm_contract["runtime"]
+    actual_runtime = {
+        "python": platform.python_version(),
+        "packages": {
+            name: importlib.metadata.version(name)
+            for name in ("numpy", "Pillow", "torch", "transformers")
+        },
+    }
+    if actual_runtime != runtime:
+        raise ValueError("actual detector runtime does not match contract")
+    return {
+        "schema_version": 1,
+        "passed": True,
+        "implementation_manifest_sha256": implementation_sha256,
+        "model_manifest_sha256": model_sha256,
+        "runtime_sha256": _canonical_payload_sha256(actual_runtime),
+    }
+
+
+def _required_existing_file(value: Any, context: str) -> Path:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{context} path is required")
+    path = Path(value).expanduser().resolve()
+    if not path.is_file():
+        raise FileNotFoundError(path)
+    return path
+
+
+def _resolve_metadata_source_file(
+    value: Any,
+    metadata_path: Path,
+    context: str,
+) -> Path:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{context} path is required")
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        path = metadata_path.parent / path
+    path = path.resolve()
+    if not path.is_file():
+        raise FileNotFoundError(path)
+    return path
+
+
+def _select_metadata_frames(
+    frames: Sequence[Any],
+    *,
+    start: Any,
+    end: Any,
+    stride: Any,
+    max_frames: Any,
+) -> list[Mapping[str, Any]]:
+    if (
+        not isinstance(start, int)
+        or isinstance(start, bool)
+        or start < 0
+        or not isinstance(stride, int)
+        or isinstance(stride, bool)
+        or stride <= 0
+        or (
+            end is not None
+            and (
+                not isinstance(end, int)
+                or isinstance(end, bool)
+                or end < start
+            )
+        )
+        or (
+            max_frames is not None
+            and (
+                not isinstance(max_frames, int)
+                or isinstance(max_frames, bool)
+                or max_frames <= 0
+            )
+        )
+    ):
+        raise ValueError("detector frame selection contract is invalid")
+    normalized = []
+    for frame in frames:
+        if not isinstance(frame, Mapping):
+            raise ValueError("frames metadata frame must be an object")
+        frame_index = _frame_index(frame.get("frame_index"))
+        if frame_index is None:
+            raise ValueError("frames metadata frame_index is invalid")
+        if (
+            frame_index >= start
+            and (end is None or frame_index <= end)
+            and (frame_index - start) % stride == 0
+        ):
+            normalized.append(frame)
+    if max_frames is not None:
+        normalized = normalized[:max_frames]
+    return normalized
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--detections-json", required=True)
@@ -2172,6 +2865,14 @@ def _build_parser() -> argparse.ArgumentParser:
         default=1.0,
         help="Per-frame canonical-class NMS IoU; values >= 1 disable NMS.",
     )
+    parser.add_argument(
+        "--require-source-file-verification",
+        action="store_true",
+        help=(
+            "Re-read metadata, RGB-D frames, scene bundle, model weights, "
+            "runtime, and implementation files. Required for formal use."
+        ),
+    )
     return parser
 
 
@@ -2180,6 +2881,48 @@ def main(argv: Sequence[str] | None = None) -> int:
     detections_path = Path(args.detections_json).expanduser().resolve()
     semantic_gt_path = Path(args.semantic_gt_json).expanduser().resolve()
     output_path = Path(args.output_json).expanduser().resolve()
+    detector_contract_path = (
+        Path(args.detection_algorithm_contract_json).expanduser().resolve()
+        if args.detection_algorithm_contract_json
+        else None
+    )
+    result = build_audit_report(
+        detections_path=detections_path,
+        semantic_gt_path=semantic_gt_path,
+        detector_contract_path=detector_contract_path,
+        score_threshold=args.score_threshold,
+        match_iou=args.match_iou,
+        nms_iou=args.nms_iou,
+        require_source_file_verification=(
+            args.require_source_file_verification
+        ),
+    )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        json.dumps(result, indent=2, sort_keys=True, allow_nan=False) + "\n",
+        encoding="utf-8",
+    )
+    print(output_path)
+    return 0
+
+
+def build_audit_report(
+    *,
+    detections_path: Path,
+    semantic_gt_path: Path,
+    detector_contract_path: Path | None,
+    score_threshold: float,
+    match_iou: float,
+    nms_iou: float,
+    require_source_file_verification: bool,
+) -> dict[str, Any]:
+    detections_path = detections_path.expanduser().resolve()
+    semantic_gt_path = semantic_gt_path.expanduser().resolve()
+    detector_contract_path = (
+        detector_contract_path.expanduser().resolve()
+        if detector_contract_path is not None
+        else None
+    )
     detections_payload = json.loads(detections_path.read_text(encoding="utf-8"))
     semantic_gt_payload = json.loads(semantic_gt_path.read_text(encoding="utf-8"))
     semantic_integrity = _validate_semantic_gt_integrity(
@@ -2188,19 +2931,39 @@ def main(argv: Sequence[str] | None = None) -> int:
     result = audit_payloads(
         detections_payload,
         semantic_gt_payload,
-        score_threshold=args.score_threshold,
-        match_iou=args.match_iou,
-        nms_iou=args.nms_iou,
-    )
-    detector_contract_path = (
-        Path(args.detection_algorithm_contract_json).expanduser().resolve()
-        if args.detection_algorithm_contract_json
-        else None
+        score_threshold=score_threshold,
+        match_iou=match_iou,
+        nms_iou=nms_iou,
     )
     detector_contract, detector_contract_provenance = _detection_contract(
         detections_payload,
         external_contract_path=detector_contract_path,
         semantic_integrity=semantic_integrity,
+    )
+    if require_source_file_verification:
+        source_file_verification = _verify_frozen_source_files(
+            detections_payload,
+            semantic_gt_payload,
+            semantic_integrity=semantic_integrity,
+        )
+        algorithm_artifact_verification = (
+            _verify_detector_artifact_files(detector_contract)
+        )
+    else:
+        source_file_verification = {
+            "schema_version": 1,
+            "passed": False,
+            "reason": "source file verification was not requested",
+        }
+        algorithm_artifact_verification = {
+            "schema_version": 1,
+            "passed": False,
+            "reason": "algorithm artifact verification was not requested",
+        }
+    formal_detection_contract_eligible = bool(
+        detector_contract_provenance["formal_eligible"]
+        and source_file_verification["passed"]
+        and algorithm_artifact_verification["passed"]
     )
     for algorithm_record in result["variant_algorithms"].values():
         variant_contract = algorithm_record["contract"]
@@ -2247,19 +3010,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         "detection_contract_source": (
             detector_contract_provenance["source"]
         ),
+        "source_file_verification_contract": source_file_verification,
+        "source_file_verification_sha256": _canonical_payload_sha256(
+            source_file_verification
+        ),
+        "algorithm_artifact_verification_contract": (
+            algorithm_artifact_verification
+        ),
+        "algorithm_artifact_verification_sha256": (
+            _canonical_payload_sha256(algorithm_artifact_verification)
+        ),
         "formal_detection_contract_eligible": (
-            detector_contract_provenance["formal_eligible"]
+            formal_detection_contract_eligible
         ),
         "evaluator_script": str(Path(__file__).resolve()),
         "evaluator_sha256": _sha256(Path(__file__).resolve()),
     }
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(
-        json.dumps(result, indent=2, sort_keys=True, allow_nan=False) + "\n",
-        encoding="utf-8",
-    )
-    print(output_path)
-    return 0
+    return result
 
 
 if __name__ == "__main__":

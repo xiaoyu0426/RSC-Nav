@@ -10,14 +10,17 @@ from pathlib import Path
 from scripts.grounding_audit_compare import (
     BOOTSTRAP_REPLICATES,
     BOOTSTRAP_SEED,
+    FORMAL_EVIDENCE_CONTRACT_SHA256,
     MANIFEST_SCHEMA_VERSION,
     PRIMARY_METRIC,
+    _load_evidence_contract,
     _validate_formal_cluster_minimum,
     compare_manifest_payload,
     main,
 )
 
 
+ROOT = Path(__file__).resolve().parents[1]
 EVALUATION_CONTRACT = {"contract_version": "test_v1"}
 PARAMETERS_HASH = hashlib.sha256(
     json.dumps(
@@ -68,6 +71,70 @@ def _file_hash(path: Path) -> str:
 
 
 class GroundingAuditCompareTests(unittest.TestCase):
+    def test_formal_evidence_contract_blocks_manifest_whitelist_expansion(
+        self,
+    ) -> None:
+        contract_dir = ROOT / "audit" / "grounding_box_v2"
+        manifest = {
+            "evidence_contract_json": "evidence_contract_amendment.json",
+            "evidence_contract_sha256": (
+                FORMAL_EVIDENCE_CONTRACT_SHA256
+            ),
+        }
+        loaded = _load_evidence_contract(
+            manifest,
+            manifest_dir=contract_dir,
+            formal_acceptance_eligible=True,
+            manifest_allowed_paths=["detection_algorithm.labels"],
+        )
+        self.assertIsNotNone(loaded)
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "do not match the frozen evidence contract",
+        ):
+            _load_evidence_contract(
+                manifest,
+                manifest_dir=contract_dir,
+                formal_acceptance_eligible=True,
+                manifest_allowed_paths=[
+                    "detection_algorithm.labels",
+                    "detection_algorithm.model_id",
+                ],
+            )
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            forged = json.loads(
+                (
+                    contract_dir / "evidence_contract_amendment.json"
+                ).read_text(encoding="utf-8")
+            )
+            forged["single_variable_contract"][
+                "allowed_algorithm_contract_differences"
+            ].append("detection_algorithm.model_id")
+            forged_path = root / "forged.json"
+            forged_path.write_text(
+                json.dumps(forged, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            forged_manifest = {
+                "evidence_contract_json": str(forged_path),
+                "evidence_contract_sha256": _file_hash(forged_path),
+            }
+            with self.assertRaisesRegex(
+                ValueError,
+                "not the audited frozen hash",
+            ):
+                _load_evidence_contract(
+                    forged_manifest,
+                    manifest_dir=root,
+                    formal_acceptance_eligible=True,
+                    manifest_allowed_paths=[
+                        "detection_algorithm.labels",
+                        "detection_algorithm.model_id",
+                    ],
+                )
+
     def test_positive_paired_comparison_extracts_all_metrics(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
@@ -639,7 +706,7 @@ class GroundingAuditCompareTests(unittest.TestCase):
             )
             manifest["formal_acceptance_eligible"] = True
 
-            with self.assertRaisesRegex(ValueError, "at least 6"):
+            with self.assertRaisesRegex(ValueError, "frozen evidence contract"):
                 compare_manifest_payload(manifest, manifest_dir=root)
 
     def test_formal_validation_rejects_reused_trajectory_fingerprint(

@@ -7,6 +7,8 @@ The manifest schema is::
       "schema_version": "grounding_audit_compare_manifest_v1",
       "role": "formal_unseen_replay",
       "formal_acceptance_eligible": true,
+      "evidence_contract_json": "evidence_contract_amendment.json",
+      "evidence_contract_sha256": "<frozen evidence contract hash>",
       "allowed_algorithm_contract_differences": ["detection_algorithm.labels"],
       "clusters": [
         {
@@ -57,12 +59,26 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+try:
+    from scripts.grounding_box_audit import build_audit_report
+except ModuleNotFoundError:
+    from grounding_box_audit import build_audit_report
+
 
 SCHEMA_VERSION = "grounding_audit_compare_v1"
 MANIFEST_SCHEMA_VERSION = "grounding_audit_compare_manifest_v1"
 BOOTSTRAP_REPLICATES = 10_000
 BOOTSTRAP_SEED = 20_260_731
 SHA256_PATTERN = re.compile(r"^[0-9a-fA-F]{64}$")
+FORMAL_EVIDENCE_CONTRACT_PROTOCOL = (
+    "grounding-box-contrastive-prompt-v1-evidence-amendment"
+)
+FORMAL_EVIDENCE_CONTRACT_SHA256 = (
+    "77cb1274b31c5391703ed95b908af88f3f733150906c78117bfa0413a3015a00"
+)
+FORMAL_ALLOWED_ALGORITHM_DIFFERENCES = (
+    "detection_algorithm.labels",
+)
 
 PRIMARY_METRIC = "hard_negative_door_fp_per_100_frames"
 METRIC_SPECS: tuple[dict[str, Any], ...] = (
@@ -214,6 +230,12 @@ def compare_manifest_payload(
     _validate_allowed_difference_paths(allowed_algorithm_differences)
 
     manifest_dir = manifest_dir.expanduser().resolve()
+    evidence_contract = _load_evidence_contract(
+        manifest,
+        manifest_dir=manifest_dir,
+        formal_acceptance_eligible=formal_acceptance_eligible,
+        manifest_allowed_paths=allowed_algorithm_differences,
+    )
     audit_cache: dict[Path, tuple[Mapping[str, Any], str]] = {}
     cluster_results: list[dict[str, Any]] = []
     seen_cluster_ids: set[str] = set()
@@ -250,6 +272,7 @@ def compare_manifest_payload(
             cluster_id=cluster_id,
             manifest_dir=manifest_dir,
             audit_cache=audit_cache,
+            require_live_reverification=formal_acceptance_eligible,
         )
         candidate = _load_side(
             raw_cluster,
@@ -257,6 +280,7 @@ def compare_manifest_payload(
             cluster_id=cluster_id,
             manifest_dir=manifest_dir,
             audit_cache=audit_cache,
+            require_live_reverification=formal_acceptance_eligible,
         )
         if baseline["parameters_sha256"] != candidate["parameters_sha256"]:
             raise ValueError(
@@ -292,6 +316,13 @@ def compare_manifest_payload(
             allowed_paths=allowed_algorithm_differences,
             cluster_id=cluster_id,
         )
+        if evidence_contract is not None:
+            _validate_registered_algorithm_labels(
+                baseline["algorithm_contract"],
+                candidate["algorithm_contract"],
+                evidence_contract=evidence_contract,
+                cluster_id=cluster_id,
+            )
 
         metric_results: dict[str, Any] = {}
         for spec in METRIC_SPECS:
@@ -404,6 +435,11 @@ def compare_manifest_payload(
         "primary_metric": PRIMARY_METRIC,
         "role": role,
         "formal_acceptance_eligible": formal_acceptance_eligible,
+        "evidence_contract": (
+            evidence_contract["provenance"]
+            if evidence_contract is not None
+            else None
+        ),
         "allowed_algorithm_contract_differences": (
             allowed_algorithm_differences
         ),
@@ -425,6 +461,160 @@ def compare_manifest_payload(
     }
 
 
+def _load_evidence_contract(
+    manifest: Mapping[str, Any],
+    *,
+    manifest_dir: Path,
+    formal_acceptance_eligible: bool,
+    manifest_allowed_paths: Sequence[str],
+) -> dict[str, Any] | None:
+    path_value = manifest.get("evidence_contract_json")
+    sha_value = manifest.get("evidence_contract_sha256")
+    if path_value is None and sha_value is None:
+        if formal_acceptance_eligible:
+            raise ValueError(
+                "formal comparison requires a frozen evidence contract"
+            )
+        return None
+    if not isinstance(path_value, str) or not path_value.strip():
+        raise ValueError("manifest evidence_contract_json must be a path")
+    if (
+        not isinstance(sha_value, str)
+        or not SHA256_PATTERN.fullmatch(sha_value)
+    ):
+        raise ValueError(
+            "manifest evidence_contract_sha256 must be 64 hex characters"
+        )
+    path = Path(path_value).expanduser()
+    if not path.is_absolute():
+        path = manifest_dir / path
+    path = path.resolve()
+    if not path.is_file():
+        raise FileNotFoundError(path)
+    actual_sha256 = _file_sha256(path)
+    if actual_sha256 != sha_value.lower():
+        raise ValueError(
+            "manifest evidence_contract_sha256 does not match file"
+        )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, Mapping):
+        raise ValueError("evidence contract root must be an object")
+    protocol_id = _required_string(
+        payload,
+        "protocol_id",
+        "evidence contract",
+    )
+    if formal_acceptance_eligible:
+        if actual_sha256 != FORMAL_EVIDENCE_CONTRACT_SHA256:
+            raise ValueError(
+                "formal comparison evidence contract hash is not the "
+                "audited frozen hash"
+            )
+        if protocol_id != FORMAL_EVIDENCE_CONTRACT_PROTOCOL:
+            raise ValueError(
+                "formal comparison evidence contract protocol is invalid"
+            )
+
+    single_variable = payload.get("single_variable_contract")
+    if not isinstance(single_variable, Mapping):
+        raise ValueError(
+            "evidence contract single_variable_contract is required"
+        )
+    registered_paths = single_variable.get(
+        "allowed_algorithm_contract_differences"
+    )
+    if not isinstance(registered_paths, list) or not all(
+        isinstance(item, str) and item.strip() for item in registered_paths
+    ):
+        raise ValueError(
+            "evidence contract allowed difference paths are invalid"
+        )
+    registered_paths = [item.strip() for item in registered_paths]
+    if registered_paths != list(manifest_allowed_paths):
+        raise ValueError(
+            "manifest allowed algorithm differences do not match the frozen "
+            "evidence contract"
+        )
+    if formal_acceptance_eligible and tuple(registered_paths) != (
+        FORMAL_ALLOWED_ALGORITHM_DIFFERENCES
+    ):
+        raise ValueError(
+            "formal comparison allowed algorithm differences are not frozen"
+        )
+    baseline_labels = single_variable.get("baseline_labels")
+    candidate_labels = single_variable.get("candidate_labels")
+    for name, labels in (
+        ("baseline_labels", baseline_labels),
+        ("candidate_labels", candidate_labels),
+    ):
+        if (
+            not isinstance(labels, list)
+            or not labels
+            or not all(
+                isinstance(item, str) and item.strip() for item in labels
+            )
+            or len(set(labels)) != len(labels)
+        ):
+            raise ValueError(f"evidence contract {name} is invalid")
+
+    amendment = payload.get("amends_preregistration")
+    if not isinstance(amendment, Mapping):
+        raise ValueError(
+            "evidence contract amends_preregistration is required"
+        )
+    prereg_path_value = amendment.get("path")
+    if not isinstance(prereg_path_value, str) or not prereg_path_value.strip():
+        raise ValueError("evidence contract preregistration path is invalid")
+    prereg_path = (path.parent / prereg_path_value).resolve()
+    if not prereg_path.is_file():
+        raise FileNotFoundError(prereg_path)
+    prereg_sha256 = _required_sha256(
+        amendment,
+        "sha256_before_amendment",
+        "evidence contract amends_preregistration",
+    )
+    if _file_sha256(prereg_path) != prereg_sha256:
+        raise ValueError(
+            "evidence contract preregistration hash does not match file"
+        )
+    return {
+        "baseline_labels": list(baseline_labels),
+        "candidate_labels": list(candidate_labels),
+        "provenance": {
+            "path": str(path),
+            "sha256": actual_sha256,
+            "protocol_id": protocol_id,
+            "preregistration_path": str(prereg_path),
+            "preregistration_sha256": prereg_sha256,
+        },
+    }
+
+
+def _validate_registered_algorithm_labels(
+    baseline: Mapping[str, Any],
+    candidate: Mapping[str, Any],
+    *,
+    evidence_contract: Mapping[str, Any],
+    cluster_id: str,
+) -> None:
+    for side_name, contract, expected_key in (
+        ("baseline", baseline, "baseline_labels"),
+        ("candidate", candidate, "candidate_labels"),
+    ):
+        detector = contract.get("detection_algorithm")
+        if not isinstance(detector, Mapping):
+            raise ValueError(
+                f"cluster {cluster_id!r} {side_name} algorithm lacks "
+                "detection_algorithm"
+            )
+        labels = detector.get("labels")
+        if labels != evidence_contract[expected_key]:
+            raise ValueError(
+                f"cluster {cluster_id!r} {side_name} labels do not match "
+                "the frozen evidence contract"
+            )
+
+
 def _load_side(
     cluster: Mapping[str, Any],
     side_name: str,
@@ -432,6 +622,7 @@ def _load_side(
     cluster_id: str,
     manifest_dir: Path,
     audit_cache: dict[Path, tuple[Mapping[str, Any], str]],
+    require_live_reverification: bool,
 ) -> dict[str, Any]:
     side = cluster.get(side_name)
     context = f"cluster {cluster_id!r} {side_name}"
@@ -636,6 +827,11 @@ def _load_side(
             f"{context} manifest algorithm_sha256 does not match audit "
             "variant algorithm"
         )
+    if require_live_reverification:
+        _reverify_formal_audit(
+            audit_payload,
+            audit_path=audit_json,
+        )
     return {
         "audit_json": audit_json,
         "audit_json_sha256": audit_sha256,
@@ -664,6 +860,73 @@ def _load_side(
             formal_detection_contract_eligible
         ),
     }
+
+
+def _reverify_formal_audit(
+    audit_payload: Mapping[str, Any],
+    *,
+    audit_path: Path,
+) -> None:
+    inputs = audit_payload.get("inputs")
+    parameters = audit_payload.get("parameters")
+    if not isinstance(inputs, Mapping) or not isinstance(parameters, Mapping):
+        raise ValueError(
+            f"formal audit {audit_path} lacks inputs or parameters"
+        )
+    if inputs.get("detection_contract_source") != "embedded":
+        raise ValueError(
+            f"formal audit {audit_path} does not use an embedded detector "
+            "contract"
+        )
+    nms = parameters.get("nms")
+    if not isinstance(nms, Mapping):
+        raise ValueError(f"formal audit {audit_path} lacks NMS parameters")
+    detections_path = Path(
+        _required_string(inputs, "detections_json", "formal audit inputs")
+    )
+    semantic_gt_path = Path(
+        _required_string(inputs, "semantic_gt_json", "formal audit inputs")
+    )
+    reconstructed = build_audit_report(
+        detections_path=detections_path,
+        semantic_gt_path=semantic_gt_path,
+        detector_contract_path=None,
+        score_threshold=_required_finite_number(
+            parameters,
+            "score_threshold",
+            "formal audit parameters",
+        ),
+        match_iou=_required_finite_number(
+            parameters,
+            "fixed_operating_point_iou",
+            "formal audit parameters",
+        ),
+        nms_iou=_required_finite_number(
+            nms,
+            "iou_threshold",
+            "formal audit NMS parameters",
+        ),
+        require_source_file_verification=True,
+    )
+    if _canonical_sha256(reconstructed) != _canonical_sha256(audit_payload):
+        raise ValueError(
+            f"formal audit {audit_path} does not match live recomputation"
+        )
+
+
+def _required_finite_number(
+    payload: Mapping[str, Any],
+    key: str,
+    context: str,
+) -> float:
+    value = payload.get(key)
+    if (
+        not isinstance(value, (int, float))
+        or isinstance(value, bool)
+        or not math.isfinite(float(value))
+    ):
+        raise ValueError(f"{context}.{key} must be a finite number")
+    return float(value)
 
 
 def _side_provenance(side: Mapping[str, Any]) -> dict[str, Any]:

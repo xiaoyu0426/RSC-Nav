@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import copy
+import importlib.metadata
 import json
+import platform
 import tempfile
 import unittest
 from pathlib import Path
@@ -10,9 +12,14 @@ from scripts.grounding_box_audit import (
     _canonical_payload_sha256,
     _detection_contract,
     _hard_negative_category,
+    _sha256,
+    _validate_embedded_detection_output,
     _validate_semantic_gt_integrity,
+    _verify_detector_artifact_files,
+    _verify_frozen_source_files,
     audit_payloads,
     box_iou,
+    build_audit_report,
     classwise_nms,
     interpolated_average_precision,
     main,
@@ -20,6 +27,326 @@ from scripts.grounding_box_audit import (
 
 
 class GroundingBoxAuditTests(unittest.TestCase):
+    def test_formal_source_verification_rehashes_actual_files(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            scene_dir = root / "test-scene"
+            scene_dir.mkdir()
+            for name, content in (
+                ("test.basis.glb", b"render"),
+                ("test.basis.navmesh", b"navmesh"),
+                ("test.glb", b"source"),
+                ("test.semantic.glb", b"semantic"),
+                ("test.semantic.txt", b"labels"),
+            ):
+                (scene_dir / name).write_bytes(content)
+            dataset_config = root / "dataset.json"
+            dataset_config.write_text("{}", encoding="utf-8")
+            rgb_path = root / "frame_0000_rgb.jpg"
+            rgb_path.write_bytes(b"rgb")
+            depth_path = root / "frame_0000_depth.npy"
+            depth_path.write_bytes(b"depth")
+            metadata_path = root / "frames_metadata.json"
+            metadata = {
+                "frames": [
+                    {
+                        "frame_index": 0,
+                        "rgb_path": str(rgb_path),
+                        "depth_npy": str(depth_path),
+                    }
+                ]
+            }
+            metadata_path.write_text(
+                json.dumps(metadata),
+                encoding="utf-8",
+            )
+            frame_record = {
+                "frame_index": 0,
+                "rgb_sha256": _sha256(rgb_path),
+                "depth_sha256": _sha256(depth_path),
+            }
+            frame_indices_sha = _canonical_payload_sha256(
+                {"frame_indices": [0]}
+            )
+            input_hashes_sha = _canonical_payload_sha256(
+                {"frames": [frame_record]}
+            )
+            scene_files = []
+            for path in sorted(scene_dir.iterdir(), key=lambda item: item.name):
+                scene_files.append(
+                    {
+                        "role": "scene_asset",
+                        "path": path.name,
+                        "size_bytes": path.stat().st_size,
+                        "sha256": _sha256(path),
+                    }
+                )
+            scene_files.append(
+                {
+                    "role": "scene_dataset_config",
+                    "path": dataset_config.name,
+                    "size_bytes": dataset_config.stat().st_size,
+                    "sha256": _sha256(dataset_config),
+                }
+            )
+            scene_bundle = {
+                "schema_version": 1,
+                "scene_id": "test-scene",
+                "scene_key": "test",
+                "files": scene_files,
+            }
+            semantic_script = (
+                Path(__file__).resolve().parents[1]
+                / "scripts"
+                / "grounding_semantic_replay_gt.py"
+            )
+            semantic_gt = {
+                "ground_truth_contract": {
+                    "policy_access": False,
+                },
+                "source": {
+                    "generator_script": str(semantic_script),
+                    "generator_sha256": _sha256(semantic_script),
+                    "frames_metadata": str(metadata_path),
+                    "frames_metadata_sha256": _sha256(metadata_path),
+                    "scene": str(scene_dir / "test.basis.glb"),
+                    "scene_id": "test-scene",
+                    "scene_sha256": _sha256(
+                        scene_dir / "test.basis.glb"
+                    ),
+                    "scene_asset_bundle": scene_bundle,
+                    "scene_asset_bundle_sha256": (
+                        _canonical_payload_sha256(scene_bundle)
+                    ),
+                    "scene_dataset_config": str(dataset_config),
+                    "scene_dataset_config_sha256": _sha256(dataset_config),
+                    "input_frame_hashes_sha256": input_hashes_sha,
+                },
+                "selection": {
+                    "frame_start": 0,
+                    "frame_end": None,
+                    "frame_stride": 1,
+                    "max_frames": None,
+                    "selected_num_frames": 1,
+                    "selected_frame_indices_sha256": frame_indices_sha,
+                },
+                "rgb_replay_checks": [
+                    {
+                        "frame_index": 0,
+                        "available": True,
+                        "mae": 0.0,
+                        "p95_abs_error": 0.0,
+                        "max_abs_error": 0.0,
+                    }
+                ],
+                "rgb_replay_integrity": {
+                    "enabled": True,
+                    "required_checks": 1,
+                    "available_checks": 1,
+                    "max_mae_allowed": 3.0,
+                    "max_p95_abs_error_allowed": 12.0,
+                    "observed_max_mae": 0.0,
+                    "observed_max_p95_abs_error": 0.0,
+                    "passed": True,
+                },
+                "depth_replay_checks": [
+                    {
+                        "frame_index": 0,
+                        "available": True,
+                        "mae_m": 0.0,
+                        "p95_abs_error_m": 0.0,
+                        "validity_disagreement_ratio": 0.0,
+                        "large_error_threshold_m": 0.01,
+                        "large_error_ratio": 0.0,
+                    }
+                ],
+                "depth_replay_integrity": {
+                    "enabled": True,
+                    "required_checks": 1,
+                    "available_checks": 1,
+                    "max_mae_m_allowed": 0.0001,
+                    "max_p95_abs_error_m_allowed": 0.0001,
+                    "max_validity_disagreement_ratio_allowed": 0.00001,
+                    "large_error_threshold_m": 0.01,
+                    "max_large_error_ratio_allowed": 0.0001,
+                    "observed_max_mae_m": 0.0,
+                    "observed_max_p95_abs_error_m": 0.0,
+                    "observed_max_validity_disagreement_ratio": 0.0,
+                    "observed_max_large_error_ratio": 0.0,
+                    "passed": True,
+                },
+                "frames": [
+                    {
+                        "frame_index": 0,
+                        "source_rgb_sha256": frame_record["rgb_sha256"],
+                        "source_depth_sha256": frame_record[
+                            "depth_sha256"
+                        ],
+                        "instances": [],
+                    }
+                ],
+            }
+            implementation_paths = (
+                Path(__file__).resolve().parents[1]
+                / "scripts"
+                / "grounding_detector_replay.py",
+                Path(__file__).resolve().parents[1]
+                / "scripts"
+                / "m25_groundingdino_export.py",
+                Path(__file__).resolve().parents[1]
+                / "src"
+                / "semantic_task_profile.py",
+            )
+            implementation_files = [
+                {
+                    "path": path.relative_to(
+                        Path(__file__).resolve().parents[1]
+                    ).as_posix(),
+                    "size_bytes": path.stat().st_size,
+                    "sha256": _sha256(path),
+                }
+                for path in implementation_paths
+            ]
+            model_dir = root / "model"
+            model_dir.mkdir()
+            (model_dir / "config.json").write_text(
+                "{}",
+                encoding="utf-8",
+            )
+            (model_dir / "weights.bin").write_bytes(b"weights")
+            model_files = [
+                {
+                    "path": path.relative_to(model_dir).as_posix(),
+                    "size_bytes": path.stat().st_size,
+                    "sha256": _sha256(path),
+                }
+                for path in sorted(model_dir.iterdir())
+            ]
+            algorithm_contract = {
+                "schema_version": 1,
+                "generator_sha256": implementation_files[0]["sha256"],
+                "implementation_artifacts": {
+                    "files": implementation_files,
+                    "manifest_sha256": _canonical_payload_sha256(
+                        {"files": implementation_files}
+                    ),
+                },
+                "runtime": {
+                    "python": platform.python_version(),
+                    "packages": {
+                        name: importlib.metadata.version(name)
+                        for name in (
+                            "numpy",
+                            "Pillow",
+                            "torch",
+                            "transformers",
+                        )
+                    },
+                },
+                "labels": ["door"],
+                "model_artifacts": {
+                    "local_directory": True,
+                    "directory": str(model_dir),
+                    "files": model_files,
+                    "manifest_sha256": _canonical_payload_sha256(
+                        {"files": model_files}
+                    ),
+                },
+                "semantic_oracle_access": False,
+            }
+            run_contract = {
+                "frames_metadata_sha256": _sha256(metadata_path),
+                "frame_start": 0,
+                "frame_end": None,
+                "frame_stride": 1,
+                "max_frames": None,
+                "selected_frames": 1,
+                "selected_frame_indices_sha256": frame_indices_sha,
+                "input_frame_hashes_sha256": input_hashes_sha,
+            }
+            detections = {
+                "source": {
+                    **run_contract,
+                    "frames_metadata": str(metadata_path),
+                    "input_frame_hashes": [frame_record],
+                },
+                "algorithm_contract": algorithm_contract,
+                "algorithm_sha256": _canonical_payload_sha256(
+                    algorithm_contract
+                ),
+                "run_contract": run_contract,
+                "run_contract_sha256": _canonical_payload_sha256(
+                    run_contract
+                ),
+                "detections": [],
+            }
+            detections_path = root / "detections.json"
+            semantic_gt_path = root / "semantic_gt.json"
+            detections_path.write_text(
+                json.dumps(detections),
+                encoding="utf-8",
+            )
+            semantic_gt_path.write_text(
+                json.dumps(semantic_gt),
+                encoding="utf-8",
+            )
+
+            integrity = _validate_semantic_gt_integrity(semantic_gt)
+            source_verification = _verify_frozen_source_files(
+                detections,
+                semantic_gt,
+                semantic_integrity=integrity,
+            )
+            self.assertTrue(source_verification["passed"])
+            self.assertTrue(
+                _verify_detector_artifact_files(
+                    algorithm_contract
+                )["passed"]
+            )
+            report = build_audit_report(
+                detections_path=detections_path,
+                semantic_gt_path=semantic_gt_path,
+                detector_contract_path=None,
+                score_threshold=0.0,
+                match_iou=0.5,
+                nms_iou=1.0,
+                require_source_file_verification=True,
+            )
+            self.assertTrue(
+                report["inputs"]["formal_detection_contract_eligible"]
+            )
+            from scripts.grounding_audit_compare import (
+                _reverify_formal_audit,
+            )
+
+            audit_path = root / "audit.json"
+            _reverify_formal_audit(report, audit_path=audit_path)
+            tampered_report = copy.deepcopy(report)
+            tampered_report["coverage"]["detections"]["raw_records"] = 999
+            with self.assertRaisesRegex(
+                ValueError,
+                "does not match live recomputation",
+            ):
+                _reverify_formal_audit(
+                    tampered_report,
+                    audit_path=audit_path,
+                )
+
+            rgb_path.write_bytes(b"tampered")
+            with self.assertRaisesRegex(
+                ValueError,
+                "actual RGB-D hashes",
+            ):
+                build_audit_report(
+                    detections_path=detections_path,
+                    semantic_gt_path=semantic_gt_path,
+                    detector_contract_path=None,
+                    score_threshold=0.0,
+                    match_iou=0.5,
+                    nms_iou=1.0,
+                    require_source_file_verification=True,
+                )
+
     def test_hard_negative_taxonomy_covers_hm3d_aliases(self) -> None:
         self.assertEqual(
             _hard_negative_category("kitchen cabinet"),
@@ -583,16 +910,61 @@ class GroundingBoxAuditTests(unittest.TestCase):
                 ]
             }
         )
+        scene_asset_files = [
+            {
+                "role": "scene_asset",
+                "path": "test.basis.glb",
+                "size_bytes": 1,
+                "sha256": "4" * 64,
+            },
+            {
+                "role": "scene_asset",
+                "path": "test.basis.navmesh",
+                "size_bytes": 1,
+                "sha256": "5" * 64,
+            },
+            {
+                "role": "scene_asset",
+                "path": "test.semantic.glb",
+                "size_bytes": 1,
+                "sha256": "6" * 64,
+            },
+            {
+                "role": "scene_asset",
+                "path": "test.semantic.txt",
+                "size_bytes": 1,
+                "sha256": "7" * 64,
+            },
+            {
+                "role": "scene_dataset_config",
+                "path": "dataset.json",
+                "size_bytes": 1,
+                "sha256": "8" * 64,
+            },
+        ]
+        scene_asset_bundle = {
+            "schema_version": 1,
+            "scene_id": "test-scene",
+            "scene_key": "test",
+            "files": scene_asset_files,
+        }
         detections = {
             "detections": [
                 self._detection(0, "door", 0.9, [0, 0, 10, 10], 1, [0, 0, 0])
             ]
         }
         semantic_gt = {
+            "ground_truth_contract": {
+                "policy_access": False,
+            },
             "source": {
                 "generator_sha256": "c" * 64,
                 "scene_id": "test-scene",
                 "scene_sha256": "d" * 64,
+                "scene_asset_bundle": scene_asset_bundle,
+                "scene_asset_bundle_sha256": (
+                    _canonical_payload_sha256(scene_asset_bundle)
+                ),
                 "frames_metadata_sha256": "e" * 64,
                 "input_frame_hashes_sha256": input_hashes_sha,
             },
@@ -604,6 +976,9 @@ class GroundingBoxAuditTests(unittest.TestCase):
                 {
                     "frame_index": 0,
                     "available": True,
+                    "mae": 0.0,
+                    "p95_abs_error": 0.0,
+                    "max_abs_error": 0.0,
                 }
             ],
             "rgb_replay_integrity": {
@@ -611,11 +986,20 @@ class GroundingBoxAuditTests(unittest.TestCase):
                 "passed": True,
                 "required_checks": 1,
                 "available_checks": 1,
+                "max_mae_allowed": 3.0,
+                "max_p95_abs_error_allowed": 12.0,
+                "observed_max_mae": 0.0,
+                "observed_max_p95_abs_error": 0.0,
             },
             "depth_replay_checks": [
                 {
                     "frame_index": 0,
                     "available": True,
+                    "mae_m": 0.0,
+                    "p95_abs_error_m": 0.0,
+                    "validity_disagreement_ratio": 0.0,
+                    "large_error_threshold_m": 0.01,
+                    "large_error_ratio": 0.0,
                 }
             ],
             "depth_replay_integrity": {
@@ -623,6 +1007,15 @@ class GroundingBoxAuditTests(unittest.TestCase):
                 "passed": True,
                 "required_checks": 1,
                 "available_checks": 1,
+                "max_mae_m_allowed": 0.0001,
+                "max_p95_abs_error_m_allowed": 0.0001,
+                "max_validity_disagreement_ratio_allowed": 0.00001,
+                "large_error_threshold_m": 0.01,
+                "max_large_error_ratio_allowed": 0.0001,
+                "observed_max_mae_m": 0.0,
+                "observed_max_p95_abs_error_m": 0.0,
+                "observed_max_validity_disagreement_ratio": 0.0,
+                "observed_max_large_error_ratio": 0.0,
             },
             "frames": [
                 {
@@ -663,6 +1056,20 @@ class GroundingBoxAuditTests(unittest.TestCase):
                 mutate(invalid)
                 with self.assertRaisesRegex(ValueError, expected):
                     _validate_semantic_gt_integrity(invalid)
+        coordinated_fake = copy.deepcopy(semantic_gt)
+        coordinated_fake["rgb_replay_checks"][0]["mae"] = 999.0
+        coordinated_fake["rgb_replay_integrity"][
+            "observed_max_mae"
+        ] = 999.0
+        coordinated_fake["depth_replay_checks"][0]["mae_m"] = 999.0
+        coordinated_fake["depth_replay_integrity"][
+            "observed_max_mae_m"
+        ] = 999.0
+        with self.assertRaisesRegex(
+            ValueError,
+            "passed flag does not match recomputed metrics",
+        ):
+            _validate_semantic_gt_integrity(coordinated_fake)
 
         embedded = copy.deepcopy(detections)
         implementation_files = [
@@ -746,6 +1153,40 @@ class GroundingBoxAuditTests(unittest.TestCase):
             semantic_integrity=integrity,
         )
         self.assertTrue(embedded_provenance["formal_eligible"])
+        coordinated_stride = copy.deepcopy(embedded)
+        coordinated_stride["detections"][0]["frame_index"] = 1
+        coordinated_stride["source"]["input_frame_hashes"][0][
+            "frame_index"
+        ] = 1
+        coordinated_stride["source"]["frame_stride"] = 2
+        coordinated_stride["run_contract"]["frame_stride"] = 2
+        stride_indices_sha = _canonical_payload_sha256(
+            {"frame_indices": [1]}
+        )
+        stride_inputs_sha = _canonical_payload_sha256(
+            {
+                "frames": coordinated_stride["source"][
+                    "input_frame_hashes"
+                ]
+            }
+        )
+        for contract in (
+            coordinated_stride["source"],
+            coordinated_stride["run_contract"],
+        ):
+            contract["selected_frame_indices_sha256"] = stride_indices_sha
+            contract["input_frame_hashes_sha256"] = stride_inputs_sha
+        with self.assertRaisesRegex(
+            ValueError,
+            "violate the declared selection",
+        ):
+            _validate_embedded_detection_output(
+                coordinated_stride,
+                algorithm_contract=coordinated_stride[
+                    "algorithm_contract"
+                ],
+                run_contract=coordinated_stride["run_contract"],
+            )
 
         for label, mutate, expected in (
             (
