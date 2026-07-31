@@ -106,6 +106,90 @@ class GroundingDetectorReplayTest(unittest.TestCase):
             [1, 4],
         )
 
+    def test_door_window_suppression_is_causal_and_score_gated(self) -> None:
+        profile = MODULE.get_task_profile("door")
+        detections = [
+            {
+                "label": "door",
+                "score": 0.40,
+                "box": [0.0, 0.0, 10.0, 10.0],
+            },
+            {
+                "label": "doorway",
+                "score": 0.70,
+                "box": [20.0, 0.0, 30.0, 10.0],
+            },
+            {
+                "label": "window",
+                "score": 0.50,
+                "box": [0.0, 0.0, 10.0, 10.0],
+            },
+            {
+                "label": "window",
+                "score": 0.60,
+                "box": [20.0, 0.0, 30.0, 10.0],
+            },
+            {
+                "label": "chair",
+                "score": 0.80,
+                "box": [0.0, 0.0, 10.0, 10.0],
+            },
+        ]
+
+        kept = MODULE._suppress_door_with_window(
+            detections,
+            profile=profile,
+            iou_threshold=0.5,
+        )
+
+        self.assertNotIn(detections[0], kept)
+        self.assertIn(detections[1], kept)
+        self.assertIn(detections[2], kept)
+        self.assertIn(detections[3], kept)
+        self.assertIn(detections[4], kept)
+
+    def test_door_window_suppression_respects_iou_and_disabled_mode(self) -> None:
+        profile = MODULE.get_task_profile("door")
+        detections = [
+            {
+                "label": "door",
+                "score": 0.40,
+                "box": [0.0, 0.0, 10.0, 10.0],
+            },
+            {
+                "label": "window",
+                "score": 0.50,
+                "box": [8.0, 0.0, 18.0, 10.0],
+            },
+        ]
+
+        kept = MODULE._suppress_door_with_window(
+            detections,
+            profile=profile,
+            iou_threshold=0.5,
+        )
+
+        self.assertEqual(kept, detections)
+        self.assertEqual(
+            MODULE._suppress_door_with_window(
+                detections,
+                profile=profile,
+                iou_threshold=None,
+            ),
+            detections,
+        )
+
+    def test_box_iou_rejects_invalid_boxes(self) -> None:
+        self.assertAlmostEqual(
+            MODULE._box_iou(
+                [0.0, 0.0, 10.0, 10.0],
+                [5.0, 0.0, 15.0, 10.0],
+            ),
+            1.0 / 3.0,
+        )
+        with self.assertRaisesRegex(ValueError, "four-element"):
+            MODULE._box_iou([0.0, 1.0], [0.0, 0.0, 1.0, 1.0])
+
 
 if __name__ == "__main__":
     unittest.main()

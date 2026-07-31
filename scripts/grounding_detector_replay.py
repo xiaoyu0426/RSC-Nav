@@ -60,6 +60,15 @@ def main() -> int:
     parser.add_argument("--box-threshold", type=float, default=0.22)
     parser.add_argument("--text-threshold", type=float, default=0.22)
     parser.add_argument("--max-detections", type=int, default=32)
+    parser.add_argument(
+        "--door-window-suppression-iou",
+        type=float,
+        help=(
+            "Suppress a door detection before projection/tracking when a "
+            "window detection with an equal-or-higher score overlaps by at "
+            "least this IoU."
+        ),
+    )
     parser.add_argument("--track-merge-radius-m", type=float)
     parser.add_argument("--depth-min-m", type=float, default=0.05)
     parser.add_argument("--depth-max-m", type=float, default=6.0)
@@ -84,6 +93,9 @@ def main() -> int:
         if args.track_merge_radius_m is None
         else float(args.track_merge_radius_m)
     )
+    suppression_iou = args.door_window_suppression_iou
+    if suppression_iou is not None and not 0.0 <= suppression_iou <= 1.0:
+        raise ValueError("--door-window-suppression-iou must be in [0, 1]")
     selected_frames = _select_frames(
         metadata.get("frames", []),
         start=max(0, int(args.frame_start)),
@@ -135,6 +147,18 @@ def main() -> int:
             "target_label": profile.target_label,
             "target_aliases": list(profile.target_aliases),
         },
+        "cross_label_suppression": {
+            "enabled": suppression_iou is not None,
+            "target_label": profile.target_label,
+            "suppressor_label": "window",
+            "iou_threshold": (
+                float(suppression_iou)
+                if suppression_iou is not None
+                else None
+            ),
+            "score_rule": "suppressor_score_gte_target_score",
+            "stage": "2d_pre_projection_pre_tracking",
+        },
         "tracking": {
             "method": "nearest same-label online centroid merge",
             "merge_radius_m": merge_radius_m,
@@ -180,6 +204,11 @@ def main() -> int:
             box_threshold=float(args.box_threshold),
             text_threshold=float(args.text_threshold),
             max_detections=int(args.max_detections),
+        )
+        frame_detections = _suppress_door_with_window(
+            frame_detections,
+            profile=profile,
+            iou_threshold=suppression_iou,
         )
         elapsed_ms = (time.perf_counter() - started) * 1000.0
         inference_ms.append(elapsed_ms)
@@ -358,6 +387,61 @@ def _select_frames(
     if max_frames is not None:
         selected = selected[: max(0, int(max_frames))]
     return selected
+
+
+def _suppress_door_with_window(
+    detections: list[dict[str, Any]],
+    *,
+    profile: Any,
+    iou_threshold: float | None,
+) -> list[dict[str, Any]]:
+    if iou_threshold is None:
+        return list(detections)
+    if not 0.0 <= float(iou_threshold) <= 1.0:
+        raise ValueError("iou_threshold must be in [0, 1]")
+
+    windows = [
+        detection
+        for detection in detections
+        if profile.canonical_label(str(detection["label"])) == "window"
+    ]
+    kept = []
+    for detection in detections:
+        canonical_label = profile.canonical_label(str(detection["label"]))
+        if canonical_label != profile.target_label:
+            kept.append(detection)
+            continue
+        target_score = float(detection["score"])
+        suppressed = any(
+            float(window["score"]) >= target_score
+            and _box_iou(detection["box"], window["box"])
+            >= float(iou_threshold)
+            for window in windows
+        )
+        if not suppressed:
+            kept.append(detection)
+    return kept
+
+
+def _box_iou(box_a: Any, box_b: Any) -> float:
+    if (
+        not isinstance(box_a, (list, tuple))
+        or not isinstance(box_b, (list, tuple))
+        or len(box_a) != 4
+        or len(box_b) != 4
+    ):
+        raise ValueError("boxes must be four-element sequences")
+    ax1, ay1, ax2, ay2 = (float(value) for value in box_a)
+    bx1, by1, bx2, by2 = (float(value) for value in box_b)
+    intersection_w = max(0.0, min(ax2, bx2) - max(ax1, bx1))
+    intersection_h = max(0.0, min(ay2, by2) - max(ay1, by1))
+    intersection = intersection_w * intersection_h
+    area_a = max(0.0, ax2 - ax1) * max(0.0, ay2 - ay1)
+    area_b = max(0.0, bx2 - bx1) * max(0.0, by2 - by1)
+    union = area_a + area_b - intersection
+    if union <= 0.0:
+        return 0.0
+    return intersection / union
 
 
 def _source_path(path_value: Any, metadata_path: Path) -> Path:

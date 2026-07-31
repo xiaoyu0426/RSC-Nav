@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "protocol_id": "grounding-box-door-window-suppression-v1",
+  "frozen_date": "2026-07-31",
+  "objective": "Reduce door false positives caused by visually similar windows without sacrificing online door recall, geometry quality, tracking stability, or resource safety.",
+  "oracle_policy": {
+    "online_semantic_oracle_access": false,
+    "semantic_oracle_use": "posthoc_audit_only",
+    "online_inputs": [
+      "saved RGB",
+      "saved depth",
+      "saved exact Habitat sensor pose",
+      "GroundingDINO detections"
+    ],
+    "localization_limitation": "Exact Habitat pose remains a simulator privilege and this experiment does not validate real-world localization or relocalization."
+  },
+  "development_data": {
+    "replay_id": "door-api-ad62206b-20260730",
+    "role": "hypothesis_generation_and_development_filter",
+    "formal_acceptance_eligible": false,
+    "reused_after_prior_candidate_analysis": true,
+    "interpretation": "May reject a weak candidate but may not independently confirm generalization."
+  },
+  "baseline": {
+    "labels": [
+      "door",
+      "doorway",
+      "window",
+      "table",
+      "chair",
+      "sofa",
+      "bed",
+      "sink",
+      "counter",
+      "toilet"
+    ],
+    "cross_label_suppression": {
+      "enabled": false,
+      "target_label": "door",
+      "suppressor_label": "window",
+      "iou_threshold": null,
+      "score_rule": "suppressor_score_gte_target_score",
+      "stage": "2d_pre_projection_pre_tracking"
+    }
+  },
+  "candidate": {
+    "single_changed_variable": "door_window_cross_label_suppression",
+    "labels": [
+      "door",
+      "doorway",
+      "window",
+      "table",
+      "chair",
+      "sofa",
+      "bed",
+      "sink",
+      "counter",
+      "toilet"
+    ],
+    "cross_label_suppression": {
+      "enabled": true,
+      "target_label": "door",
+      "suppressor_label": "window",
+      "iou_threshold": 0.5,
+      "score_rule": "suppressor_score_gte_target_score",
+      "stage": "2d_pre_projection_pre_tracking"
+    },
+    "allowed_algorithm_contract_difference_paths": [
+      "detection_algorithm.cross_label_suppression.enabled",
+      "detection_algorithm.cross_label_suppression.iou_threshold"
+    ],
+    "all_other_detector_projection_and_tracking_settings": "identical_to_baseline",
+    "nms_enabled": false,
+    "threshold_tuning_after_preregistration": false
+  },
+  "development_gate": {
+    "hard_negative_door_fp_relative_reduction_min": 0.25,
+    "door_fp_per_100_frames_must_not_increase": true,
+    "door_recall_max_drop": 0.02,
+    "physical_door_recall_max_drop": 0.02,
+    "true_positive_median_iou_max_drop": 0.03,
+    "wrong_merge_rate_must_not_increase": true,
+    "crashes_or_oom_max": 0,
+    "grounding_p95_ms_max": 750,
+    "grounding_p95_max_baseline_ratio": 1.5,
+    "detector_peak_vram_gb_max": 16,
+    "source_algorithm_and_ground_truth_integrity_required": true
+  },
+  "formal_gate": {
+    "unseen_scenes": 3,
+    "fixed_trajectories_per_scene": 2,
+    "physical_doors_min": 12,
+    "paired_live_episodes": 6,
+    "paired_cluster_bootstrap_required": true,
+    "independent_final_audit_required": true
+  },
+  "decision_policy": {
+    "development_failure": "Reject this suppression candidate and retain the existing baseline.",
+    "development_pass": "Freeze the exact implementation and run formal unseen replay plus live A/B.",
+    "formal_pass_only": "Eligible for an isolated live feature flag; not a default until task-level and resource gates also pass.",
+    "mainline_merge": "Forbidden without formal unseen replay, paired live validation, and independent final audit."
+  }
+}
