@@ -75,17 +75,32 @@ class GroundingBoxAuditTests(unittest.TestCase):
         window = baseline["per_class"]["window"]
         self.assertAlmostEqual(door["ap50"], 5.0 / 6.0)
         self.assertEqual(door["ap75"], door["ap50"])
+        operating = door["operating_point"]
+        self.assertEqual(operating["predictions"], 4)
+        self.assertEqual(operating["tp"], 3)
+        self.assertEqual(operating["fp"], 1)
+        self.assertEqual(operating["fn"], 0)
+        self.assertEqual(operating["duplicate_fp"], 1)
+        self.assertEqual(operating["precision"], 0.75)
+        self.assertEqual(operating["recall"], 1.0)
+        self.assertAlmostEqual(
+            operating["fp_per_100_evaluated_frames"], 100.0 / 3.0
+        )
+        self.assertAlmostEqual(
+            operating["duplicate_fp_per_100_evaluated_frames"],
+            100.0 / 3.0,
+        )
         self.assertEqual(
-            door["operating_point"],
-            {
-                "predictions": 4,
-                "tp": 3,
-                "fp": 1,
-                "fn": 0,
-                "duplicate_fp": 1,
-                "precision": 0.75,
-                "recall": 1.0,
-            },
+            operating["tp_iou_distribution"]["distribution"]["median"], 1.0
+        )
+        self.assertEqual(
+            operating["tp_iou_distribution"]["distribution"]["p90"], 1.0
+        )
+        self.assertEqual(
+            operating["physical_instance_recall"]["gt_physical_instances"], 2
+        )
+        self.assertEqual(
+            operating["physical_instance_recall"]["recall"], 1.0
         )
         self.assertEqual(window["operating_point"]["tp"], 1)
         self.assertEqual(window["operating_point"]["fp"], 0)
@@ -94,6 +109,10 @@ class GroundingBoxAuditTests(unittest.TestCase):
         self.assertTrue(track["available"])
         self.assertEqual(track["fragmented_gt_count"], 1)
         self.assertEqual(track["wrong_merge_track_count"], 1)
+        self.assertEqual(track["associated_track_count"], 2)
+        self.assertEqual(track["wrong_merge_rate"], 0.5)
+        self.assertEqual(track["fragmentation_tracks_per_gt"], 1.5)
+        self.assertEqual(track["tracks_per_gt"], 1.5)
         d1 = next(
             item
             for item in track["per_gt_track_count"]
@@ -119,6 +138,171 @@ class GroundingBoxAuditTests(unittest.TestCase):
         )
         self.assertEqual(
             result["coverage"]["target_frame_coverage"]["overlap_frame_count"], 3
+        )
+
+    def test_physical_recall_deduplicates_semantic_id_and_reports_tp_iou(
+        self,
+    ) -> None:
+        detections = {
+            "detections": [
+                self._detection(
+                    0, "door", 0.9, [0, 0, 6, 10], "t1", [0, 0, 0]
+                ),
+                self._detection(
+                    1, "door", 0.8, [0, 0, 8, 10], "t1", [1, 0, 0]
+                ),
+                self._detection(
+                    99, "door", 0.99, [20, 0, 30, 10], "outside", [9, 0, 0]
+                ),
+            ]
+        }
+        semantic_gt = {
+            "frames": [
+                {
+                    "frame_index": 0,
+                    "instances": [
+                        self._instance(
+                            "d1", "door", [0, 0, 10, 10], [0, 0, 0]
+                        )
+                    ],
+                },
+                {
+                    "frame_index": 1,
+                    "instances": [
+                        self._instance(
+                            "d1", "door", [0, 0, 10, 10], [1, 0, 0]
+                        )
+                    ],
+                },
+                {
+                    "frame_index": 2,
+                    "instances": [
+                        self._instance(
+                            "d2", "door", [0, 0, 10, 10], [2, 0, 0]
+                        )
+                    ],
+                },
+            ]
+        }
+
+        result = audit_payloads(
+            detections, semantic_gt, score_threshold=0.0, match_iou=0.5
+        )
+        operating = result["variants"]["baseline"]["per_class"]["door"][
+            "operating_point"
+        ]
+
+        self.assertEqual(operating["predictions"], 2)
+        self.assertAlmostEqual(operating["recall"], 2.0 / 3.0)
+        physical = operating["physical_instance_recall"]
+        self.assertEqual(physical["gt_physical_instances"], 2)
+        self.assertEqual(physical["matched_physical_instances"], 1)
+        self.assertEqual(physical["recall"], 0.5)
+        iou = operating["tp_iou_distribution"]["distribution"]
+        self.assertAlmostEqual(iou["median"], 0.7)
+        self.assertAlmostEqual(iou["p90"], 0.78)
+        self.assertEqual(
+            result["coverage"]["detections"][
+                "excluded_unannotated_frame_records"
+            ],
+            1,
+        )
+
+    def test_door_fp_attribution_uses_raw_non_target_categories(self) -> None:
+        raw_categories = [
+            "window",
+            "cabinet door",
+            "mirror",
+            "wall-panel",
+            "refrigerator_door",
+            "chair",
+        ]
+        detections = {
+            "detections": [
+                self._detection(
+                    frame_index,
+                    "door",
+                    0.9,
+                    [0, 0, 10, 10],
+                    f"track-{frame_index}",
+                    [float(frame_index), 0, 0],
+                )
+                for frame_index in range(len(raw_categories))
+            ]
+            + [
+                self._detection(
+                    0,
+                    "door",
+                    0.8,
+                    [0, 0, 10, 10],
+                    "duplicate-window-fp",
+                    [0, 0, 0],
+                )
+            ]
+        }
+        semantic_gt = {
+            "frames": [
+                {
+                    "frame_index": frame_index,
+                    "instances": [
+                        self._raw_non_target_instance(
+                            f"negative-{frame_index}", raw_category
+                        )
+                    ],
+                }
+                for frame_index, raw_category in enumerate(raw_categories)
+            ]
+        }
+
+        result = audit_payloads(
+            detections, semantic_gt, match_iou=0.5, nms_iou=0.5
+        )
+        baseline = result["variants"]["baseline"]
+        operating = baseline["per_class"]["door"]["operating_point"]
+        hard_negative = baseline["hard_negative_door_fp"]
+
+        self.assertEqual(
+            baseline["per_class"]["window"]["ground_truth_instances"], 0
+        )
+        self.assertEqual(operating["fp"], 7)
+        self.assertAlmostEqual(
+            operating["fp_per_100_evaluated_frames"], 700.0 / 6.0
+        )
+        self.assertEqual(hard_negative["recognized_hard_negative_gt_instances"], 5)
+        self.assertEqual(hard_negative["attributed_hard_negative_fp"], 6)
+        self.assertEqual(hard_negative["unattributed_door_fp"], 1)
+        self.assertAlmostEqual(
+            hard_negative["hard_negative_fp_per_100_evaluated_frames"],
+            100.0,
+        )
+        self.assertEqual(
+            hard_negative["hard_negative_fp_per_100_frames"],
+            hard_negative["hard_negative_fp_per_100_evaluated_frames"],
+        )
+        for category in (
+            "cabinet door",
+            "mirror",
+            "wall panel",
+            "refrigerator door",
+        ):
+            self.assertEqual(
+                hard_negative["attributed_fp_by_category"][category], 1
+            )
+        self.assertEqual(
+            hard_negative["attributed_fp_by_category"]["window"], 2
+        )
+        nms_hard_negative = result["variants"]["class_nms"][
+            "hard_negative_door_fp"
+        ]
+        self.assertEqual(nms_hard_negative["attributed_hard_negative_fp"], 5)
+        self.assertAlmostEqual(
+            nms_hard_negative["hard_negative_fp_per_100_frames"],
+            500.0 / 6.0,
+        )
+        self.assertTrue(
+            result["parameters"]["hard_negative_policy"][
+                "raw_category_never_creates_target_gt"
+            ]
         )
 
     def test_nms_is_per_frame_and_canonical_class(self) -> None:
@@ -332,6 +516,21 @@ class GroundingBoxAuditTests(unittest.TestCase):
             "box": box,
             "world_center_xyz": center,
             "area_px": (box[2] - box[0]) * (box[3] - box[1]),
+        }
+
+    @staticmethod
+    def _raw_non_target_instance(
+        semantic_id: object,
+        raw_category: str,
+    ) -> dict[str, object]:
+        return {
+            "semantic_id": semantic_id,
+            "object_id": f"object-{semantic_id}",
+            "raw_category": raw_category,
+            "canonical_label": None,
+            "box": [0, 0, 10, 10],
+            "world_center_xyz": [0, 0, 0],
+            "area_px": 100,
         }
 
 

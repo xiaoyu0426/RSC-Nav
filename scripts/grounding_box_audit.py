@@ -13,6 +13,13 @@ from typing import Any, Iterable, Mapping, Sequence
 
 TARGET_CLASSES = ("door", "window")
 AP_IOU_THRESHOLDS = (0.50, 0.75)
+HARD_NEGATIVE_CATEGORIES = (
+    "window",
+    "cabinet door",
+    "refrigerator door",
+    "mirror",
+    "wall panel",
+)
 XZ_HISTOGRAM_EDGES_M = (0.0, 0.1, 0.25, 0.5, 1.0, 2.0, math.inf)
 
 
@@ -128,9 +135,21 @@ def audit_payloads(
         raise ValueError("semantic_gt.json must contain a frames list")
 
     detections, detection_issues = _normalize_detections(raw_detections)
-    ground_truth, gt_issues, raw_gt_instances = _normalize_ground_truth(raw_frames)
+    (
+        ground_truth,
+        gt_issues,
+        raw_gt_instances,
+        evaluated_frames,
+    ) = _normalize_ground_truth(raw_frames)
+    evaluated_detections = [
+        item
+        for item in detections
+        if item["frame_index"] in evaluated_frames
+    ]
     target_detections = [
-        item for item in detections if item["canonical_label"] in TARGET_CLASSES
+        item
+        for item in evaluated_detections
+        if item["canonical_label"] in TARGET_CLASSES
     ]
     target_ground_truth = [
         item for item in ground_truth if item["canonical_label"] in TARGET_CLASSES
@@ -140,6 +159,8 @@ def audit_payloads(
         "baseline": _evaluate_variant(
             target_detections,
             target_ground_truth,
+            ground_truth,
+            evaluated_frame_count=len(evaluated_frames),
             score_threshold=score_threshold,
             match_iou=match_iou,
         )
@@ -148,14 +169,16 @@ def audit_payloads(
     nms_summary: dict[str, Any] = {
         "enabled": nms_enabled,
         "iou_threshold": nms_iou,
-        "input_evaluable_detections": len(detections),
-        "kept_evaluable_detections": len(detections),
+        "input_evaluable_detections": len(evaluated_detections),
+        "kept_evaluable_detections": len(evaluated_detections),
         "suppressed_evaluable_detections": 0,
         "suppressed_target_detections": 0,
         "suppressed_by_canonical_class": {},
     }
     if nms_enabled:
-        nms_kept, nms_suppressed = classwise_nms(detections, nms_iou)
+        nms_kept, nms_suppressed = classwise_nms(
+            evaluated_detections, nms_iou
+        )
         nms_target = [
             item
             for item in nms_kept
@@ -164,6 +187,8 @@ def audit_payloads(
         variants["class_nms"] = _evaluate_variant(
             nms_target,
             target_ground_truth,
+            ground_truth,
+            evaluated_frame_count=len(evaluated_frames),
             score_threshold=score_threshold,
             match_iou=match_iou,
         )
@@ -198,9 +223,11 @@ def audit_payloads(
         raw_frames=raw_frames,
         raw_gt_instances=raw_gt_instances,
         detections=detections,
+        evaluated_detections=evaluated_detections,
         target_detections=target_detections,
         ground_truth=ground_truth,
         target_ground_truth=target_ground_truth,
+        evaluated_frames=evaluated_frames,
         detection_issues=detection_issues,
         gt_issues=gt_issues,
     )
@@ -231,14 +258,46 @@ def audit_payloads(
                 "greedy score-ordered one-to-one matching within frame and "
                 "canonical class"
             ),
+            "evaluated_frame_policy": (
+                "unique semantic_gt frames with a valid frame_index and an "
+                "instances list; detections on other frames are excluded"
+            ),
+            "frame_normalized_rate_policy": (
+                "count / evaluated_frame_count * 100"
+            ),
+            "physical_instance_recall_policy": (
+                "unique canonical-target semantic_id values matched at the "
+                "fixed operating point / all unique canonical-target "
+                "semantic_id values; unavailable if any target GT annotation "
+                "lacks semantic_id"
+            ),
+            "tp_iou_distribution_policy": (
+                "IoUs of fixed-operating-point one-to-one TP matches; "
+                "quantiles use linear interpolation"
+            ),
             "track_policy": (
                 "associations use fixed-operating-point TP matches with both "
-                "semantic_id and online_track_id"
+                "semantic_id and online_track_id; wrong_merge_rate is "
+                "wrong-merge tracks / associated tracks; fragmentation "
+                "tracks_per_gt is unique associated tracks / recalled GT"
             ),
             "xz_error_policy": (
                 "Euclidean XZ distance for fixed-operating-point TP matches "
                 "with valid detection position_3d and GT world_center_xyz"
             ),
+            "hard_negative_policy": {
+                "door_fp_only": True,
+                "categories": list(HARD_NEGATIVE_CATEGORIES),
+                "source": "semantic_gt raw_category and box only",
+                "target_exclusion": (
+                    "instances whose canonical_label is door are excluded"
+                ),
+                "attribution": (
+                    "highest-IoU recognized non-door GT in the same frame, "
+                    "requiring IoU >= fixed_operating_point_iou"
+                ),
+                "raw_category_never_creates_target_gt": True,
+            },
         },
         "coverage": coverage,
         "variants": variants,
@@ -249,7 +308,9 @@ def audit_payloads(
 def _evaluate_variant(
     detections: Sequence[Mapping[str, Any]],
     ground_truth: Sequence[Mapping[str, Any]],
+    all_ground_truth: Sequence[Mapping[str, Any]],
     *,
+    evaluated_frame_count: int,
     score_threshold: float,
     match_iou: float,
 ) -> dict[str, Any]:
@@ -259,6 +320,7 @@ def _evaluate_variant(
     total_tp = total_fp = total_fn = total_duplicate_fp = 0
     total_predictions = 0
     total_gt = 0
+    door_fp_decisions: list[Mapping[str, Any]] = []
 
     for class_name in TARGET_CLASSES:
         class_detections = [
@@ -308,6 +370,28 @@ def _evaluate_variant(
         fn = max(0, len(class_gt) - tp)
         precision = tp / (tp + fp) if tp + fp else None
         recall = tp / len(class_gt) if class_gt else None
+        tp_iou_distribution = _tp_iou_report(matches)
+        if not tp_iou_distribution["available"]:
+            unavailable.append(
+                {
+                    "metric": (
+                        f"per_class.{class_name}.operating_point."
+                        "tp_iou_distribution"
+                    ),
+                    "reason": (
+                        f"no fixed-operating-point {class_name} TP matches"
+                    ),
+                }
+            )
+        physical_recall = _physical_instance_recall_report(
+            matches,
+            class_gt,
+            metric_path=(
+                f"per_class.{class_name}.operating_point."
+                "physical_instance_recall"
+            ),
+            unavailable=unavailable,
+        )
         class_result["operating_point"] = {
             "predictions": len(operating_detections),
             "tp": tp,
@@ -316,7 +400,35 @@ def _evaluate_variant(
             "duplicate_fp": duplicate_fp,
             "precision": precision,
             "recall": recall,
+            "evaluated_frames": evaluated_frame_count,
+            "fp_per_100_evaluated_frames": _per_100_frames(
+                fp, evaluated_frame_count
+            ),
+            "duplicate_fp_per_100_evaluated_frames": _per_100_frames(
+                duplicate_fp, evaluated_frame_count
+            ),
+            "tp_iou_distribution": tp_iou_distribution,
+            "physical_instance_recall": physical_recall,
         }
+        if evaluated_frame_count == 0:
+            unavailable.extend(
+                [
+                    {
+                        "metric": (
+                            f"per_class.{class_name}.operating_point."
+                            "fp_per_100_evaluated_frames"
+                        ),
+                        "reason": "semantic_gt has no evaluated frames",
+                    },
+                    {
+                        "metric": (
+                            f"per_class.{class_name}.operating_point."
+                            "duplicate_fp_per_100_evaluated_frames"
+                        ),
+                        "reason": "semantic_gt has no evaluated frames",
+                    },
+                ]
+            )
         if precision is None:
             unavailable.append(
                 {
@@ -338,6 +450,10 @@ def _evaluate_variant(
                 }
             )
         fixed_matches.extend(matches)
+        if class_name == "door":
+            door_fp_decisions = [
+                item for item in decisions if int(item["fp"]) == 1
+            ]
         total_tp += tp
         total_fp += fp
         total_fn += fn
@@ -365,10 +481,50 @@ def _evaluate_variant(
             }
         )
 
+    overall_tp_iou = _tp_iou_report(fixed_matches)
+    if not overall_tp_iou["available"]:
+        unavailable.append(
+            {
+                "metric": "overall_operating_point.tp_iou_distribution",
+                "reason": "no fixed-operating-point target TP matches",
+            }
+        )
+    overall_physical_recall = _physical_instance_recall_report(
+        fixed_matches,
+        ground_truth,
+        metric_path="overall_operating_point.physical_instance_recall",
+        unavailable=unavailable,
+    )
     track_association = _track_association_report(
         fixed_matches, ground_truth, unavailable
     )
     xz_error = _xz_error_report(fixed_matches, unavailable)
+    hard_negative_door_fp = _hard_negative_door_fp_report(
+        door_fp_decisions,
+        all_ground_truth,
+        evaluated_frame_count=evaluated_frame_count,
+        attribution_iou=match_iou,
+        unavailable=unavailable,
+    )
+    if evaluated_frame_count == 0:
+        unavailable.extend(
+            [
+                {
+                    "metric": (
+                        "overall_operating_point."
+                        "fp_per_100_evaluated_frames"
+                    ),
+                    "reason": "semantic_gt has no evaluated frames",
+                },
+                {
+                    "metric": (
+                        "overall_operating_point."
+                        "duplicate_fp_per_100_evaluated_frames"
+                    ),
+                    "reason": "semantic_gt has no evaluated frames",
+                },
+            ]
+        )
     return {
         "detections_all_scores": len(detections),
         "detections_at_operating_point": total_predictions,
@@ -382,10 +538,172 @@ def _evaluate_variant(
             "duplicate_fp": total_duplicate_fp,
             "precision": overall_precision,
             "recall": overall_recall,
+            "evaluated_frames": evaluated_frame_count,
+            "fp_per_100_evaluated_frames": _per_100_frames(
+                total_fp, evaluated_frame_count
+            ),
+            "duplicate_fp_per_100_evaluated_frames": _per_100_frames(
+                total_duplicate_fp, evaluated_frame_count
+            ),
+            "tp_iou_distribution": overall_tp_iou,
+            "physical_instance_recall": overall_physical_recall,
         },
+        "hard_negative_door_fp": hard_negative_door_fp,
         "track_association": track_association,
         "xz_error_m": xz_error,
         "unavailable_metrics": unavailable,
+    }
+
+
+def _tp_iou_report(matches: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    values = sorted(float(item["iou"]) for item in matches)
+    if not values:
+        return {"available": False, "distribution": None}
+    return {
+        "available": True,
+        "distribution": {
+            "count": len(values),
+            "values": values,
+            "min": values[0],
+            "mean": sum(values) / len(values),
+            "median": _quantile(values, 0.50),
+            "p90": _quantile(values, 0.90),
+            "p95": _quantile(values, 0.95),
+            "max": values[-1],
+            "quantile_method": "linear_interpolation",
+        },
+    }
+
+
+def _physical_instance_recall_report(
+    matches: Sequence[Mapping[str, Any]],
+    ground_truth: Sequence[Mapping[str, Any]],
+    *,
+    metric_path: str,
+    unavailable: list[dict[str, str]],
+) -> dict[str, Any]:
+    gt_ids: dict[str, Any] = {}
+    missing_semantic_id = 0
+    for instance in ground_truth:
+        token = _id_token(instance.get("semantic_id"))
+        if token is None:
+            missing_semantic_id += 1
+        else:
+            gt_ids[token] = instance["semantic_id"]
+
+    matched_ids = {
+        token
+        for item in matches
+        if (token := _id_token(item["ground_truth"].get("semantic_id")))
+        is not None
+    }
+    available = bool(gt_ids) and missing_semantic_id == 0
+    if not available:
+        reason = (
+            "one or more canonical-target GT annotations lack semantic_id"
+            if missing_semantic_id
+            else "semantic_gt has no canonical-target semantic_id values"
+        )
+        unavailable.append({"metric": metric_path, "reason": reason})
+    matched_count = len(set(gt_ids).intersection(matched_ids))
+    return {
+        "available": available,
+        "gt_physical_instances": len(gt_ids),
+        "matched_physical_instances": matched_count,
+        "missed_physical_instances": len(gt_ids) - matched_count,
+        "target_gt_annotations_missing_semantic_id": missing_semantic_id,
+        "recall": matched_count / len(gt_ids) if available else None,
+    }
+
+
+def _per_100_frames(count: int, evaluated_frame_count: int) -> float | None:
+    if evaluated_frame_count <= 0:
+        return None
+    return float(count) * 100.0 / evaluated_frame_count
+
+
+def _hard_negative_door_fp_report(
+    door_fp_decisions: Sequence[Mapping[str, Any]],
+    all_ground_truth: Sequence[Mapping[str, Any]],
+    *,
+    evaluated_frame_count: int,
+    attribution_iou: float,
+    unavailable: list[dict[str, str]],
+) -> dict[str, Any]:
+    hard_gt_by_frame: dict[int, list[Mapping[str, Any]]] = defaultdict(list)
+    hard_gt_counts = Counter({name: 0 for name in HARD_NEGATIVE_CATEGORIES})
+    for instance in all_ground_truth:
+        if instance.get("canonical_label") == "door":
+            continue
+        category = _hard_negative_category(instance.get("raw_category"))
+        if category is None:
+            continue
+        enriched = dict(instance)
+        enriched["_hard_negative_category"] = category
+        hard_gt_by_frame[int(instance["frame_index"])].append(enriched)
+        hard_gt_counts[category] += 1
+
+    attributed_counts = Counter(
+        {name: 0 for name in HARD_NEGATIVE_CATEGORIES}
+    )
+    attribution_ious: list[float] = []
+    for decision in door_fp_decisions:
+        detection = decision["detection"]
+        candidates = hard_gt_by_frame.get(int(detection["frame_index"]), [])
+        overlaps = sorted(
+            (
+                (box_iou(detection["box"], instance["box"]), instance)
+                for instance in candidates
+            ),
+            key=lambda pair: (-pair[0], int(pair[1]["_source_index"])),
+        )
+        if not overlaps or overlaps[0][0] < attribution_iou:
+            continue
+        overlap, instance = overlaps[0]
+        attributed_counts[instance["_hard_negative_category"]] += 1
+        attribution_ious.append(overlap)
+
+    attributed_total = sum(attributed_counts.values())
+    hard_gt_total = sum(hard_gt_counts.values())
+    available = evaluated_frame_count > 0 and hard_gt_total > 0
+    if not available:
+        unavailable.append(
+            {
+                "metric": (
+                    "hard_negative_door_fp."
+                    "hard_negative_fp_per_100_frames"
+                ),
+                "reason": (
+                    "semantic_gt has no evaluated frames"
+                    if evaluated_frame_count <= 0
+                    else "semantic_gt has no recognized hard-negative instances"
+                ),
+            }
+        )
+    return {
+        "available": available,
+        "evaluated_frames": evaluated_frame_count,
+        "door_fp": len(door_fp_decisions),
+        "recognized_hard_negative_gt_instances": hard_gt_total,
+        "recognized_hard_negative_gt_by_category": dict(
+            sorted(hard_gt_counts.items())
+        ),
+        "attributed_hard_negative_fp": attributed_total,
+        "unattributed_door_fp": len(door_fp_decisions) - attributed_total,
+        "attributed_fp_by_category": dict(sorted(attributed_counts.items())),
+        "hard_negative_fp_per_100_frames": (
+            _per_100_frames(attributed_total, evaluated_frame_count)
+            if available
+            else None
+        ),
+        "hard_negative_fp_per_100_evaluated_frames": (
+            _per_100_frames(attributed_total, evaluated_frame_count)
+            if available
+            else None
+        ),
+        "attribution_iou_distribution": _tp_iou_report(
+            [{"iou": value} for value in attribution_ious]
+        ),
     }
 
 
@@ -393,7 +711,7 @@ def _match_detections(
     detections: Sequence[Mapping[str, Any]],
     ground_truth: Sequence[Mapping[str, Any]],
     iou_threshold: float,
-) -> tuple[list[dict[str, int]], list[dict[str, Any]]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     ordered_detections = sorted(
         detections,
         key=lambda item: (
@@ -409,7 +727,7 @@ def _match_detections(
         frame_instances.sort(key=lambda item: int(item["_source_index"]))
 
     used_gt: set[int] = set()
-    decisions: list[dict[str, int]] = []
+    decisions: list[dict[str, Any]] = []
     matches: list[dict[str, Any]] = []
     for detection in ordered_detections:
         candidates = gt_by_frame.get(int(detection["frame_index"]), [])
@@ -429,7 +747,14 @@ def _match_detections(
         if available:
             overlap, instance = available[0]
             used_gt.add(int(instance["_source_index"]))
-            decisions.append({"tp": 1, "fp": 0, "duplicate_fp": 0})
+            decisions.append(
+                {
+                    "tp": 1,
+                    "fp": 0,
+                    "duplicate_fp": 0,
+                    "detection": detection,
+                }
+            )
             matches.append(
                 {
                     "detection": detection,
@@ -441,7 +766,12 @@ def _match_detections(
 
         is_duplicate = any(overlap >= iou_threshold for overlap, _ in overlaps)
         decisions.append(
-            {"tp": 0, "fp": 1, "duplicate_fp": int(is_duplicate)}
+            {
+                "tp": 0,
+                "fp": 1,
+                "duplicate_fp": int(is_duplicate),
+                "detection": detection,
+            }
         )
     return decisions, matches
 
@@ -518,7 +848,22 @@ def _track_association_report(
                     }
                 )
 
-        available = usable_pairs > 0
+        associated_track_count = len(track_to_gt)
+        matched_gt_count = sum(
+            1 for tracks in gt_to_tracks.values() if tracks
+        )
+        available = (
+            usable_pairs > 0
+            and missing_semantic_id == 0
+            and missing_track_id == 0
+        )
+        wrong_merge_count = len(wrong_merges)
+        fragmentation_tracks_per_gt = (
+            sum(len(tracks) for tracks in gt_to_tracks.values() if tracks)
+            / matched_gt_count
+            if available and matched_gt_count
+            else None
+        )
         report[scope] = {
             "available": available,
             "matched_tp_pairs": len(scope_matches),
@@ -526,16 +871,24 @@ def _track_association_report(
             "matched_pairs_missing_semantic_id": missing_semantic_id,
             "matched_pairs_missing_online_track_id": missing_track_id,
             "gt_objects_with_semantic_id": len(gt_ids),
-            "matched_gt_objects": sum(
-                1 for tracks in gt_to_tracks.values() if tracks
-            ),
+            "matched_gt_objects": matched_gt_count,
+            "associated_track_count": associated_track_count,
             "per_gt_track_count": per_gt if available else None,
             "fragmented_gt_count": (
                 sum(1 for tracks in gt_to_tracks.values() if len(tracks) > 1)
                 if available
                 else None
             ),
-            "wrong_merge_track_count": len(wrong_merges) if available else None,
+            "fragmentation_tracks_per_gt": fragmentation_tracks_per_gt,
+            "tracks_per_gt": fragmentation_tracks_per_gt,
+            "wrong_merge_track_count": (
+                wrong_merge_count if available else None
+            ),
+            "wrong_merge_rate": (
+                wrong_merge_count / associated_track_count
+                if available and associated_track_count
+                else None
+            ),
             "wrong_merge_tracks": wrong_merges if available else None,
         }
         if not available:
@@ -543,8 +896,9 @@ def _track_association_report(
                 {
                     "metric": f"track_association.{scope}",
                     "reason": (
-                        "no fixed-operating-point TP match has both "
-                        "semantic_id and online_track_id"
+                        "track metrics require at least one TP match and "
+                        "complete semantic_id/online_track_id coverage for "
+                        "all fixed-operating-point TP matches"
                     ),
                 }
             )
@@ -688,10 +1042,11 @@ def _normalize_detections(
 
 def _normalize_ground_truth(
     raw_frames: Sequence[Any],
-) -> tuple[list[dict[str, Any]], Counter[str], list[Any]]:
+) -> tuple[list[dict[str, Any]], Counter[str], list[Any], set[int]]:
     normalized = []
     issues: Counter[str] = Counter()
     raw_instances: list[Any] = []
+    evaluated_frames: set[int] = set()
     source_index = 0
     for raw_frame in raw_frames:
         if not isinstance(raw_frame, Mapping):
@@ -702,6 +1057,8 @@ def _normalize_ground_truth(
         if not isinstance(instances, list):
             issues["instances_not_list"] += 1
             continue
+        if frame_index is not None:
+            evaluated_frames.add(frame_index)
         for raw in instances:
             current_index = source_index
             source_index += 1
@@ -709,11 +1066,9 @@ def _normalize_ground_truth(
             if not isinstance(raw, Mapping):
                 issues["record_not_object"] += 1
                 continue
-            label = _canonical_label(raw)
+            label = _normalized_text(raw.get("canonical_label"))
             box = _valid_box(raw.get("box"))
             reasons = []
-            if not label:
-                reasons.append("missing_label")
             if frame_index is None:
                 reasons.append("invalid_frame_index")
             if box is None:
@@ -730,13 +1085,14 @@ def _normalize_ground_truth(
                     "box": box,
                     "semantic_id": raw.get("semantic_id"),
                     "object_id": raw.get("object_id"),
+                    "raw_category": raw.get("raw_category"),
                     "world_center_xyz": _valid_xyz(
                         raw.get("world_center_xyz")
                     ),
                     "area_px": _finite_number(raw.get("area_px")),
                 }
             )
-    return normalized, issues, raw_instances
+    return normalized, issues, raw_instances, evaluated_frames
 
 
 def _coverage_report(
@@ -745,9 +1101,11 @@ def _coverage_report(
     raw_frames: Sequence[Any],
     raw_gt_instances: Sequence[Any],
     detections: Sequence[Mapping[str, Any]],
+    evaluated_detections: Sequence[Mapping[str, Any]],
     target_detections: Sequence[Mapping[str, Any]],
     ground_truth: Sequence[Mapping[str, Any]],
     target_ground_truth: Sequence[Mapping[str, Any]],
+    evaluated_frames: set[int],
     detection_issues: Counter[str],
     gt_issues: Counter[str],
 ) -> dict[str, Any]:
@@ -792,8 +1150,12 @@ def _coverage_report(
     return {
         "detections": {
             "raw_records": len(raw_detections),
-            "evaluable_records_all_classes": len(detections),
+            "valid_records_all_frames": len(detections),
+            "evaluable_records_all_classes": len(evaluated_detections),
             "evaluable_target_records": len(target_detections),
+            "excluded_unannotated_frame_records": (
+                len(detections) - len(evaluated_detections)
+            ),
             "target_records_by_class": dict(
                 sorted(
                     Counter(
@@ -821,6 +1183,8 @@ def _coverage_report(
             "field_non_null_counts": gt_fields,
         },
         "target_frame_coverage": {
+            "evaluated_frame_count": len(evaluated_frames),
+            "evaluated_frame_indices": sorted(evaluated_frames),
             "detection_frame_count": len(detection_frames),
             "semantic_gt_frame_count": len(gt_frames),
             "overlap_frame_count": len(
@@ -852,7 +1216,30 @@ def _canonical_label(record: Mapping[str, Any]) -> str:
     value = record.get("canonical_label")
     if not isinstance(value, str) or not value.strip():
         value = record.get("label")
+    return _normalized_text(value)
+
+
+def _normalized_text(value: Any) -> str:
     return value.strip().lower() if isinstance(value, str) else ""
+
+
+def _hard_negative_category(raw_category: Any) -> str | None:
+    normalized = _normalized_text(raw_category)
+    normalized = " ".join(
+        normalized.replace("_", " ").replace("-", " ").split()
+    )
+    words = set(normalized.split())
+    if "window" in words:
+        return "window"
+    if ({"refrigerator", "door"} <= words) or ({"fridge", "door"} <= words):
+        return "refrigerator door"
+    if {"cabinet", "door"} <= words:
+        return "cabinet door"
+    if "mirror" in words:
+        return "mirror"
+    if {"wall", "panel"} <= words:
+        return "wall panel"
+    return None
 
 
 def _frame_index(value: Any) -> int | None:
