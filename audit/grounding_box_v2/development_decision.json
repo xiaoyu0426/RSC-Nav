@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "protocol_id": "grounding-box-contrastive-prompt-v1",
+  "decision_date": "2026-07-31",
+  "role": "development_only",
+  "formal_acceptance_eligible": false,
+  "decision": "reject",
+  "advance_to_unseen_replay_or_live": false,
+  "merge_to_mainline": false,
+  "reason": "The evidence chain is valid, but the candidate fails frozen development gates and increases total door false positives.",
+  "execution_identity": {
+    "run_commit": "448367aebf7eae2fe61f5f9bb187f40066a5d1c2",
+    "audit_commit": "8aaeed5",
+    "scene_id": "00861-GLAQ4DNUx5U",
+    "scene_asset_bundle_sha256": "c069c857cb447f658f552563b8e2c1acfba1e01e4fb08aca89599e0a31b8970b",
+    "trajectory_sha256": "7becac019a5e7c730f87a9fc42e5e90f5d0384ea935d3c6c35efab30f5f192af",
+    "selected_frames": 873,
+    "semantic_oracle_access_online": false,
+    "semantic_oracle_use": "posthoc_audit_only",
+    "pose_source": "saved exact Habitat sensor pose"
+  },
+  "artifact_sha256": {
+    "baseline_detections": "3d30c9c50bfcfd3f02f5f9fb739cfa71f2d3451261eecef6e62eec8877131cf6",
+    "candidate_detections": "d5698d83757dd3fdb66453b80bfe71ed4303bb3726def04988e469e87df9b259",
+    "semantic_ground_truth": "c72c8ebac6cbeb90957f0a494047c3d4095b8ee18bb6bf3e06015b0da622b431",
+    "baseline_audit": "d419d76f71dbc2a019394bbd22930fe703049efa32b1a97054518c3582c0142e",
+    "candidate_audit": "329744a80babe8f84c854589f2e246a3fafdc8352d72604e1bbe164f8a62e37e",
+    "comparison_manifest": "26e0fe81a2a9cc9a1f5af812dfd6562318b03bf3945652e432f4949195a01512",
+    "comparison": "3030fc7b1efb9563f80217653fb2ebcfd321bc4a2782186fc192d2952b2bbdc4"
+  },
+  "integrity": {
+    "baseline_formal_detection_contract_eligible": true,
+    "candidate_formal_detection_contract_eligible": true,
+    "source_file_verification_passed": true,
+    "algorithm_artifact_verification_passed": true,
+    "semantic_replay_integrity_passed": true,
+    "single_algorithm_difference": "detection_algorithm.labels",
+    "paired_input_identity_passed": true,
+    "complete_without_crash_or_oom": true
+  },
+  "development_gates": {
+    "hard_negative_door_fp_relative_reduction": {
+      "minimum": 0.25,
+      "actual": 0.2202072538860104,
+      "passed": false
+    },
+    "door_recall_drop": {
+      "maximum": 0.02,
+      "actual": 0.02622377622377614,
+      "baseline": 0.5524475524475524,
+      "candidate": 0.5262237762237763,
+      "passed": false
+    },
+    "physical_door_recall_drop": {
+      "maximum": 0.02,
+      "actual": 0.0,
+      "baseline": 0.8333333333333334,
+      "candidate": 0.8333333333333334,
+      "passed": true
+    },
+    "door_tp_median_iou_drop": {
+      "maximum": 0.03,
+      "actual": 0.023078272893999774,
+      "baseline": 0.8946163072570658,
+      "candidate": 0.871538034363066,
+      "passed": true
+    },
+    "door_wrong_merge_rate": {
+      "must_not_increase": true,
+      "baseline": 0.08333333333333333,
+      "candidate": 0.07142857142857142,
+      "wrong_merge_track_count_baseline": 1,
+      "wrong_merge_track_count_candidate": 1,
+      "relative_gate_passed": true,
+      "absolute_v1_maximum": 0.05,
+      "absolute_gate_passed": false
+    },
+    "door_fragmentation_tracks_per_gt": {
+      "maximum_increase": 0.1,
+      "baseline": 2.6,
+      "candidate": 3.0,
+      "actual_increase": 0.4,
+      "passed": false
+    },
+    "total_door_false_positives": {
+      "baseline": 2245,
+      "candidate": 2452,
+      "relative_change": 0.09220489977728285,
+      "passed": false
+    },
+    "grounding_p95_ms": {
+      "maximum": 750.0,
+      "baseline": 458.6219122975598,
+      "candidate": 464.7742621775251,
+      "candidate_to_baseline_ratio": 1.013413761186424,
+      "maximum_ratio": 1.5,
+      "passed": true
+    },
+    "detector_peak_vram_gb": {
+      "maximum": 16.0,
+      "baseline": 1.4566240310668945,
+      "candidate": 1.4657478332519531,
+      "passed": true
+    }
+  },
+  "independent_audit": {
+    "verdict": "reject",
+    "evidence_chain": "accept",
+    "candidate_development_gate": "reject",
+    "advance_to_cross_scene_or_live": false,
+    "mainline_merge": false
+  },
+  "scope_limitations": [
+    "Only one development scene and one trajectory were evaluated.",
+    "No paired cluster bootstrap interval is available.",
+    "No live task outcome, confirmed-door recall, wrong-final-confirmation, non-API loop latency, or full BEV regression was evaluated.",
+    "Exact Habitat pose remains a simulator privilege; real localization and relocalization remain unvalidated."
+  ],
+  "next_action": {
+    "protocol_id": "grounding-box-door-window-suppression-v1",
+    "branch": "codex/grounding-window-suppress-v1",
+    "policy": "Treat as a new preregistered single-variable candidate; do not reuse this rejected prompt candidate."
+  }
+}
