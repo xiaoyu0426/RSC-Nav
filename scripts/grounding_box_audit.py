@@ -1,0 +1,967 @@
+#!/usr/bin/env python3
+"""Deterministic offline audit for open-vocabulary boxes and online tracks."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import math
+from collections import Counter, defaultdict
+from pathlib import Path
+from typing import Any, Iterable, Mapping, Sequence
+
+
+TARGET_CLASSES = ("door", "window")
+AP_IOU_THRESHOLDS = (0.50, 0.75)
+XZ_HISTOGRAM_EDGES_M = (0.0, 0.1, 0.25, 0.5, 1.0, 2.0, math.inf)
+
+
+def box_iou(left: Sequence[float], right: Sequence[float]) -> float:
+    """Return IoU for two XYXY boxes."""
+    intersection_w = max(0.0, min(left[2], right[2]) - max(left[0], right[0]))
+    intersection_h = max(0.0, min(left[3], right[3]) - max(left[1], right[1]))
+    intersection = intersection_w * intersection_h
+    left_area = max(0.0, left[2] - left[0]) * max(0.0, left[3] - left[1])
+    right_area = max(0.0, right[2] - right[0]) * max(
+        0.0, right[3] - right[1]
+    )
+    union = left_area + right_area - intersection
+    return intersection / union if union > 0.0 else 0.0
+
+
+def interpolated_average_precision(
+    tp_flags: Sequence[int],
+    fp_flags: Sequence[int],
+    gt_count: int,
+) -> float | None:
+    """Compute all-point interpolated AP from score-ordered decisions."""
+    if gt_count <= 0:
+        return None
+    if len(tp_flags) != len(fp_flags):
+        raise ValueError("tp_flags and fp_flags must have equal length")
+    if not tp_flags:
+        return 0.0
+
+    recalls: list[float] = []
+    precisions: list[float] = []
+    tp_total = 0
+    fp_total = 0
+    for tp_flag, fp_flag in zip(tp_flags, fp_flags):
+        tp_total += int(bool(tp_flag))
+        fp_total += int(bool(fp_flag))
+        recalls.append(tp_total / gt_count)
+        precisions.append(tp_total / (tp_total + fp_total))
+
+    recall_points = [0.0, *recalls, 1.0]
+    precision_points = [0.0, *precisions, 0.0]
+    for index in range(len(precision_points) - 2, -1, -1):
+        precision_points[index] = max(
+            precision_points[index], precision_points[index + 1]
+        )
+
+    average_precision = 0.0
+    for index in range(len(recall_points) - 1):
+        recall_delta = recall_points[index + 1] - recall_points[index]
+        if recall_delta > 0.0:
+            average_precision += recall_delta * precision_points[index + 1]
+    return average_precision
+
+
+def classwise_nms(
+    detections: Sequence[Mapping[str, Any]],
+    iou_threshold: float,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Apply deterministic NMS independently per frame and canonical class."""
+    if iou_threshold >= 1.0:
+        return [dict(item) for item in detections], []
+    if iou_threshold < 0.0:
+        raise ValueError("nms_iou must be non-negative")
+
+    grouped: dict[tuple[int, str], list[Mapping[str, Any]]] = defaultdict(list)
+    for detection in detections:
+        grouped[
+            (int(detection["frame_index"]), str(detection["canonical_label"]))
+        ].append(detection)
+
+    kept: list[dict[str, Any]] = []
+    suppressed: list[dict[str, Any]] = []
+    for group_key in sorted(grouped):
+        group = sorted(
+            grouped[group_key],
+            key=lambda item: (-float(item["score"]), int(item["_source_index"])),
+        )
+        group_kept: list[Mapping[str, Any]] = []
+        for detection in group:
+            if any(
+                box_iou(detection["box"], accepted["box"]) > iou_threshold
+                for accepted in group_kept
+            ):
+                suppressed.append(dict(detection))
+            else:
+                group_kept.append(detection)
+                kept.append(dict(detection))
+
+    kept.sort(key=lambda item: int(item["_source_index"]))
+    suppressed.sort(key=lambda item: int(item["_source_index"]))
+    return kept, suppressed
+
+
+def audit_payloads(
+    detections_payload: Mapping[str, Any],
+    semantic_gt_payload: Mapping[str, Any],
+    *,
+    score_threshold: float = 0.0,
+    match_iou: float = 0.50,
+    nms_iou: float = 1.0,
+) -> dict[str, Any]:
+    """Audit baseline detections and an optional canonical-class NMS variant."""
+    _validate_threshold("score_threshold", score_threshold, lower=0.0, upper=1.0)
+    _validate_threshold("match_iou", match_iou, lower=0.0, upper=1.0)
+    if not math.isfinite(nms_iou) or nms_iou < 0.0:
+        raise ValueError("nms_iou must be a finite non-negative number")
+
+    raw_detections = detections_payload.get("detections")
+    raw_frames = semantic_gt_payload.get("frames")
+    if not isinstance(raw_detections, list):
+        raise ValueError("detections.json must contain a detections list")
+    if not isinstance(raw_frames, list):
+        raise ValueError("semantic_gt.json must contain a frames list")
+
+    detections, detection_issues = _normalize_detections(raw_detections)
+    ground_truth, gt_issues, raw_gt_instances = _normalize_ground_truth(raw_frames)
+    target_detections = [
+        item for item in detections if item["canonical_label"] in TARGET_CLASSES
+    ]
+    target_ground_truth = [
+        item for item in ground_truth if item["canonical_label"] in TARGET_CLASSES
+    ]
+
+    variants: dict[str, Any] = {
+        "baseline": _evaluate_variant(
+            target_detections,
+            target_ground_truth,
+            score_threshold=score_threshold,
+            match_iou=match_iou,
+        )
+    }
+    nms_enabled = nms_iou < 1.0
+    nms_summary: dict[str, Any] = {
+        "enabled": nms_enabled,
+        "iou_threshold": nms_iou,
+        "input_evaluable_detections": len(detections),
+        "kept_evaluable_detections": len(detections),
+        "suppressed_evaluable_detections": 0,
+        "suppressed_target_detections": 0,
+        "suppressed_by_canonical_class": {},
+    }
+    if nms_enabled:
+        nms_kept, nms_suppressed = classwise_nms(detections, nms_iou)
+        nms_target = [
+            item
+            for item in nms_kept
+            if item["canonical_label"] in TARGET_CLASSES
+        ]
+        variants["class_nms"] = _evaluate_variant(
+            nms_target,
+            target_ground_truth,
+            score_threshold=score_threshold,
+            match_iou=match_iou,
+        )
+        suppressed_counts = Counter(
+            str(item["canonical_label"]) for item in nms_suppressed
+        )
+        nms_summary.update(
+            {
+                "kept_evaluable_detections": len(nms_kept),
+                "suppressed_evaluable_detections": len(nms_suppressed),
+                "suppressed_target_detections": sum(
+                    suppressed_counts[label] for label in TARGET_CLASSES
+                ),
+                "suppressed_by_canonical_class": dict(
+                    sorted(suppressed_counts.items())
+                ),
+            }
+        )
+
+    unavailable_metrics = []
+    for variant_name, variant in variants.items():
+        for item in variant["unavailable_metrics"]:
+            unavailable_metrics.append(
+                {
+                    "metric": f"variants.{variant_name}.{item['metric']}",
+                    "reason": item["reason"],
+                }
+            )
+
+    coverage = _coverage_report(
+        raw_detections=raw_detections,
+        raw_frames=raw_frames,
+        raw_gt_instances=raw_gt_instances,
+        detections=detections,
+        target_detections=target_detections,
+        ground_truth=ground_truth,
+        target_ground_truth=target_ground_truth,
+        detection_issues=detection_issues,
+        gt_issues=gt_issues,
+    )
+    return {
+        "schema_version": "grounding_box_audit_v1",
+        "parameters": {
+            "target_classes": list(TARGET_CLASSES),
+            "box_format": "xyxy",
+            "score_threshold": score_threshold,
+            "fixed_operating_point_iou": match_iou,
+            "ap_iou_thresholds": list(AP_IOU_THRESHOLDS),
+            "ap_method": "all_point_interpolated_precision_envelope",
+            "nms": {
+                **nms_summary,
+                "scope": "within_frame_and_canonical_class",
+                "suppression_rule": "IoU strictly greater than nms_iou",
+                "disabled_when": "nms_iou >= 1",
+            },
+            "label_policy": (
+                "canonical_label when non-empty, otherwise label; "
+                "lowercase and trim only"
+            ),
+            "ground_truth_policy": (
+                "semantic_gt instances are the only truth source; "
+                "VLM verdicts are never read"
+            ),
+            "matching_policy": (
+                "greedy score-ordered one-to-one matching within frame and "
+                "canonical class"
+            ),
+            "track_policy": (
+                "associations use fixed-operating-point TP matches with both "
+                "semantic_id and online_track_id"
+            ),
+            "xz_error_policy": (
+                "Euclidean XZ distance for fixed-operating-point TP matches "
+                "with valid detection position_3d and GT world_center_xyz"
+            ),
+        },
+        "coverage": coverage,
+        "variants": variants,
+        "unavailable_metrics": unavailable_metrics,
+    }
+
+
+def _evaluate_variant(
+    detections: Sequence[Mapping[str, Any]],
+    ground_truth: Sequence[Mapping[str, Any]],
+    *,
+    score_threshold: float,
+    match_iou: float,
+) -> dict[str, Any]:
+    per_class: dict[str, Any] = {}
+    unavailable: list[dict[str, str]] = []
+    fixed_matches: list[dict[str, Any]] = []
+    total_tp = total_fp = total_fn = total_duplicate_fp = 0
+    total_predictions = 0
+    total_gt = 0
+
+    for class_name in TARGET_CLASSES:
+        class_detections = [
+            item for item in detections if item["canonical_label"] == class_name
+        ]
+        class_gt = [
+            item
+            for item in ground_truth
+            if item["canonical_label"] == class_name
+        ]
+        class_result: dict[str, Any] = {
+            "ground_truth_instances": len(class_gt),
+            "predictions_all_scores": len(class_detections),
+        }
+        for iou_threshold in AP_IOU_THRESHOLDS:
+            decisions, _ = _match_detections(
+                class_detections, class_gt, iou_threshold
+            )
+            ap_value = interpolated_average_precision(
+                [item["tp"] for item in decisions],
+                [item["fp"] for item in decisions],
+                len(class_gt),
+            )
+            metric_name = f"ap{int(iou_threshold * 100)}"
+            class_result[metric_name] = ap_value
+            if ap_value is None:
+                unavailable.append(
+                    {
+                        "metric": f"per_class.{class_name}.{metric_name}",
+                        "reason": (
+                            f"semantic_gt has no valid {class_name} instances"
+                        ),
+                    }
+                )
+
+        operating_detections = [
+            item
+            for item in class_detections
+            if float(item["score"]) >= score_threshold
+        ]
+        decisions, matches = _match_detections(
+            operating_detections, class_gt, match_iou
+        )
+        tp = sum(item["tp"] for item in decisions)
+        fp = sum(item["fp"] for item in decisions)
+        duplicate_fp = sum(item["duplicate_fp"] for item in decisions)
+        fn = max(0, len(class_gt) - tp)
+        precision = tp / (tp + fp) if tp + fp else None
+        recall = tp / len(class_gt) if class_gt else None
+        class_result["operating_point"] = {
+            "predictions": len(operating_detections),
+            "tp": tp,
+            "fp": fp,
+            "fn": fn,
+            "duplicate_fp": duplicate_fp,
+            "precision": precision,
+            "recall": recall,
+        }
+        if precision is None:
+            unavailable.append(
+                {
+                    "metric": (
+                        f"per_class.{class_name}.operating_point.precision"
+                    ),
+                    "reason": (
+                        f"no {class_name} predictions meet score_threshold"
+                    ),
+                }
+            )
+        if recall is None:
+            unavailable.append(
+                {
+                    "metric": f"per_class.{class_name}.operating_point.recall",
+                    "reason": (
+                        f"semantic_gt has no valid {class_name} instances"
+                    ),
+                }
+            )
+        fixed_matches.extend(matches)
+        total_tp += tp
+        total_fp += fp
+        total_fn += fn
+        total_duplicate_fp += duplicate_fp
+        total_predictions += len(operating_detections)
+        total_gt += len(class_gt)
+        per_class[class_name] = class_result
+
+    overall_precision = (
+        total_tp / (total_tp + total_fp) if total_tp + total_fp else None
+    )
+    overall_recall = total_tp / total_gt if total_gt else None
+    if overall_precision is None:
+        unavailable.append(
+            {
+                "metric": "overall_operating_point.precision",
+                "reason": "no target predictions meet score_threshold",
+            }
+        )
+    if overall_recall is None:
+        unavailable.append(
+            {
+                "metric": "overall_operating_point.recall",
+                "reason": "semantic_gt has no valid target instances",
+            }
+        )
+
+    track_association = _track_association_report(
+        fixed_matches, ground_truth, unavailable
+    )
+    xz_error = _xz_error_report(fixed_matches, unavailable)
+    return {
+        "detections_all_scores": len(detections),
+        "detections_at_operating_point": total_predictions,
+        "per_class": per_class,
+        "overall_operating_point": {
+            "ground_truth_instances": total_gt,
+            "predictions": total_predictions,
+            "tp": total_tp,
+            "fp": total_fp,
+            "fn": total_fn,
+            "duplicate_fp": total_duplicate_fp,
+            "precision": overall_precision,
+            "recall": overall_recall,
+        },
+        "track_association": track_association,
+        "xz_error_m": xz_error,
+        "unavailable_metrics": unavailable,
+    }
+
+
+def _match_detections(
+    detections: Sequence[Mapping[str, Any]],
+    ground_truth: Sequence[Mapping[str, Any]],
+    iou_threshold: float,
+) -> tuple[list[dict[str, int]], list[dict[str, Any]]]:
+    ordered_detections = sorted(
+        detections,
+        key=lambda item: (
+            -float(item["score"]),
+            int(item["frame_index"]),
+            int(item["_source_index"]),
+        ),
+    )
+    gt_by_frame: dict[int, list[Mapping[str, Any]]] = defaultdict(list)
+    for instance in ground_truth:
+        gt_by_frame[int(instance["frame_index"])].append(instance)
+    for frame_instances in gt_by_frame.values():
+        frame_instances.sort(key=lambda item: int(item["_source_index"]))
+
+    used_gt: set[int] = set()
+    decisions: list[dict[str, int]] = []
+    matches: list[dict[str, Any]] = []
+    for detection in ordered_detections:
+        candidates = gt_by_frame.get(int(detection["frame_index"]), [])
+        overlaps = sorted(
+            (
+                (box_iou(detection["box"], instance["box"]), instance)
+                for instance in candidates
+            ),
+            key=lambda pair: (-pair[0], int(pair[1]["_source_index"])),
+        )
+        available = [
+            pair
+            for pair in overlaps
+            if pair[0] >= iou_threshold
+            and int(pair[1]["_source_index"]) not in used_gt
+        ]
+        if available:
+            overlap, instance = available[0]
+            used_gt.add(int(instance["_source_index"]))
+            decisions.append({"tp": 1, "fp": 0, "duplicate_fp": 0})
+            matches.append(
+                {
+                    "detection": detection,
+                    "ground_truth": instance,
+                    "iou": overlap,
+                }
+            )
+            continue
+
+        is_duplicate = any(overlap >= iou_threshold for overlap, _ in overlaps)
+        decisions.append(
+            {"tp": 0, "fp": 1, "duplicate_fp": int(is_duplicate)}
+        )
+    return decisions, matches
+
+
+def _track_association_report(
+    matches: Sequence[Mapping[str, Any]],
+    ground_truth: Sequence[Mapping[str, Any]],
+    unavailable: list[dict[str, str]],
+) -> dict[str, Any]:
+    report: dict[str, Any] = {}
+    for scope in (*TARGET_CLASSES, "overall"):
+        scope_matches = [
+            item
+            for item in matches
+            if scope == "overall"
+            or item["ground_truth"]["canonical_label"] == scope
+        ]
+        scope_gt = [
+            item
+            for item in ground_truth
+            if scope == "overall" or item["canonical_label"] == scope
+        ]
+        gt_ids: dict[str, Any] = {}
+        for instance in scope_gt:
+            token = _id_token(instance.get("semantic_id"))
+            if token is not None:
+                gt_ids[token] = instance["semantic_id"]
+
+        gt_to_tracks: dict[str, set[str]] = defaultdict(set)
+        track_to_gt: dict[str, set[str]] = defaultdict(set)
+        track_values: dict[str, Any] = {}
+        usable_pairs = 0
+        missing_semantic_id = 0
+        missing_track_id = 0
+        for match in scope_matches:
+            semantic_id = match["ground_truth"].get("semantic_id")
+            track_id = match["detection"].get("online_track_id")
+            semantic_token = _id_token(semantic_id)
+            track_token = _id_token(track_id)
+            if semantic_token is None:
+                missing_semantic_id += 1
+                continue
+            if track_token is None:
+                missing_track_id += 1
+                continue
+            usable_pairs += 1
+            gt_ids[semantic_token] = semantic_id
+            track_values[track_token] = track_id
+            gt_to_tracks[semantic_token].add(track_token)
+            track_to_gt[track_token].add(semantic_token)
+
+        per_gt = []
+        for semantic_token in sorted(gt_ids):
+            track_tokens = sorted(gt_to_tracks.get(semantic_token, set()))
+            per_gt.append(
+                {
+                    "semantic_id": gt_ids[semantic_token],
+                    "track_count": len(track_tokens),
+                    "online_track_ids": [
+                        track_values[token] for token in track_tokens
+                    ],
+                }
+            )
+        wrong_merges = []
+        for track_token in sorted(track_to_gt):
+            semantic_tokens = sorted(track_to_gt[track_token])
+            if len(semantic_tokens) > 1:
+                wrong_merges.append(
+                    {
+                        "online_track_id": track_values[track_token],
+                        "semantic_ids": [
+                            gt_ids[token] for token in semantic_tokens
+                        ],
+                    }
+                )
+
+        available = usable_pairs > 0
+        report[scope] = {
+            "available": available,
+            "matched_tp_pairs": len(scope_matches),
+            "usable_id_pairs": usable_pairs,
+            "matched_pairs_missing_semantic_id": missing_semantic_id,
+            "matched_pairs_missing_online_track_id": missing_track_id,
+            "gt_objects_with_semantic_id": len(gt_ids),
+            "matched_gt_objects": sum(
+                1 for tracks in gt_to_tracks.values() if tracks
+            ),
+            "per_gt_track_count": per_gt if available else None,
+            "fragmented_gt_count": (
+                sum(1 for tracks in gt_to_tracks.values() if len(tracks) > 1)
+                if available
+                else None
+            ),
+            "wrong_merge_track_count": len(wrong_merges) if available else None,
+            "wrong_merge_tracks": wrong_merges if available else None,
+        }
+        if not available:
+            unavailable.append(
+                {
+                    "metric": f"track_association.{scope}",
+                    "reason": (
+                        "no fixed-operating-point TP match has both "
+                        "semantic_id and online_track_id"
+                    ),
+                }
+            )
+    return report
+
+
+def _xz_error_report(
+    matches: Sequence[Mapping[str, Any]],
+    unavailable: list[dict[str, str]],
+) -> dict[str, Any]:
+    report: dict[str, Any] = {}
+    for scope in (*TARGET_CLASSES, "overall"):
+        scope_matches = [
+            item
+            for item in matches
+            if scope == "overall"
+            or item["ground_truth"]["canonical_label"] == scope
+        ]
+        values: list[float] = []
+        for match in scope_matches:
+            position = match["detection"].get("position_3d")
+            center = match["ground_truth"].get("world_center_xyz")
+            if position is None or center is None:
+                continue
+            values.append(
+                math.hypot(
+                    float(position[0]) - float(center[0]),
+                    float(position[2]) - float(center[2]),
+                )
+            )
+        values.sort()
+        if not values:
+            report[scope] = {
+                "available": False,
+                "matched_tp_pairs": len(scope_matches),
+                "usable_position_pairs": 0,
+                "missing_position_pairs": len(scope_matches),
+                "distribution": None,
+            }
+            unavailable.append(
+                {
+                    "metric": f"xz_error_m.{scope}",
+                    "reason": (
+                        "no fixed-operating-point TP match has both valid "
+                        "position_3d and world_center_xyz"
+                    ),
+                }
+            )
+            continue
+        report[scope] = {
+            "available": True,
+            "matched_tp_pairs": len(scope_matches),
+            "usable_position_pairs": len(values),
+            "missing_position_pairs": len(scope_matches) - len(values),
+            "distribution": {
+                "count": len(values),
+                "values_m": values,
+                "min": values[0],
+                "mean": sum(values) / len(values),
+                "median": _quantile(values, 0.50),
+                "p90": _quantile(values, 0.90),
+                "p95": _quantile(values, 0.95),
+                "max": values[-1],
+                "quantile_method": "linear_interpolation",
+                "histogram": _histogram(values),
+            },
+        }
+    return report
+
+
+def _histogram(values: Sequence[float]) -> list[dict[str, Any]]:
+    bins = []
+    for lower, upper in zip(XZ_HISTOGRAM_EDGES_M[:-1], XZ_HISTOGRAM_EDGES_M[1:]):
+        count = sum(
+            1
+            for value in values
+            if value >= lower and (value < upper or math.isinf(upper))
+        )
+        bins.append(
+            {
+                "lower_inclusive_m": lower,
+                "upper_exclusive_m": None if math.isinf(upper) else upper,
+                "count": count,
+            }
+        )
+    return bins
+
+
+def _quantile(sorted_values: Sequence[float], probability: float) -> float:
+    if len(sorted_values) == 1:
+        return float(sorted_values[0])
+    position = (len(sorted_values) - 1) * probability
+    lower = int(math.floor(position))
+    upper = int(math.ceil(position))
+    fraction = position - lower
+    return (
+        float(sorted_values[lower]) * (1.0 - fraction)
+        + float(sorted_values[upper]) * fraction
+    )
+
+
+def _normalize_detections(
+    raw_detections: Sequence[Any],
+) -> tuple[list[dict[str, Any]], Counter[str]]:
+    normalized = []
+    issues: Counter[str] = Counter()
+    for source_index, raw in enumerate(raw_detections):
+        if not isinstance(raw, Mapping):
+            issues["record_not_object"] += 1
+            continue
+        label = _canonical_label(raw)
+        frame_index = _frame_index(raw.get("frame_index"))
+        score = _finite_number(raw.get("score"))
+        box = _valid_box(raw.get("box"))
+        reasons = []
+        if not label:
+            reasons.append("missing_label")
+        if frame_index is None:
+            reasons.append("invalid_frame_index")
+        if score is None:
+            reasons.append("invalid_score")
+        if box is None:
+            reasons.append("invalid_box")
+        if reasons:
+            for reason in reasons:
+                issues[reason] += 1
+            continue
+        normalized.append(
+            {
+                "_source_index": source_index,
+                "frame_index": frame_index,
+                "canonical_label": label,
+                "score": score,
+                "box": box,
+                "position_3d": _valid_xyz(raw.get("position_3d")),
+                "online_track_id": raw.get("online_track_id"),
+            }
+        )
+    return normalized, issues
+
+
+def _normalize_ground_truth(
+    raw_frames: Sequence[Any],
+) -> tuple[list[dict[str, Any]], Counter[str], list[Any]]:
+    normalized = []
+    issues: Counter[str] = Counter()
+    raw_instances: list[Any] = []
+    source_index = 0
+    for raw_frame in raw_frames:
+        if not isinstance(raw_frame, Mapping):
+            issues["frame_not_object"] += 1
+            continue
+        frame_index = _frame_index(raw_frame.get("frame_index"))
+        instances = raw_frame.get("instances")
+        if not isinstance(instances, list):
+            issues["instances_not_list"] += 1
+            continue
+        for raw in instances:
+            current_index = source_index
+            source_index += 1
+            raw_instances.append(raw)
+            if not isinstance(raw, Mapping):
+                issues["record_not_object"] += 1
+                continue
+            label = _canonical_label(raw)
+            box = _valid_box(raw.get("box"))
+            reasons = []
+            if not label:
+                reasons.append("missing_label")
+            if frame_index is None:
+                reasons.append("invalid_frame_index")
+            if box is None:
+                reasons.append("invalid_box")
+            if reasons:
+                for reason in reasons:
+                    issues[reason] += 1
+                continue
+            normalized.append(
+                {
+                    "_source_index": current_index,
+                    "frame_index": frame_index,
+                    "canonical_label": label,
+                    "box": box,
+                    "semantic_id": raw.get("semantic_id"),
+                    "object_id": raw.get("object_id"),
+                    "world_center_xyz": _valid_xyz(
+                        raw.get("world_center_xyz")
+                    ),
+                    "area_px": _finite_number(raw.get("area_px")),
+                }
+            )
+    return normalized, issues, raw_instances
+
+
+def _coverage_report(
+    *,
+    raw_detections: Sequence[Any],
+    raw_frames: Sequence[Any],
+    raw_gt_instances: Sequence[Any],
+    detections: Sequence[Mapping[str, Any]],
+    target_detections: Sequence[Mapping[str, Any]],
+    ground_truth: Sequence[Mapping[str, Any]],
+    target_ground_truth: Sequence[Mapping[str, Any]],
+    detection_issues: Counter[str],
+    gt_issues: Counter[str],
+) -> dict[str, Any]:
+    detection_frames = sorted(
+        {
+            item["frame_index"]
+            for item in detections
+            if item["canonical_label"] in TARGET_CLASSES
+        }
+    )
+    gt_frames = sorted(
+        {
+            item["frame_index"]
+            for item in ground_truth
+            if item["canonical_label"] in TARGET_CLASSES
+        }
+    )
+    detection_fields = _field_coverage(
+        [item for item in raw_detections if isinstance(item, Mapping)],
+        (
+            "frame_index",
+            "label",
+            "canonical_label",
+            "score",
+            "box",
+            "position_3d",
+            "online_track_id",
+        ),
+    )
+    gt_fields = _field_coverage(
+        [item for item in raw_gt_instances if isinstance(item, Mapping)],
+        (
+            "semantic_id",
+            "object_id",
+            "raw_category",
+            "canonical_label",
+            "box",
+            "world_center_xyz",
+            "area_px",
+        ),
+    )
+    return {
+        "detections": {
+            "raw_records": len(raw_detections),
+            "evaluable_records_all_classes": len(detections),
+            "evaluable_target_records": len(target_detections),
+            "target_records_by_class": dict(
+                sorted(
+                    Counter(
+                        item["canonical_label"] for item in target_detections
+                    ).items()
+                )
+            ),
+            "invalid_record_reasons": dict(sorted(detection_issues.items())),
+            "field_non_null_counts": detection_fields,
+        },
+        "semantic_gt": {
+            "raw_frames": len(raw_frames),
+            "raw_instances": len(raw_gt_instances),
+            "evaluable_instances_all_classes": len(ground_truth),
+            "evaluable_target_instances": len(target_ground_truth),
+            "target_instances_by_class": dict(
+                sorted(
+                    Counter(
+                        item["canonical_label"]
+                        for item in target_ground_truth
+                    ).items()
+                )
+            ),
+            "invalid_record_reasons": dict(sorted(gt_issues.items())),
+            "field_non_null_counts": gt_fields,
+        },
+        "target_frame_coverage": {
+            "detection_frame_count": len(detection_frames),
+            "semantic_gt_frame_count": len(gt_frames),
+            "overlap_frame_count": len(
+                set(detection_frames).intersection(gt_frames)
+            ),
+            "detection_only_frames": sorted(
+                set(detection_frames).difference(gt_frames)
+            ),
+            "semantic_gt_only_frames": sorted(
+                set(gt_frames).difference(detection_frames)
+            ),
+        },
+    }
+
+
+def _field_coverage(
+    records: Iterable[Mapping[str, Any]], fields: Sequence[str]
+) -> dict[str, int]:
+    records = list(records)
+    return {
+        field: sum(
+            1 for record in records if field in record and record[field] is not None
+        )
+        for field in fields
+    }
+
+
+def _canonical_label(record: Mapping[str, Any]) -> str:
+    value = record.get("canonical_label")
+    if not isinstance(value, str) or not value.strip():
+        value = record.get("label")
+    return value.strip().lower() if isinstance(value, str) else ""
+
+
+def _frame_index(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float) and math.isfinite(value) and value.is_integer():
+        return int(value)
+    return None
+
+
+def _finite_number(value: Any) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    value = float(value)
+    return value if math.isfinite(value) else None
+
+
+def _valid_box(value: Any) -> list[float] | None:
+    if not isinstance(value, (list, tuple)) or len(value) != 4:
+        return None
+    values = [_finite_number(item) for item in value]
+    if any(item is None for item in values):
+        return None
+    box = [float(item) for item in values if item is not None]
+    if box[2] <= box[0] or box[3] <= box[1]:
+        return None
+    return box
+
+
+def _valid_xyz(value: Any) -> list[float] | None:
+    if not isinstance(value, (list, tuple)) or len(value) != 3:
+        return None
+    values = [_finite_number(item) for item in value]
+    if any(item is None for item in values):
+        return None
+    return [float(item) for item in values if item is not None]
+
+
+def _id_token(value: Any) -> str | None:
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    if not isinstance(value, (str, int, float)):
+        return None
+    return f"{type(value).__name__}:{value}"
+
+
+def _validate_threshold(
+    name: str, value: float, *, lower: float, upper: float
+) -> None:
+    if not math.isfinite(value) or value < lower or value > upper:
+        raise ValueError(f"{name} must be in [{lower}, {upper}]")
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--detections-json", required=True)
+    parser.add_argument("--semantic-gt-json", required=True)
+    parser.add_argument("--output-json", required=True)
+    parser.add_argument(
+        "--score-threshold",
+        type=float,
+        default=0.0,
+        help="Fixed operating point; detections with score >= threshold.",
+    )
+    parser.add_argument(
+        "--match-iou",
+        type=float,
+        default=0.50,
+        help="IoU used for fixed-operating-point TP/FP/FN and track metrics.",
+    )
+    parser.add_argument(
+        "--nms-iou",
+        type=float,
+        default=1.0,
+        help="Per-frame canonical-class NMS IoU; values >= 1 disable NMS.",
+    )
+    return parser
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = _build_parser().parse_args(argv)
+    detections_path = Path(args.detections_json).expanduser().resolve()
+    semantic_gt_path = Path(args.semantic_gt_json).expanduser().resolve()
+    output_path = Path(args.output_json).expanduser().resolve()
+    detections_payload = json.loads(detections_path.read_text(encoding="utf-8"))
+    semantic_gt_payload = json.loads(semantic_gt_path.read_text(encoding="utf-8"))
+    result = audit_payloads(
+        detections_payload,
+        semantic_gt_payload,
+        score_threshold=args.score_threshold,
+        match_iou=args.match_iou,
+        nms_iou=args.nms_iou,
+    )
+    result["inputs"] = {
+        "detections_json": str(detections_path),
+        "semantic_gt_json": str(semantic_gt_path),
+    }
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        json.dumps(result, indent=2, sort_keys=True, allow_nan=False) + "\n",
+        encoding="utf-8",
+    )
+    print(output_path)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
